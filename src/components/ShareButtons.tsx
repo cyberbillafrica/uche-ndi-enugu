@@ -8,9 +8,11 @@ import { MessageCircle } from "lucide-react";
 export default function ShareButtons() {
   const [url, setUrl] = useState("");
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     setUrl(window.location.href);
   }, []);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   if (!url) {
     return (

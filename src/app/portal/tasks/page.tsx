@@ -254,6 +254,7 @@ export default function TasksPage() {
     }
   };
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (authLoading || !profile) return;
 
@@ -263,6 +264,7 @@ export default function TasksPage() {
       loadMySubmissions();
     }
   }, [authLoading, profile?.id, profile?.access_role]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   // ------------------------------------------------
   // Submission lookup

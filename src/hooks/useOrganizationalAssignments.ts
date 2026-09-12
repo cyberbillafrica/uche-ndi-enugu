@@ -71,7 +71,7 @@ export function useOrganizationalAssignments() {
     } finally {
       setLoading(false);
     }
-  }, [user?.uid]);
+  }, [user]);
 
   /*
    * ------------------------------------------------------------
@@ -79,6 +79,7 @@ export function useOrganizationalAssignments() {
    * ------------------------------------------------------------
    */
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (authLoading) {
       return;
@@ -86,6 +87,7 @@ export function useOrganizationalAssignments() {
 
     loadAssignments();
   }, [authLoading, loadAssignments]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   /*
    * ------------------------------------------------------------

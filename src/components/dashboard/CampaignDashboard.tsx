@@ -776,7 +776,7 @@ export default function CampaignDashboard() {
                   Election functions remain visible to users instead of
                   disappearing. Their actual ability to submit or manage
                   election information is determined by election mode and the
-                  user's authorization.
+                  user&apos;s authorization.
                 </p>
               </div>
             </div>

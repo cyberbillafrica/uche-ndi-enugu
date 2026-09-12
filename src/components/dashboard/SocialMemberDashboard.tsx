@@ -208,10 +208,10 @@ export default function MemberDashboard() {
   const leaderboardPosition = useMemo(() => {
     if (!profile?.id) return null;
 
-    const index = leaderboard.findIndex((user) => user.id === profile.id);
+    const index = leaderboard.findIndex((user) => user.id === profile?.id);
 
     return index >= 0 ? index + 1 : null;
-  }, [leaderboard, profile?.id]);
+  }, [leaderboard, profile]);
 
   const topPerformers = leaderboard.slice(0, 5);
 

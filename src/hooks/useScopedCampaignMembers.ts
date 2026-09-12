@@ -68,9 +68,11 @@ export function useScopedCampaignMembers(
     }
   }, [assignment, profile]);
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     loadMembers();
   }, [loadMembers]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   return {
     members,

@@ -525,7 +525,10 @@ export async function deleteNewsArticle(id: string): Promise<void> {
 /**
  * Get announcements for the current tenant, filtered by user scope
  */
-export async function getUserAnnouncements(userProfile: any): Promise<Announcement[]> {
+export async function getUserAnnouncements(userProfile: {
+  access_role?: string;
+  membership_types?: string[];
+} | null): Promise<Announcement[]> {
   const tenant = await getCurrentTenant();
   const allAnnouncements = await getPortalAnnouncements(tenant.id);
   

@@ -26,14 +26,14 @@ export default function AdminMembersPage() {
     fetch().catch(() => setLoading(false));
   }, []);
 
-  const getWardName = (user: any) => {
-    if (user.ward) return user.ward;
-    if (!user.ward_id || !lgas.length) return user.ward_id || '-';
+  const getWardName = (user: Record<string, unknown>) => {
+    if (user.ward) return String(user.ward);
+    if (!user.ward_id || !lgas.length) return String(user.ward_id || '-');
     for (const lga of lgas) {
       const w = lga.wards.find((ward) => ward.id === user.ward_id);
       if (w) return w.name;
     }
-    return user.ward_id;
+    return String(user.ward_id);
   };
 
   return (

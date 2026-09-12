@@ -95,10 +95,11 @@ export async function signUpVolunteer(
       user,
       error: null,
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const err = error as Error;
     return {
       user: null,
-      error: error.message,
+      error: err.message,
     };
   }
 }
@@ -211,10 +212,11 @@ export async function createMemberByAdmin(
       user: newUser,
       error: null,
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const err = error as Error;
     return {
       user: null,
-      error: error.message,
+      error: err.message,
     };
   } finally {
     /**
@@ -239,10 +241,11 @@ export async function signIn(email: string, password: string) {
       user: userCredential.user,
       error: null,
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const err = error as Error;
     return {
       user: null,
-      error: error.message,
+      error: err.message,
     };
   }
 }
@@ -257,9 +260,10 @@ export async function logOut() {
     return {
       error: null,
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const err = error as Error;
     return {
-      error: error.message,
+      error: err.message,
     };
   }
 }

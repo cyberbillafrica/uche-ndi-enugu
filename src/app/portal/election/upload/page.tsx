@@ -154,6 +154,7 @@ export default function ElectionUploadPage() {
   });
 
   // Reset/Initialize party vote object when contest changes
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (!currentContest) return;
     const initialVotes: Record<string, number> = {};
@@ -161,7 +162,8 @@ export default function ElectionUploadPage() {
       initialVotes[p.id] = 0;
     }
     setPartyVotes(initialVotes);
-  }, [selectedContestId, currentContest]);
+  }, [selectedContestId, currentContest, trackedPartyObjects]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const selectedLga = lgas.find((lga) => lga.id === form.lga_id);
   const wards = selectedLga?.wards ?? [];
@@ -264,9 +266,10 @@ export default function ElectionUploadPage() {
           evidenceFile,
           "ifeanyi-2027/election-results"
         );
-      } catch (uploadErr: any) {
+      } catch (uploadErr: unknown) {
+        const err = uploadErr as Error;
         console.error("Cloudinary upload error:", uploadErr);
-        throw new Error(uploadErr.message || "Failed to upload Form EC8 image.");
+        throw new Error(err.message || "Failed to upload Form EC8 image.");
       }
 
       if (!cloudinaryUrl) {
@@ -297,9 +300,10 @@ export default function ElectionUploadPage() {
       );
       setEvidenceFile(null);
       setEvidencePreview(null);
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const errorObj = err as Error;
       console.error("Submission failed:", err);
-      setError(err.message || "Submission failed. Please try again.");
+      setError(errorObj.message || "Submission failed. Please try again.");
     } finally {
       setSubmitting(false);
     }

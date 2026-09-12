@@ -72,8 +72,8 @@ function getDocTimestamp(doc: ElectionResultDoc): number {
     return isNaN(t) ? 0 : t;
   }
   if (typeof ts === "object") {
-    if ("seconds" in ts && typeof (ts as any).seconds === "number") {
-      return (ts as any).seconds * 1000;
+    if ("seconds" in ts && typeof (ts as { seconds?: number }).seconds === "number") {
+      return (ts as { seconds: number }).seconds * 1000;
     }
     if (ts instanceof Date) {
       return ts.getTime();
@@ -433,7 +433,7 @@ export default function ElectionDashboard() {
 
   // Chart Data per Ward
   const wardChartData = useMemo(() => {
-    const wardMap = new Map<string, Record<string, any>>();
+    const wardMap = new Map<string, Record<string, unknown>>();
 
     for (const r of officialApprovedResults) {
       let wardName = r.ward_id;
@@ -456,7 +456,7 @@ export default function ElectionDashboard() {
       const entry = wardMap.get(wardName)!;
       for (const pr of r.results) {
         const pKey = pr.party.toUpperCase();
-        entry[pKey] = (entry[pKey] || 0) + (Number(pr.votes) || 0);
+        entry[pKey] = ((entry[pKey] as number) || 0) + (Number(pr.votes) || 0);
       }
     }
 
