@@ -390,7 +390,7 @@ export default function CampaignCoordinationPage() {
         });
       } else {
         await createOrganizationalAssignment({
-          tenant_id: profile.tenant_id ?? "",
+          tenant_id: profile.tenant_id || "ifeanyi-4-nkanu",
           user_id: selectedUserId,
           position: selectedPosition,
           scope_type: selectedScopeType,
@@ -481,7 +481,7 @@ export default function CampaignCoordinationPage() {
       setError(null);
 
       await createPermissionGrant({
-        tenant_id: profile.tenant_id ?? "",
+        tenant_id: profile.tenant_id || "ifeanyi-4-nkanu",
         user_id: grantUserId,
         permission: grantPermission,
         granted: grantValue,

@@ -575,8 +575,15 @@ match /organizational_assignments/{assignmentId} {
       && resource.data.tenant_id == callerTenantId()
     );
 
-  allow create, update, delete: if isAdmin()
+  allow create: if isAdmin()
     && request.resource.data.tenant_id == callerTenantId();
+
+  allow update: if isAdmin()
+    && resource.data.tenant_id == callerTenantId()
+    && request.resource.data.tenant_id == callerTenantId();
+
+  allow delete: if isAdmin()
+    && resource.data.tenant_id == callerTenantId();
 }
 
 

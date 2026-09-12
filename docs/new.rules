@@ -1,9 +1,61 @@
 // ============================================================
-// RECOMMENDATIONS & ADDITIONAL FIREBASE SECURITY RULES
+// FIRESTORE SECURITY RULES MIGRATION & RECOMMENDATIONS
 // ============================================================
 // File: docs/new.rules
-// Description: Recommended additions to firestore.rules for
-// strict election result access scoping and user document integrity.
+// Description: Instructions and complete rule changes required
+// to apply fixes to firestore.rules in production.
+
+/*
+===============================================================
+MIGRATION INSTRUCTIONS
+===============================================================
+
+Step 1: Open `firestore.rules` in your project or Firebase Console.
+
+Step 2: Update `organizational_assignments` rule block.
+        - REPLACE:
+            allow create, update, delete: if isAdmin()
+              && request.resource.data.tenant_id == callerTenantId();
+        - WITH:
+            allow create: if isAdmin()
+              && request.resource.data.tenant_id == callerTenantId();
+
+            allow update: if isAdmin()
+              && resource.data.tenant_id == callerTenantId()
+              && request.resource.data.tenant_id == callerTenantId();
+
+            allow delete: if isAdmin()
+              && resource.data.tenant_id == callerTenantId();
+
+        *Reason:* On document deletion, `request.resource.data` is null in Firestore.
+        Evaluating `request.resource.data.tenant_id` during a delete operation throws
+        a rule evaluation error, preventing admins from deleting assignments.
+
+Step 3: Update `election_results` read rule helper `canReadElectionResult`.
+        - REPLACE:
+            allow read: if canReadElectionResult(resource.data);
+        - WITH STRICT HELPER:
+            function canReadElectionResultStrict(data) {
+              return sameTenant(data)
+                && (
+                  isAdmin()
+                  || isElectionOfficer()
+                  || registeredAt(data.ward_id, data.polling_unit_id)
+                  || hasGlobalAccess("view_election_results")
+                  || hasScopedAccess("view_election_results", "ward", data.ward_id)
+                  || hasScopedAccess("view_election_results", "polling_unit", data.polling_unit_id)
+                );
+            }
+
+Step 4: Update `users/{userId}` update rule to preserve electoral integrity.
+        - ADD to `allow update: if isOwner(userId)`:
+            && (resource.data.ward_id == null || request.resource.data.ward_id == resource.data.ward_id)
+            && (resource.data.polling_unit_id == null || request.resource.data.polling_unit_id == resource.data.polling_unit_id);
+
+===============================================================
+FULL RECOMMENDED RULES BLOCKS FOR COPY-PASTE
+===============================================================
+*/
 
 rules_version = '2';
 
@@ -11,11 +63,31 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     // ------------------------------------------------------------
-    // 1. STRICT ELECTION RESULT ACCESS RULE (REPLACEMENT FOR canReadElectionResult)
+    // 1. ORGANIZATIONAL ASSIGNMENTS (FIXED DELETE RULE)
     // ------------------------------------------------------------
-    // Ensures campaign members without global/scoped organizational grants
-    // can ONLY read election results matching their registered ward AND polling unit.
+    match /organizational_assignments/{assignmentId} {
 
+      allow read: if isAdmin()
+        || (
+          isSignedIn()
+          && resource.data.user_id == request.auth.uid
+          && resource.data.tenant_id == callerTenantId()
+        );
+
+      allow create: if isAdmin()
+        && request.resource.data.tenant_id == callerTenantId();
+
+      allow update: if isAdmin()
+        && resource.data.tenant_id == callerTenantId()
+        && request.resource.data.tenant_id == callerTenantId();
+
+      allow delete: if isAdmin()
+        && resource.data.tenant_id == callerTenantId();
+    }
+
+    // ------------------------------------------------------------
+    // 2. STRICT ELECTION RESULT ACCESS RULE
+    // ------------------------------------------------------------
     function registeredAt(wardId, pollingUnitId) {
       return isCampaignMember()
         && callerProfile().ward_id == wardId
@@ -34,17 +106,13 @@ service cloud.firestore {
         );
     }
 
-    // Apply strict helper to election_results collection:
     match /election_results/{resultId} {
       allow read: if canReadElectionResultStrict(resource.data);
     }
 
     // ------------------------------------------------------------
-    // 2. USER PROFILE INTEGRITY RULE (ENFORCING ELECTORAL FIELDS)
+    // 3. USER PROFILE ELECTORAL INTEGRITY
     // ------------------------------------------------------------
-    // Prevents self-update from clearing registered ward_id or polling_unit_id
-    // once set, while allowing admin full management.
-
     match /users/{userId} {
       allow update: if isOwner(userId)
         && request.resource.data.access_role == resource.data.access_role
@@ -52,7 +120,6 @@ service cloud.firestore {
         && request.resource.data.membership_types == resource.data.membership_types
         && request.resource.data.points == resource.data.points
         && request.resource.data.rank == resource.data.rank
-        // Preserve electoral location integrity on profile edit
         && (resource.data.ward_id == null || request.resource.data.ward_id == resource.data.ward_id)
         && (resource.data.polling_unit_id == null || request.resource.data.polling_unit_id == resource.data.polling_unit_id);
     }

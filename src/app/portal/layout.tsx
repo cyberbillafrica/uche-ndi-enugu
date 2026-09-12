@@ -411,11 +411,12 @@ export default function PortalLayout({
               return true;
             }
 
-            if (!child.permission) {
+            // All campaign council nav options are visible for campaign members & admins
+            if (isCampaignMember || isAdmin) {
               return true;
             }
 
-            if (isAdmin) {
+            if (!child.permission) {
               return true;
             }
 
