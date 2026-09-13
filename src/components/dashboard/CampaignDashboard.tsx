@@ -658,8 +658,8 @@ export default function CampaignDashboard() {
               <PriorityRow
                 icon={<CalendarDays className="h-4 w-4" />}
                 title="Upcoming activities"
-                description="Review your campaign calendar."
-                href="/portal/campaign/calendar"
+                description="Review your campaign activities."
+                href="/portal/campaign/activities"
               />
             </div>
           </CardContent>

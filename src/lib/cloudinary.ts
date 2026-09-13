@@ -19,7 +19,9 @@ export type CloudinaryFolder =
   | "ifeanyi-2027/news"
   | "ifeanyi-2027/gallery"
   | "ifeanyi-2027/candidate"
-  | "ifeanyi-2027/election-results";
+  | "ifeanyi-2027/election-results"
+  | "ifeanyi-2027/pu-reports"
+  | "ifeanyi-2027/incidents";
 
 // ─────────────────────────────────────────────
 // IMAGE UPLOAD (existing)

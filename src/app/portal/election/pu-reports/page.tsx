@@ -154,7 +154,7 @@ export default function PUReportsPage() {
         try {
           cloudinaryUrl = await uploadToCloudinary(
             evidenceFile,
-            "ifeanyi-2027/news",
+            "ifeanyi-2027/pu-reports",
           );
         } catch (uploadErr) {
           console.warn("Cloudinary evidence upload fallback:", uploadErr);

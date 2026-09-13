@@ -31,16 +31,21 @@ Step 2: Update `organizational_assignments` rule block.
         Evaluating `request.resource.data.tenant_id` during a delete operation throws
         a rule evaluation error, preventing admins from deleting assignments.
 
-Step 3: Update `election_cycles`, `election_contests`, `election_candidates`, and `election_settings` reads.
+Step 3: Update `tenants/{tenantId}` update rules to allow Admin settings persistence.
+        - ENSURE:
+            allow create, update: if isAdmin()
+              && tenantId == callerTenantId();
+
+Step 4: Update `election_cycles`, `election_contests`, `election_candidates`, and `election_settings` reads.
         - Enforce tenant isolation on reads:
             allow read: if isSignedIn() && resource.data.tenant_id == callerTenantId();
 
-Step 4: Update `election_results` create rule.
+Step 5: Update `election_results` create rule.
         - Require contest existence and `status == "OPEN"` server-side:
             && exists(/databases/$(database)/documents/election_contests/$(request.resource.data.contest_id))
             && get(/databases/$(database)/documents/election_contests/$(request.resource.data.contest_id)).data.status == "OPEN"
 
-Step 5: Update `pu_reports` and `election_incidents` read/create rules.
+Step 6: Update `pu_reports` and `election_incidents` read/create rules.
         - Restrict reads and creates strictly to tenant, admin, election officer, or registered ward & PU:
             allow create: if isSignedIn()
               && request.resource.data.tenant_id == callerTenantId()
@@ -53,7 +58,7 @@ Step 5: Update `pu_reports` and `election_incidents` read/create rules.
                 )
               );
 
-Step 6: Update `users/{userId}` update rule to preserve electoral integrity.
+Step 7: Update `users/{userId}` update rule to preserve electoral integrity.
         - ADD to `allow update: if isOwner(userId)`:
             && (resource.data.ward_id == null || request.resource.data.ward_id == resource.data.ward_id)
             && (resource.data.polling_unit_id == null || request.resource.data.polling_unit_id == resource.data.polling_unit_id);
@@ -92,8 +97,15 @@ service cloud.firestore {
     }
 
     // ------------------------------------------------------------
-    // 2. TENANT-SCOPED ELECTION CONFIGURATION READS
+    // 2. TENANT-SCOPED ELECTION CONFIGURATION READS & TENANT SETTINGS
     // ------------------------------------------------------------
+    match /tenants/{tenantId} {
+      allow read: if true;
+      allow create, update: if isAdmin()
+        && tenantId == callerTenantId();
+      allow delete: if false;
+    }
+
     match /election_cycles/{cycleId} {
       allow read: if isSignedIn()
         && resource.data.tenant_id == callerTenantId();

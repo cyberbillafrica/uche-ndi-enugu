@@ -145,7 +145,7 @@ export default function IncidentsPage() {
         try {
           cloudinaryUrl = await uploadToCloudinary(
             evidenceFile,
-            "ifeanyi-2027/news",
+            "ifeanyi-2027/incidents",
           );
         } catch (uploadErr) {
           console.warn("Cloudinary evidence upload fallback:", uploadErr);
