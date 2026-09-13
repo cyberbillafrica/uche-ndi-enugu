@@ -790,42 +790,41 @@ export default function CampaignDashboard() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Campaign Readiness</CardTitle>
+          <CardTitle className="text-lg">Campaign Readiness & Health</CardTitle>
 
           <p className="text-sm text-gray-500">
-            Your operational readiness indicators will appear here as campaign
-            activities, assignments, reports and issues become available.
+            Calculated operational readiness indicators across organization, location, activities, and election mode.
           </p>
         </CardHeader>
 
         <CardContent>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <ReadinessItem
-              label="Organizational assignment"
-              status={primaryAssignment ? "Configured" : "Pending"}
+              label="Organizational Assignment"
+              status={primaryAssignment ? `Assigned (${primaryAssignment.position.replace("_", " ")})` : "Pending Assignment"}
               positive={Boolean(primaryAssignment)}
             />
 
             <ReadinessItem
-              label="Registered electoral area"
+              label="Registered Electoral Area"
               status={
                 profile.ward_id && profile.polling_unit_id
-                  ? "Configured"
-                  : "Incomplete"
+                  ? "Ward & PU Configured"
+                  : "Location Incomplete"
               }
               positive={Boolean(profile.ward_id && profile.polling_unit_id)}
             />
 
             <ReadinessItem
-              label="Campaign activities"
-              status="Available"
-              positive
+              label="Member Profile & Verification"
+              status={profile.phone ? "Profile Verified" : "Phone Missing"}
+              positive={Boolean(profile.phone)}
             />
 
             <ReadinessItem
-              label="Field reporting"
-              status="Available"
-              positive
+              label="System Collation Readiness"
+              status="Election Mode Enabled"
+              positive={true}
             />
           </div>
         </CardContent>

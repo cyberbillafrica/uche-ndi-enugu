@@ -124,8 +124,8 @@ export default function ElectionDashboard() {
   const [selectedWardId, setSelectedWardId] = useState<string>("all");
 
   // Configurable Party Comparison (Spec Section 38 & 39)
-  const [comparePartyA, setComparePartyA] = useState<string>("apc");
-  const [comparePartyB, setComparePartyB] = useState<string>("pdp");
+  const [comparePartyA, setComparePartyA] = useState<string>("");
+  const [comparePartyB, setComparePartyB] = useState<string>("");
 
   // Modals & Toasts
   const [toastAlerts, setToastAlerts] = useState<AlertToast[]>([]);
@@ -347,6 +347,21 @@ export default function ElectionDashboard() {
   // Current Contest Object & Tracked Parties List
   const currentContest = contests.find((c) => c.id === selectedContestId);
   const trackedParties = currentContest?.tracked_parties ?? [];
+
+  // Dynamically default party comparison selectors when trackedParties loads
+  useEffect(() => {
+    if (trackedParties.length >= 2) {
+      if (!comparePartyA || !trackedParties.includes(comparePartyA)) {
+        setComparePartyA(trackedParties[0]);
+      }
+      if (!comparePartyB || !trackedParties.includes(comparePartyB)) {
+        setComparePartyB(trackedParties[1]);
+      }
+    } else if (trackedParties.length === 1) {
+      setComparePartyA(trackedParties[0]);
+      setComparePartyB(trackedParties[0]);
+    }
+  }, [trackedParties, comparePartyA, comparePartyB]);
 
   // Aggregated Official Party Totals & Operational Breakdown
   const aggregates = useMemo(() => {
