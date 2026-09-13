@@ -204,18 +204,28 @@ export default function AdminTasksPage() {
     }
   };
 
-  const handleVerifySubmission = async (submissionId: string) => {
+  const handleVerifySubmission = async (submissionId: string, currentStatus: string) => {
     if (!profile?.id) return;
     setVerifyingId(submissionId);
     try {
-      await verifyTaskSubmission(submissionId, profile.id);
+      const newStatus = currentStatus === "verified" ? "pending" : "verified";
+      const subRef = doc(db, "task_submissions", submissionId);
+      await updateDoc(subRef, {
+        status: newStatus,
+        verified_by: newStatus === "verified" ? profile.id : null,
+        verified_at: newStatus === "verified" ? serverTimestamp() : null,
+      });
       setSubmissions((prev) =>
-        prev.map((s) => (s.id === submissionId ? { ...s, status: "verified" } : s))
+        prev.map((s) => (s.id === submissionId ? { ...s, status: newStatus } : s))
       );
-      setSuccess("Submission verified and points awarded!");
+      setSuccess(
+        newStatus === "verified"
+          ? "Submission verified and points awarded!"
+          : "Submission unverified successfully."
+      );
     } catch (err: unknown) {
       const errorObj = err as Error;
-      alert(errorObj.message || "Failed to verify submission.");
+      alert(errorObj.message || "Failed to update submission status.");
     } finally {
       setVerifyingId(null);
     }
@@ -275,70 +285,94 @@ export default function AdminTasksPage() {
             </p>
           ) : (
             <div className="divide-y">
-              {tasks.map((task) => (
-                <div key={task.id} className="py-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <span className="font-bold text-gray-900 text-base">{task.title}</span>
-                      <span
-                        className={`px-2.5 py-0.5 rounded-full text-xs font-bold capitalize ${
-                          task.status === "active"
-                            ? "bg-emerald-100 text-emerald-800"
-                            : task.status === "expired"
-                            ? "bg-red-100 text-red-800"
-                            : "bg-gray-100 text-gray-600"
-                        }`}
-                      >
-                        {task.status}
-                      </span>
+              {tasks.map((task) => {
+                const isPastDeadline =
+                  task.expiration_date && new Date(task.expiration_date) < new Date();
+                const computedStatus = isPastDeadline ? "expired" : task.status;
+
+                return (
+                  <div key={task.id} className="py-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-gray-900 text-base">{task.title}</span>
+                        <span
+                          className={`px-2.5 py-0.5 rounded-full text-xs font-bold capitalize ${
+                            computedStatus === "active"
+                              ? "bg-emerald-100 text-emerald-800"
+                              : computedStatus === "expired"
+                              ? "bg-red-100 text-red-800"
+                              : "bg-gray-100 text-gray-600"
+                          }`}
+                        >
+                          {computedStatus}
+                        </span>
+                      </div>
+
+                      <p className="text-xs text-gray-500">
+                        Platform: <span className="font-semibold uppercase text-gray-700">{task.platform}</span> · Action: <span className="font-semibold uppercase text-gray-700">{task.action_type}</span> · Award: <span className="font-bold text-apc-primary">{task.points} pts</span>
+                        {task.expiration_date ? (
+                          <span className={isPastDeadline ? "text-red-600 font-bold ml-1" : "ml-1"}>
+                            · Deadline: {task.expiration_date} {isPastDeadline ? "(Expired)" : ""}
+                          </span>
+                        ) : (
+                          " · No Deadline"
+                        )}
+                      </p>
+
+                      {task.target_url && (
+                        <a
+                          href={task.target_url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1 text-xs text-apc-primary font-semibold hover:underline"
+                        >
+                          <ExternalLink className="h-3 w-3" /> Open Task Link
+                        </a>
+                      )}
                     </div>
 
-                    <p className="text-xs text-gray-500">
-                      Platform: <span className="font-semibold uppercase text-gray-700">{task.platform}</span> · Action: <span className="font-semibold uppercase text-gray-700">{task.action_type}</span> · Award: <span className="font-bold text-apc-primary">{task.points} pts</span>
-                      {task.expiration_date ? ` · Expires: ${task.expiration_date}` : ""}
-                    </p>
+                    <div className="flex items-center gap-2 shrink-0">
+                      {task.target_url && (
+                        <a
+                          href={task.target_url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="px-3 py-1.5 bg-apc-primary/10 text-apc-primary hover:bg-apc-primary/20 rounded-lg text-xs font-bold flex items-center gap-1"
+                        >
+                          <ExternalLink className="h-3.5 w-3.5" /> Open Task
+                        </a>
+                      )}
 
-                    {task.target_url && (
-                      <a
-                        href={task.target_url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex items-center gap-1 text-xs text-apc-primary font-semibold hover:underline"
+                      <button
+                        onClick={() => handleOpenReviewModal(task)}
+                        className="px-3 py-1.5 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-lg text-xs font-bold flex items-center gap-1"
                       >
-                        Target Link <ExternalLink className="h-3 w-3" />
-                      </a>
-                    )}
+                        <Eye className="h-3.5 w-3.5" /> Submissions
+                      </button>
+
+                      <button
+                        onClick={() => handleOpenEditModal(task)}
+                        className="px-3 py-1.5 border rounded-lg text-xs font-bold text-gray-700 hover:bg-gray-50 flex items-center gap-1"
+                      >
+                        <Pencil className="h-3.5 w-3.5" /> Edit
+                      </button>
+
+                      <button
+                        onClick={() => handleToggleStatus(task)}
+                        disabled={!!isPastDeadline}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 ${
+                          task.status === "active"
+                            ? "bg-amber-50 text-amber-700 hover:bg-amber-100"
+                            : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                        } disabled:opacity-50 disabled:cursor-not-allowed`}
+                      >
+                        <Power className="h-3.5 w-3.5" />
+                        {task.status === "active" ? "Deactivate" : "Activate"}
+                      </button>
+                    </div>
                   </div>
-
-                  <div className="flex items-center gap-2 shrink-0">
-                    <button
-                      onClick={() => handleOpenReviewModal(task)}
-                      className="px-3 py-1.5 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-lg text-xs font-bold flex items-center gap-1"
-                    >
-                      <Eye className="h-3.5 w-3.5" /> Submissions
-                    </button>
-
-                    <button
-                      onClick={() => handleOpenEditModal(task)}
-                      className="px-3 py-1.5 border rounded-lg text-xs font-bold text-gray-700 hover:bg-gray-50 flex items-center gap-1"
-                    >
-                      <Pencil className="h-3.5 w-3.5" /> Edit
-                    </button>
-
-                    <button
-                      onClick={() => handleToggleStatus(task)}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 ${
-                        task.status === "active"
-                          ? "bg-amber-50 text-amber-700 hover:bg-amber-100"
-                          : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
-                      }`}
-                    >
-                      <Power className="h-3.5 w-3.5" />
-                      {task.status === "active" ? "Deactivate" : "Activate"}
-                    </button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </CardContent>
@@ -537,6 +571,17 @@ export default function AdminTasksPage() {
                     </div>
 
                     <div className="flex items-center gap-2">
+                      {reviewTask.target_url && (
+                        <a
+                          href={reviewTask.target_url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="px-2.5 py-1 bg-apc-primary/10 text-apc-primary rounded text-xs font-bold hover:bg-apc-primary/20 flex items-center gap-1"
+                        >
+                          <ExternalLink className="h-3 w-3" /> Open Task
+                        </a>
+                      )}
+
                       <span
                         className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
                           sub.status === "verified" ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"
@@ -545,20 +590,22 @@ export default function AdminTasksPage() {
                         {sub.status}
                       </span>
 
-                      {sub.status !== "verified" && (
-                        <button
-                          onClick={() => handleVerifySubmission(sub.id)}
-                          disabled={verifyingId === sub.id}
-                          className="px-3 py-1.5 bg-emerald-600 text-white rounded-lg font-bold hover:bg-emerald-700 disabled:opacity-50 flex items-center gap-1"
-                        >
-                          {verifyingId === sub.id ? (
-                            <Loader2 className="h-3 w-3 animate-spin" />
-                          ) : (
-                            <ShieldCheck className="h-3 w-3" />
-                          )}
-                          Approve & Award {reviewTask.points} pts
-                        </button>
-                      )}
+                      <button
+                        onClick={() => handleVerifySubmission(sub.id, sub.status)}
+                        disabled={verifyingId === sub.id}
+                        className={`px-3 py-1.5 rounded-lg font-bold disabled:opacity-50 flex items-center gap-1 text-xs ${
+                          sub.status === "verified"
+                            ? "bg-amber-100 text-amber-800 hover:bg-amber-200"
+                            : "bg-emerald-600 text-white hover:bg-emerald-700"
+                        }`}
+                      >
+                        {verifyingId === sub.id ? (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : (
+                          <ShieldCheck className="h-3 w-3" />
+                        )}
+                        {sub.status === "verified" ? "Unverify Submission" : `Approve & Award ${reviewTask.points} pts`}
+                      </button>
                     </div>
                   </div>
                 ))

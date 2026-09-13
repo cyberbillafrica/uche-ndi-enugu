@@ -109,7 +109,6 @@ const navigation: NavItem[] = [
     name: "Tasks",
     href: "/portal/tasks",
     icon: CheckSquare,
-    socialOnly: true,
   },
 
   {
@@ -742,12 +741,15 @@ export default function PortalLayout({
               className="flex items-center space-x-2"
               onClick={() => setSidebarOpen(false)}
             >
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-apc-primary">
-                <span className="font-bold text-white">I</span>
-              </div>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/images/logo.png"
+                alt="PolitiCore Logo"
+                className="h-8 w-auto object-contain"
+              />
 
               <span className="text-lg font-bold text-apc-primary">
-                Nwakaibeya 2027
+                PolitiCore
               </span>
             </Link>
 
@@ -785,12 +787,15 @@ export default function PortalLayout({
         <div className="flex h-full min-h-0 flex-col overflow-hidden border-r bg-white">
           <div className="flex h-16 shrink-0 items-center border-b px-6">
             <Link href="/" className="flex items-center space-x-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-apc-primary">
-                <span className="font-bold text-white">I</span>
-              </div>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/images/logo.png"
+                alt="PolitiCore Logo"
+                className="h-8 w-auto object-contain"
+              />
 
               <span className="text-lg font-bold text-apc-primary">
-                Nwakaibeya 2027
+                PolitiCore
               </span>
             </Link>
           </div>
@@ -819,12 +824,15 @@ export default function PortalLayout({
         <div className="sticky top-0 z-40 border-b bg-white lg:hidden">
           <div className="flex h-16 items-center justify-between px-4">
             <Link href="/" className="flex items-center space-x-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-apc-primary">
-                <span className="font-bold text-white">I</span>
-              </div>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/images/logo.png"
+                alt="PolitiCore Logo"
+                className="h-8 w-auto object-contain"
+              />
 
               <span className="font-bold text-apc-primary">
-                Nwakeibeya 2027
+                PolitiCore
               </span>
             </Link>
 
