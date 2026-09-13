@@ -165,19 +165,12 @@ export async function getElectionSettings(
     return { id: snap.id, ...snap.data() } as ElectionSettings;
   }
 
-  // Auto initialize default settings if missing
-  const defaultSettings: ElectionSettings = {
+  // Return fallback read-only settings without attempting admin writes
+  return {
     tenant_id: currentTenantId,
     active_election_cycle_id: DEFAULT_ELECTION_CYCLE_2027.id,
     active_contest_id: DEFAULT_CONTESTS_2027[0].id,
   };
-
-  await setDoc(docRef, {
-    ...defaultSettings,
-    updated_at: serverTimestamp(),
-  });
-
-  return defaultSettings;
 }
 
 export function subscribeToElectionSettings(
@@ -223,8 +216,6 @@ export async function setActiveCollationContest(data: {
 export async function getPoliticalParties(): Promise<PoliticalParty[]> {
   const snap = await getDocs(collection(db, "political_parties"));
   if (snap.empty) {
-    // Seed default INEC 2027 parties if collection empty
-    await seedDefaultPoliticalParties();
     return INEC_2027_POLITICAL_PARTIES;
   }
   return snap.docs.map(
@@ -271,18 +262,13 @@ export async function getElectionCycles(tenantId?: string): Promise<ElectionCycl
   const snap = await getDocs(q);
 
   if (snap.empty) {
-    // Seed default cycle
-    const defaultCycle: ElectionCycle = {
-      ...DEFAULT_ELECTION_CYCLE_2027,
-      tenant_id: currentTenantId,
-      created_by: "system",
-    };
-    await setDoc(doc(db, "election_cycles", defaultCycle.id), {
-      ...defaultCycle,
-      created_at: serverTimestamp(),
-      updated_at: serverTimestamp(),
-    });
-    return [defaultCycle];
+    return [
+      {
+        ...DEFAULT_ELECTION_CYCLE_2027,
+        tenant_id: currentTenantId,
+        created_by: "system",
+      },
+    ];
   }
 
   return snap.docs.map((d) => ({ id: d.id, ...d.data() } as ElectionCycle));
@@ -344,22 +330,11 @@ export async function getContestsByCycle(
   const snap = await getDocs(q);
 
   if (snap.empty && electionCycleId === DEFAULT_ELECTION_CYCLE_2027.id) {
-    // Seed default contests
-    const seededContests: ElectionContest[] = [];
-    for (const item of DEFAULT_CONTESTS_2027) {
-      const contestDoc: ElectionContest = {
-        ...item,
-        tenant_id: currentTenantId,
-        created_by: "system",
-      };
-      await setDoc(doc(db, "election_contests", item.id), {
-        ...contestDoc,
-        created_at: serverTimestamp(),
-        updated_at: serverTimestamp(),
-      });
-      seededContests.push(contestDoc);
-    }
-    return seededContests;
+    return DEFAULT_CONTESTS_2027.map((item) => ({
+      ...item,
+      tenant_id: currentTenantId,
+      created_by: "system",
+    }));
   }
 
   return snap.docs.map((d) => ({ id: d.id, ...d.data() } as ElectionContest));
@@ -481,6 +456,15 @@ export async function submitElectionResultWithEvidence(data: {
     throw new Error(
       "Form EC8 photo evidence is mandatory for result submission.",
     );
+  }
+
+  // Fetch contest to verify status server-side before accepting submission
+  const contest = await getContest(data.contestId);
+  if (!contest) {
+    throw new Error("Target election contest not found.");
+  }
+  if (contest.status !== "OPEN") {
+    throw new Error(`Cannot submit result: Contest '${contest.name}' is currently ${contest.status} and not OPEN for result submission.`);
   }
 
   const tenant = await getCurrentTenant();
