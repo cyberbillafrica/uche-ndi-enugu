@@ -239,12 +239,6 @@ const adminNavigation = [
   },
 
   {
-    name: "Tasks",
-    href: "/portal/admin/tasks",
-    icon: CheckSquare,
-  },
-
-  {
     name: "News",
     href: "/portal/admin/news",
     icon: Newspaper,
