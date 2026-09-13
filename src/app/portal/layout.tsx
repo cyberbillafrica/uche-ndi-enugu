@@ -244,6 +244,12 @@ const adminNavigation = [
   },
 
   {
+    name: "Donations",
+    href: "/portal/admin/donations",
+    icon: BarChart3,
+  },
+
+  {
     name: "News",
     href: "/portal/admin/news",
     icon: Newspaper,

@@ -580,3 +580,72 @@ export interface ElectionSettings {
   updated_by?: string;
   updated_at?: unknown;
 }
+
+// ============================================================
+// CANDIDATE DONATION & CONTRIBUTION LEDGER
+// ============================================================
+
+export type DonationStatus = "received" | "pledged" | "cancelled";
+
+export type DonationSourceMethod =
+  | "cash"
+  | "bank_transfer"
+  | "pos"
+  | "cheque"
+  | "other";
+
+export interface DonorRecord {
+  id: string;
+  tenant_id: string;
+  full_name: string;
+  phone?: string | null;
+  email?: string | null;
+  reference_identifier?: string | null;
+  lga_id?: string | null;
+  ward_id?: string | null;
+  total_received_amount: number;
+  contribution_count: number;
+  latest_contribution_date?: string | null;
+  created_at?: unknown;
+  updated_at?: unknown;
+}
+
+export interface DonationRecord {
+  id: string;
+  tenant_id: string;
+  donor_id?: string | null;
+  donor_name: string;
+  donor_phone?: string | null;
+  donor_email?: string | null;
+  donor_reference?: string | null;
+  amount: number;
+  currency: string;
+  date_received: string; // YYYY-MM-DD
+  payment_method: DonationSourceMethod;
+  category: string; // e.g., "campaign_fund", "event_sponsorship", "logistics"
+  status: DonationStatus;
+  external_reference?: string | null;
+  notes?: string | null;
+  lga_id?: string | null;
+  ward_id?: string | null;
+  created_by: string;
+  created_by_name?: string | null;
+  created_at?: unknown;
+  updated_by?: string | null;
+  updated_at?: unknown;
+}
+
+export interface DonationAuditLog {
+  id: string;
+  tenant_id: string;
+  donation_id: string;
+  action: "created" | "updated" | "status_changed" | "cancelled";
+  performed_by: string;
+  performed_by_name?: string | null;
+  performed_at?: unknown;
+  details: string;
+  changes?: {
+    before?: Record<string, unknown>;
+    after?: Record<string, unknown>;
+  };
+}

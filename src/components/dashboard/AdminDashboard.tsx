@@ -4,6 +4,7 @@ import Link from "next/link";
 
 import {
   ArrowRight,
+  Banknote,
   BarChart3,
   Bell,
   BriefcaseBusiness,
@@ -195,6 +196,13 @@ export default function AdminDashboard() {
             title="Reports"
             description="Review administrative and operational reports."
             href="/portal/admin/reports"
+          />
+
+          <AdminCard
+            icon={<Banknote className="h-5 w-5" />}
+            title="Donation Ledger"
+            description="Private candidate donation, contribution audit trail, and analytics."
+            href="/portal/admin/donations"
           />
 
           <AdminCard

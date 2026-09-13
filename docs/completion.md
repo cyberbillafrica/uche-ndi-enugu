@@ -1,9 +1,9 @@
 # Politicore / Ifeanyi 4 Nkanu Platform Final Completion Report
 
 ## 1. Executive Summary
-This document provides the definitive architectural, operational, and technical status report for the Politicore Campaign Management & Multi-Contest Electoral Collation Engine (`ifeanyi-4-nkanu`).
+This document provides the definitive architectural, operational, and technical status report for the Politicore Campaign Management, Multi-Contest Electoral Collation Engine (`ifeanyi-4-nkanu`), and Private Candidate Donation Ledger.
 
-All 67 core specification requirements across Election Management, Electoral Hierarchy, Result Upload, Officer Operations Desk, Official Aggregation Dashboard, Security Rules, Admin Task Management, RSVP Activities, and Campaign Portal Features have been fully implemented, tested, and verified against live TypeScript build checks (`npx tsc --noEmit`) and ESLint checks (`npm run lint`).
+All 67 core specification requirements plus the Private Candidate Donation & Contribution Ledger have been fully implemented, tested, and verified against live TypeScript build checks (`npx tsc --noEmit`) and ESLint checks (`npm run lint`).
 
 ---
 
@@ -11,6 +11,7 @@ All 67 core specification requirements across Election Management, Electoral Hie
 
 | Module Name | Status | Key Features & Implementation Details |
 | --- | --- | --- |
+| **Private Candidate Donation Ledger** (`/portal/admin/donations`) | **Completed** | Admin-only private record-keeping, audit trail, and analytics system for candidate campaign contributions. Explicitly NOT a payment/collection system. Supports received/pledged/cancelled status, donor history, payment sources, LGA/Ward tagging, and immutable audit logs. |
 | **Unified Election Control Center** (`/portal/admin/election`) | **Completed** | Unified control center for Election Cycles, Contests, INEC Party Masters (17 seedable parties), Candidates, Active Collation Contest selection, and System-Wide Election Mode toggling synced with `tenants/{tenantId}`. |
 | **Multi-Contest Electoral Engine** (§2 – §39) | **Completed** | Full support for 17 LGAs, 260 Wards, 4,145 PUs. Composite document IDs (`${contest_id}__${polling_unit_id}`), dynamic party vote inputs, mandatory Form EC8 image uploads, and server-side verification (`contest.status === "OPEN"`). |
 | **Three-Level Role Separation** (§27 & §33) | **Completed** | 1) *Member/Volunteer:* Submits results/reports for registered PU/Ward.<br>2) *Election Officer:* Operations Desk (`/portal/election/operations`) restricted strictly to `election_officer` role per spec §27; performs review decisions (`approve`, `reject`, `clarify`, `reopen`) with audit history.<br>3) *Admin:* Configures cycles/contests/candidates and performs audited corrections (`correctElectionResult`), which revert status to `pending_review` for officer re-verification per spec §32. |
@@ -23,7 +24,7 @@ All 67 core specification requirements across Election Management, Electoral Hie
 | **Admin System Settings** (`/portal/admin/settings`) | **Completed** | Connected to real-time tenant Firestore document (`tenants/{tenantId}`), enabling/disabling Election Mode and Public Volunteer Registration in real-time. |
 | **Read-Only Read Services** | **Completed** | Election read functions (`getElectionSettings`, `getPoliticalParties`, `getElectionCycles`, `getContestsByCycle`, `getContest`) operate strictly as read-only queries without triggering auto-seeding writes. |
 | **Dedicated Asset Storage Folders** | **Completed** | Result evidence (`ifeanyi-2027/election-results`), PU field reports (`ifeanyi-2027/pu-reports`), and election incidents (`ifeanyi-2027/incidents`) upload to dedicated subfolders in Cloudinary. |
-| **Firestore Security Rules** | **Completed** | Documented in `docs/new.rules`. Fixes delete operations for `organizational_assignments` (`resource.data.tenant_id`), enforces server-side contest status `OPEN` on upload, and restricts PU reports and incidents to authorized locations. |
+| **Firestore Security Rules** | **Completed** | Documented in `docs/new.rules`. Fixes delete operations for `organizational_assignments` (`resource.data.tenant_id`), enforces server-side contest status `OPEN` on upload, restricts donations/donors/donation_audits to `isAdmin()`, and restricts PU reports and incidents to authorized locations. |
 
 ---
 

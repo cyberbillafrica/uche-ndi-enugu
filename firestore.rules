@@ -1018,6 +1018,24 @@ match /electoral_data/{document} {
 
 
 // ============================================================
+// PRIVATE CANDIDATE DONATION & CONTRIBUTION LEDGER
+// ============================================================
+
+match /donations/{donationId} {
+  allow read, write: if isAdmin();
+}
+
+match /donors/{donorId} {
+  allow read, write: if isAdmin();
+}
+
+match /donation_audits/{auditId} {
+  allow read, create: if isAdmin();
+  allow update, delete: if false; // Audit logs are strictly immutable
+}
+
+
+// ============================================================
 // DEFAULT DENY
 // ============================================================
 
