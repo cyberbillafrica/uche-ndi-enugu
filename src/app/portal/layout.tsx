@@ -40,6 +40,7 @@ import {
   markAllNotificationsAsRead,
 } from "@/lib/firebase/notifications";
 import ContextualHelp from "@/components/help/ContextualHelp";
+import GlobalSearchModal from "@/components/search/GlobalSearchModal";
 import type { NotificationItem } from "@/types";
 
 import { cn } from "@/lib/utils";
@@ -292,6 +293,12 @@ const adminNavigation = [
     name: "Audit Logs",
     href: "/portal/admin/audit-logs",
     icon: ShieldCheck,
+  },
+
+  {
+    name: "System Health",
+    href: "/portal/admin/health",
+    icon: Settings,
   },
 
   {
@@ -875,8 +882,9 @@ export default function PortalLayout({
           </div>
         </div>
 
-        {/* Header Notification Bar */}
-        <div className="flex items-center justify-end px-4 sm:px-6 pt-3">
+        {/* Header Search & Notification Bar */}
+        <div className="flex items-center justify-between px-4 sm:px-6 pt-3">
+          <GlobalSearchModal />
           <NotificationCenter profile={profile} />
         </div>
 
