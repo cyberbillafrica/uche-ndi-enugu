@@ -1036,6 +1036,18 @@ match /donation_audits/{auditId} {
 
 
 // ============================================================
+// IN-APP NOTIFICATIONS ENGINE
+// ============================================================
+
+match /notifications/{notificationId} {
+  allow read: if isSignedIn() && resource.data.tenant_id == callerTenantId();
+  allow create: if isSignedIn() && request.resource.data.tenant_id == callerTenantId();
+  allow update: if isSignedIn() && resource.data.tenant_id == callerTenantId();
+  allow delete: if isAdmin();
+}
+
+
+// ============================================================
 // DEFAULT DENY
 // ============================================================
 

@@ -649,3 +649,35 @@ export interface DonationAuditLog {
     after?: Record<string, unknown>;
   };
 }
+
+// ============================================================
+// IN-APP NOTIFICATION SYSTEM & ENGINE
+// ============================================================
+
+export type NotificationType =
+  | "system"
+  | "election_alert"
+  | "task_update"
+  | "activity_reminder"
+  | "report_status"
+  | "issue_update";
+
+export type NotificationTargetType =
+  | "user"
+  | "role"
+  | "scope"
+  | "all";
+
+export interface NotificationItem {
+  id: string;
+  tenant_id: string;
+  type: NotificationType;
+  title: string;
+  message: string;
+  link_url?: string | null;
+  target_type: NotificationTargetType;
+  target_id?: string | null; // user_id, role name, or scope_id
+  read_by: string[]; // array of user_ids who marked read
+  created_by?: string | null;
+  created_at?: unknown;
+}
