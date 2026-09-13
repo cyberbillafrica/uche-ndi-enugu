@@ -1515,7 +1515,7 @@ Summary of main errors:
 
 ### C. Production Build Output (`npm run build`)
 ```text
-> ifeanyi-4-nkanu@0.1.0 build
+> ifeanyi-2027@0.1.0 build
 > next build
 
 ▲ Next.js 16.3.0 (Turbopack)

@@ -24,6 +24,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/contexts/AuthContext";
 
 import { db } from "@/lib/firebase/config";
+import { CURRENT_TENANT_ID } from "@/lib/firebase/tenants";
 
 import {
   createOrganizationalAssignment,
@@ -390,7 +391,7 @@ export default function CampaignCoordinationPage() {
         });
       } else {
         await createOrganizationalAssignment({
-          tenant_id: profile.tenant_id || "ifeanyi-4-nkanu",
+          tenant_id: profile.tenant_id || CURRENT_TENANT_ID,
           user_id: selectedUserId,
           position: selectedPosition,
           scope_type: selectedScopeType,
@@ -481,7 +482,7 @@ export default function CampaignCoordinationPage() {
       setError(null);
 
       await createPermissionGrant({
-        tenant_id: profile.tenant_id || "ifeanyi-4-nkanu",
+        tenant_id: profile.tenant_id || CURRENT_TENANT_ID,
         user_id: grantUserId,
         permission: grantPermission,
         granted: grantValue,

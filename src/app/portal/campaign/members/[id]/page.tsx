@@ -28,6 +28,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { CURRENT_TENANT_ID } from "@/lib/firebase/tenants";
 import {
   Dialog,
   DialogContent,
@@ -259,11 +260,11 @@ export default function MemberDetailPage() {
    */
 
   const memberLga = lgas.find(
-    (lga) => lga.id === (member?.lga_id ?? "nkanu-west")
+    (lga) => lga.id === (member?.lga_id ?? "nkanu-west"),
   );
   const memberWard = memberLga?.wards.find((w) => w.id === member?.ward_id);
   const memberPollingUnit = memberWard?.pollingUnits.find(
-    (pu) => pu.id === member?.polling_unit_id
+    (pu) => pu.id === member?.polling_unit_id,
   );
 
   /*
@@ -588,7 +589,7 @@ export default function MemberDetailPage() {
                     existingAssignments={assignments}
                     onSave={async (data) => {
                       await createOrganizationalAssignment({
-                        tenant_id: member.tenant_id || "ifeanyi-4-nkanu",
+                        tenant_id: member.tenant_id || CURRENT_TENANT_ID,
                         user_id: member.id,
                         position: data.position,
                         scope_type: data.scope_type,
@@ -660,7 +661,7 @@ export default function MemberDetailPage() {
                     existingGrants={permissionGrants}
                     onSave={async (data) => {
                       await createPermissionGrant({
-                        tenant_id: member.tenant_id || "ifeanyi-4-nkanu",
+                        tenant_id: member.tenant_id || CURRENT_TENANT_ID,
                         user_id: member.id,
                         permission: data.permission,
                         granted: true,
@@ -1127,7 +1128,11 @@ function AssignmentManager({
             disabled={!selectedLgaId}
           >
             <SelectTrigger>
-              <SelectValue placeholder={selectedLgaId ? "Select a ward" : "Select an LGA first"} />
+              <SelectValue
+                placeholder={
+                  selectedLgaId ? "Select a ward" : "Select an LGA first"
+                }
+              />
             </SelectTrigger>
             <SelectContent>
               {wards.map((ward) => (
@@ -1311,11 +1316,11 @@ function PermissionGrantManager({
   ];
 
   const handleSubmit = async () => {
-    const finalScopeType = scopeType === "__none__" ? null : (scopeType || null);
+    const finalScopeType = scopeType === "__none__" ? null : scopeType || null;
     await onSave({
       permission,
       scope_type: finalScopeType,
-      scope_id: finalScopeType ? (scopeId || null) : null,
+      scope_id: finalScopeType ? scopeId || null : null,
     });
   };
 

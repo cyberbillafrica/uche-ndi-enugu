@@ -46,7 +46,7 @@ import {
   type ElectionResultDoc,
   type ElectionPartyResult,
 } from "@/lib/firebase/election";
-import { getCurrentTenant } from "@/lib/firebase/tenants";
+import { CURRENT_TENANT_ID, getCurrentTenant } from "@/lib/firebase/tenants";
 import type {
   LGA,
   Ward,
@@ -72,7 +72,10 @@ function getDocTimestamp(doc: ElectionResultDoc): number {
     return isNaN(t) ? 0 : t;
   }
   if (typeof ts === "object") {
-    if ("seconds" in ts && typeof (ts as { seconds?: number }).seconds === "number") {
+    if (
+      "seconds" in ts &&
+      typeof (ts as { seconds?: number }).seconds === "number"
+    ) {
       return (ts as { seconds: number }).seconds * 1000;
     }
     if (ts instanceof Date) {
@@ -115,7 +118,7 @@ export default function ElectionDashboard() {
   const [results, setResults] = useState<ElectionResultDoc[]>([]);
   const [loading, setLoading] = useState(true);
   const [listenerError, setListenerError] = useState<string | null>(null);
-  const [tenantId, setTenantId] = useState("ifeanyi-4-nkanu");
+  const [tenantId, setTenantId] = useState(CURRENT_TENANT_ID);
 
   // Selection states
   const [selectedCycleId, setSelectedCycleId] = useState<string>("all");
@@ -130,9 +133,15 @@ export default function ElectionDashboard() {
   // Modals & Toasts
   const [toastAlerts, setToastAlerts] = useState<AlertToast[]>([]);
   const lastToastTimeRef = useRef<number>(0);
-  const [inspectResult, setInspectResult] = useState<ElectionResultDoc | null>(null);
-  const [editingResult, setEditingResult] = useState<ElectionResultDoc | null>(null);
-  const [editFormResults, setEditFormResults] = useState<ElectionPartyResult[]>([]);
+  const [inspectResult, setInspectResult] = useState<ElectionResultDoc | null>(
+    null,
+  );
+  const [editingResult, setEditingResult] = useState<ElectionResultDoc | null>(
+    null,
+  );
+  const [editFormResults, setEditFormResults] = useState<ElectionPartyResult[]>(
+    [],
+  );
   const [editReason, setEditReason] = useState("");
   const [savingEdit, setSavingEdit] = useState(false);
 
@@ -271,10 +280,12 @@ export default function ElectionDashboard() {
       },
       (err) => {
         console.error("Error subscribing to election results:", err);
-        setListenerError("Live data stream disconnected. Please refresh the page to retry.");
+        setListenerError(
+          "Live data stream disconnected. Please refresh the page to retry.",
+        );
         setLoading(false);
       },
-      scopeConstraint
+      scopeConstraint,
     );
 
     return () => unsubscribe();
@@ -292,7 +303,7 @@ export default function ElectionDashboard() {
         return results.filter(
           (r) =>
             r.ward_id === profile.ward_id &&
-            r.polling_unit_id === profile.polling_unit_id
+            r.polling_unit_id === profile.polling_unit_id,
         );
       }
       return [];
@@ -312,13 +323,13 @@ export default function ElectionDashboard() {
           assignmentCoversScope(
             assignment,
             { scope_type: "ward", scope_id: result.ward_id },
-            lgas
+            lgas,
           ) ||
           assignmentCoversScope(
             assignment,
             { scope_type: "polling_unit", scope_id: result.polling_unit_id },
-            lgas
-          )
+            lgas,
+          ),
       );
     });
   }, [isAdmin, profile, assignments, results, lgas]);
@@ -326,7 +337,11 @@ export default function ElectionDashboard() {
   // Operational Submissions vs Official Results
   const operationalSubmissions = useMemo(() => {
     return coveredResults.filter((r) => {
-      if (selectedContestId !== "all" && r.contest_id && r.contest_id !== selectedContestId) {
+      if (
+        selectedContestId !== "all" &&
+        r.contest_id &&
+        r.contest_id !== selectedContestId
+      ) {
         return false;
       }
       if (selectedLgaId !== "all" && r.lga_id !== selectedLgaId) {
@@ -396,12 +411,18 @@ export default function ElectionDashboard() {
     const marginAB = votesA - votesB;
 
     const pendingCount = operationalSubmissions.filter(
-      (r) => r.status === "submitted" || r.status === "pending_review"
+      (r) => r.status === "submitted" || r.status === "pending_review",
     ).length;
     const approvedCount = officialApprovedResults.length;
-    const rejectedCount = operationalSubmissions.filter((r) => r.status === "rejected").length;
-    const clarifyCount = operationalSubmissions.filter((r) => r.status === "clarification_required").length;
-    const reopenedCount = operationalSubmissions.filter((r) => r.status === "reopened").length;
+    const rejectedCount = operationalSubmissions.filter(
+      (r) => r.status === "rejected",
+    ).length;
+    const clarifyCount = operationalSubmissions.filter(
+      (r) => r.status === "clarification_required",
+    ).length;
+    const reopenedCount = operationalSubmissions.filter(
+      (r) => r.status === "reopened",
+    ).length;
 
     let totalPUsInScope = 0;
     if (selectedWardId !== "all") {
@@ -415,18 +436,23 @@ export default function ElectionDashboard() {
     } else if (selectedLgaId !== "all") {
       const l = lgas.find((item) => item.id === selectedLgaId);
       if (l) {
-        totalPUsInScope = l.wards.reduce((acc, w) => acc + w.pollingUnits.length, 0);
+        totalPUsInScope = l.wards.reduce(
+          (acc, w) => acc + w.pollingUnits.length,
+          0,
+        );
       }
     } else {
       totalPUsInScope = lgas.reduce(
-        (acc, l) => acc + l.wards.reduce((wAcc, w) => wAcc + w.pollingUnits.length, 0),
-        0
+        (acc, l) =>
+          acc + l.wards.reduce((wAcc, w) => wAcc + w.pollingUnits.length, 0),
+        0,
       );
     }
 
-    const reportingPercent = totalPUsInScope > 0
-      ? ((approvedCount / totalPUsInScope) * 100).toFixed(1)
-      : "0.0";
+    const reportingPercent =
+      totalPUsInScope > 0
+        ? ((approvedCount / totalPUsInScope) * 100).toFixed(1)
+        : "0.0";
 
     return {
       totalOfficialVotes,
@@ -444,7 +470,14 @@ export default function ElectionDashboard() {
       totalPUsInScope,
       reportingPercent,
     };
-  }, [officialApprovedResults, operationalSubmissions, trackedParties, comparePartyA, comparePartyB, lgas]);
+  }, [
+    officialApprovedResults,
+    operationalSubmissions,
+    trackedParties,
+    comparePartyA,
+    comparePartyB,
+    lgas,
+  ]);
 
   // Chart Data per Ward
   const wardChartData = useMemo(() => {
@@ -489,7 +522,9 @@ export default function ElectionDashboard() {
   // Dynamic Party Colors map
   const getPartyColor = (partyKey: string) => {
     const found = allParties.find(
-      (p) => p.id === partyKey.toLowerCase() || p.acronym.toLowerCase() === partyKey.toLowerCase()
+      (p) =>
+        p.id === partyKey.toLowerCase() ||
+        p.acronym.toLowerCase() === partyKey.toLowerCase(),
     );
     if (found?.color) return found.color;
     if (partyKey.toLowerCase() === "apc") return "#1B4F72";
@@ -527,7 +562,9 @@ export default function ElectionDashboard() {
     return (
       <div className="flex flex-col items-center justify-center min-h-[50vh] space-y-3">
         <Loader2 className="h-8 w-8 animate-spin text-apc-primary" />
-        <span className="text-sm text-gray-500">Connecting to live contest results engine...</span>
+        <span className="text-sm text-gray-500">
+          Connecting to live contest results engine...
+        </span>
       </div>
     );
   }
@@ -547,15 +584,23 @@ export default function ElectionDashboard() {
                 <span>New Official Result Approved</span>
               </div>
               <button
-                onClick={() => setToastAlerts((prev) => prev.filter((item) => item.id !== a.id))}
+                onClick={() =>
+                  setToastAlerts((prev) =>
+                    prev.filter((item) => item.id !== a.id),
+                  )
+                }
                 className="text-gray-400 hover:text-gray-600"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
 
-            <p className="mt-1 text-xs font-semibold text-gray-900">{a.puName}</p>
-            <p className="text-xs text-gray-500">{a.wardName} · {a.lgaName}</p>
+            <p className="mt-1 text-xs font-semibold text-gray-900">
+              {a.puName}
+            </p>
+            <p className="text-xs text-gray-500">
+              {a.wardName} · {a.lgaName}
+            </p>
 
             <div className="mt-2 grid grid-cols-3 gap-2 bg-gray-50 p-2 rounded-lg text-center text-xs font-semibold">
               {a.results.map((r) => (
@@ -595,7 +640,9 @@ export default function ElectionDashboard() {
             Official Results & Operational Collation
           </h1>
           <p className="text-sm text-gray-500 mt-1">
-            Official totals are calculated strictly from <span className="font-bold text-emerald-700">APPROVED</span> results.
+            Official totals are calculated strictly from{" "}
+            <span className="font-bold text-emerald-700">APPROVED</span>{" "}
+            results.
           </p>
         </div>
 
@@ -639,7 +686,9 @@ export default function ElectionDashboard() {
       <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex flex-wrap items-center justify-between gap-4">
         <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
           <Filter className="w-4 h-4 text-gray-500 shrink-0" />
-          <span className="text-xs font-bold text-gray-700">Geographic Filter:</span>
+          <span className="text-xs font-bold text-gray-700">
+            Geographic Filter:
+          </span>
           <select
             value={selectedLgaId}
             onChange={(e) => {
@@ -746,7 +795,10 @@ export default function ElectionDashboard() {
                   {aggregates.totalOfficialVotes.toLocaleString()}
                 </p>
                 <p className="text-xs text-slate-500 mt-1">
-                  Leading: <span className="font-bold text-apc-primary">{aggregates.leadingParty}</span>
+                  Leading:{" "}
+                  <span className="font-bold text-apc-primary">
+                    {aggregates.leadingParty}
+                  </span>
                 </p>
               </div>
               <Upload className="h-8 w-8 text-apc-primary shrink-0" />
@@ -758,7 +810,8 @@ export default function ElectionDashboard() {
           <CardContent className="p-6">
             <div>
               <p className="text-xs font-bold uppercase tracking-wide text-gray-500">
-                {comparePartyA.toUpperCase()} vs {comparePartyB.toUpperCase()} Margin
+                {comparePartyA.toUpperCase()} vs {comparePartyB.toUpperCase()}{" "}
+                Margin
               </p>
               <p
                 className={`text-3xl font-bold mt-1 ${
@@ -770,7 +823,10 @@ export default function ElectionDashboard() {
                   : aggregates.marginAB.toLocaleString()}
               </p>
               <p className="text-xs text-gray-500 mt-1">
-                {comparePartyA.toUpperCase()}: {aggregates.votesA.toLocaleString()} | {comparePartyB.toUpperCase()}: {aggregates.votesB.toLocaleString()}
+                {comparePartyA.toUpperCase()}:{" "}
+                {aggregates.votesA.toLocaleString()} |{" "}
+                {comparePartyB.toUpperCase()}:{" "}
+                {aggregates.votesB.toLocaleString()}
               </p>
             </div>
           </CardContent>
@@ -804,13 +860,15 @@ export default function ElectionDashboard() {
       <Card>
         <CardHeader className="py-4">
           <CardTitle className="text-base font-bold text-slate-900">
-            Official Approved Party Totals ({trackedParties.length} Tracked Parties)
+            Official Approved Party Totals ({trackedParties.length} Tracked
+            Parties)
           </CardTitle>
         </CardHeader>
         <CardContent className="pb-6">
           {trackedParties.length === 0 ? (
             <div className="p-4 bg-amber-50 text-amber-900 border border-amber-200 rounded-xl text-xs font-semibold">
-              No tracked parties configured for this contest. Contact the election administrator.
+              No tracked parties configured for this contest. Contact the
+              election administrator.
             </div>
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
@@ -825,7 +883,9 @@ export default function ElectionDashboard() {
                     className="p-3 rounded-xl border flex flex-col items-center text-center space-y-1"
                     style={{ borderLeftWidth: "4px", borderLeftColor: pColor }}
                   >
-                    <span className="text-xs font-bold uppercase text-slate-500">{p}</span>
+                    <span className="text-xs font-bold uppercase text-slate-500">
+                      {p}
+                    </span>
                     <span className="text-xl font-bold font-mono text-slate-900">
                       {v.toLocaleString()}
                     </span>
@@ -857,7 +917,11 @@ export default function ElectionDashboard() {
                     <YAxis />
                     <Tooltip />
                     {trackedParties.map((p) => (
-                      <Bar key={p} dataKey={p.toUpperCase()} fill={getPartyColor(p)} />
+                      <Bar
+                        key={p}
+                        dataKey={p.toUpperCase()}
+                        fill={getPartyColor(p)}
+                      />
                     ))}
                   </BarChart>
                 </ResponsiveContainer>
@@ -937,17 +1001,25 @@ export default function ElectionDashboard() {
                 </thead>
                 <tbody className="divide-y">
                   {operationalSubmissions.map((r) => {
-                    const contestObj = contests.find((c) => c.id === r.contest_id);
+                    const contestObj = contests.find(
+                      (c) => c.id === r.contest_id,
+                    );
 
                     return (
                       <tr key={r.id} className="hover:bg-gray-50/80">
                         <td className="py-3 px-4">
-                          <p className="font-semibold text-gray-900">{r.polling_unit_id}</p>
-                          <p className="text-xs text-gray-500">Ward: {r.ward_id}</p>
+                          <p className="font-semibold text-gray-900">
+                            {r.polling_unit_id}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            Ward: {r.ward_id}
+                          </p>
                         </td>
                         <td className="py-3 px-4">
                           <p className="font-semibold text-xs text-emerald-800">
-                            {contestObj?.name || r.contest_id || "State Contest"}
+                            {contestObj?.name ||
+                              r.contest_id ||
+                              "State Contest"}
                           </p>
                         </td>
                         <td className="text-center py-3 px-4">
@@ -956,12 +1028,12 @@ export default function ElectionDashboard() {
                               r.status === "approved"
                                 ? "bg-emerald-100 text-emerald-800"
                                 : r.status === "rejected"
-                                ? "bg-red-100 text-red-800"
-                                : r.status === "clarification_required"
-                                ? "bg-amber-100 text-amber-800"
-                                : r.status === "reopened"
-                                ? "bg-purple-100 text-purple-800"
-                                : "bg-blue-100 text-blue-800"
+                                  ? "bg-red-100 text-red-800"
+                                  : r.status === "clarification_required"
+                                    ? "bg-amber-100 text-amber-800"
+                                    : r.status === "reopened"
+                                      ? "bg-purple-100 text-purple-800"
+                                      : "bg-blue-100 text-blue-800"
                             }`}
                           >
                             {r.status}
@@ -977,7 +1049,9 @@ export default function ElectionDashboard() {
                               Inspect EC8
                             </button>
                           ) : (
-                            <span className="text-xs text-gray-400">No Image</span>
+                            <span className="text-xs text-gray-400">
+                              No Image
+                            </span>
                           )}
                         </td>
                         <td className="text-right py-3 px-4">
@@ -1024,10 +1098,14 @@ export default function ElectionDashboard() {
               <div>
                 <h2 className="font-bold text-lg">Form EC8 Result Evidence</h2>
                 <p className="text-xs text-white/80">
-                  PU: {inspectResult.polling_unit_id} · Ward: {inspectResult.ward_id}
+                  PU: {inspectResult.polling_unit_id} · Ward:{" "}
+                  {inspectResult.ward_id}
                 </p>
               </div>
-              <button onClick={() => setInspectResult(null)} className="p-1 hover:bg-white/10 rounded">
+              <button
+                onClick={() => setInspectResult(null)}
+                className="p-1 hover:bg-white/10 rounded"
+              >
                 <X className="h-5 w-5" />
               </button>
             </div>
@@ -1062,12 +1140,20 @@ export default function ElectionDashboard() {
                   </h3>
                   <div className="space-y-3">
                     {inspectResult.history.map((h, i) => (
-                      <div key={i} className="bg-gray-50 p-3 rounded-lg border text-xs space-y-1">
+                      <div
+                        key={i}
+                        className="bg-gray-50 p-3 rounded-lg border text-xs space-y-1"
+                      >
                         <p className="font-semibold text-gray-800">
                           Action: {h.action} | Actor: {h.edited_by}
                         </p>
-                        <p className="text-gray-500">Reason / Notes: {h.notes || h.reason || "None specified"}</p>
-                        <p className="text-gray-400">Timestamp: {String(h.edited_at)}</p>
+                        <p className="text-gray-500">
+                          Reason / Notes:{" "}
+                          {h.notes || h.reason || "None specified"}
+                        </p>
+                        <p className="text-gray-400">
+                          Timestamp: {String(h.edited_at)}
+                        </p>
                       </div>
                     ))}
                   </div>
@@ -1094,21 +1180,30 @@ export default function ElectionDashboard() {
             <div className="bg-apc-primary text-white p-5 flex items-center justify-between">
               <div>
                 <h2 className="font-bold text-lg">Correct Election Result</h2>
-                <p className="text-xs text-white/80">PU: {editingResult.polling_unit_id}</p>
+                <p className="text-xs text-white/80">
+                  PU: {editingResult.polling_unit_id}
+                </p>
               </div>
-              <button onClick={() => setEditingResult(null)} className="p-1 hover:bg-white/10 rounded">
+              <button
+                onClick={() => setEditingResult(null)}
+                className="p-1 hover:bg-white/10 rounded"
+              >
                 <X className="h-5 w-5" />
               </button>
             </div>
 
             <div className="p-6 space-y-4">
               <p className="text-xs text-gray-500">
-                Correct party vote counts against the submitted Form EC8 photo evidence. All corrections will be recorded in the audit trail.
+                Correct party vote counts against the submitted Form EC8 photo
+                evidence. All corrections will be recorded in the audit trail.
               </p>
 
               <div className="space-y-3">
                 {editFormResults.map((pr, idx) => (
-                  <div key={pr.party} className="flex items-center justify-between gap-4">
+                  <div
+                    key={pr.party}
+                    className="flex items-center justify-between gap-4"
+                  >
                     <label className="text-sm font-semibold text-gray-700 uppercase">
                       {pr.party} Votes
                     </label>

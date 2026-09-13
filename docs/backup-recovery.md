@@ -23,9 +23,9 @@ gcloud firestore export gs://politicore-backups-ifeanyi-2027 --collection-ids=us
 ```bash
 gcloud scheduler jobs create http firestore-nightly-backup \
   --schedule="0 2 * * *" \
-  --uri="https://firestore.googleapis.com/v1/projects/ifeanyi-4-nkanu/databases/(default):exportDocuments" \
+  --uri="https://firestore.googleapis.com/v1/projects/ifeanyi-2027/databases/(default):exportDocuments" \
   --message-body='{"outputUriPrefix": "gs://politicore-backups-ifeanyi-2027"}' \
-  --oauth-service-account-email="backup-service-account@ifeanyi-4-nkanu.iam.gserviceaccount.com"
+  --oauth-service-account-email="backup-service-account@ifeanyi-2027.iam.gserviceaccount.com"
 ```
 
 ---

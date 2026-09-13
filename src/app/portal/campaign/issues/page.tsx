@@ -28,6 +28,7 @@ import {
   type CampaignIssueType,
 } from "@/lib/firebase/campaignIssues";
 import { isAdminUser } from "@/lib/permissions";
+import { CURRENT_TENANT_ID } from "@/lib/firebase/tenants";
 
 import {
   formatScopeType,
@@ -176,7 +177,8 @@ export default function CampaignIssuesPage() {
             </h2>
 
             <p className="mx-auto mt-2 max-w-lg text-sm text-gray-500">
-              An administrator must assign you to a campaign organizational position before scoped campaign issues can be displayed.
+              An administrator must assign you to a campaign organizational
+              position before scoped campaign issues can be displayed.
             </p>
           </CardContent>
         </Card>
@@ -219,7 +221,9 @@ export default function CampaignIssuesPage() {
             </p>
 
             <p className="mt-1 font-semibold text-gray-900">
-              {isAdmin ? "Global Campaign Scope" : formatScopeType(assignment?.scope_type || null)}
+              {isAdmin
+                ? "Global Campaign Scope"
+                : formatScopeType(assignment?.scope_type || null)}
             </p>
 
             <p className="text-sm text-gray-500">
@@ -279,16 +283,18 @@ export default function CampaignIssuesPage() {
       {showForm && canReport && (
         <IssueForm
           profileId={profile.id ?? ""}
-          assignment={assignment || {
-            id: "admin-global",
-            tenant_id: profile.tenant_id || "ifeanyi-4-nkanu",
-            user_id: profile.id || "",
-            position: "state_coordinator",
-            scope_type: "campaign",
-            scope_id: "enugu-state",
-            status: "active",
-            assigned_by: "system",
-          }}
+          assignment={
+            assignment || {
+              id: "admin-global",
+              tenant_id: profile.tenant_id || CURRENT_TENANT_ID,
+              user_id: profile.id || "",
+              position: "state_coordinator",
+              scope_type: "campaign",
+              scope_id: "enugu-state",
+              status: "active",
+              assigned_by: "system",
+            }
+          }
           onCreated={async () => {
             setShowForm(false);
             await loadIssues();

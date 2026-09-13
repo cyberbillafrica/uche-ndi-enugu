@@ -10,9 +10,10 @@ import {
   limit,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase/config";
+import { CURRENT_TENANT_ID } from "@/lib/firebase/tenants";
 import type { SystemAuditLog, AuditResource } from "@/types";
 
-const TENANT_ID = "ifeanyi-4-nkanu";
+const TENANT_ID = CURRENT_TENANT_ID;
 
 function sanitizePayload<T extends Record<string, any>>(obj: T): T {
   const result = { ...obj };
@@ -69,18 +70,18 @@ export async function logSystemAudit(params: {
  * Fetches platform-wide system audit logs for administrative review.
  */
 export async function getSystemAuditLogs(
-  resourceFilter?: AuditResource
+  resourceFilter?: AuditResource,
 ): Promise<SystemAuditLog[]> {
   try {
     const q = resourceFilter
       ? query(
           collection(db, "system_audits"),
           where("tenant_id", "==", TENANT_ID),
-          where("affected_resource", "==", resourceFilter)
+          where("affected_resource", "==", resourceFilter),
         )
       : query(
           collection(db, "system_audits"),
-          where("tenant_id", "==", TENANT_ID)
+          where("tenant_id", "==", TENANT_ID),
         );
 
     const snap = await getDocs(q);

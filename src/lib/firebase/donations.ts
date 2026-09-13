@@ -12,6 +12,7 @@ import {
   writeBatch,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase/config";
+import { CURRENT_TENANT_ID } from "@/lib/firebase/tenants";
 import type {
   DonationRecord,
   DonorRecord,
@@ -20,7 +21,7 @@ import type {
   DonationSourceMethod,
 } from "@/types";
 
-const TENANT_ID = "ifeanyi-4-nkanu";
+const TENANT_ID = CURRENT_TENANT_ID;
 
 // Helper to remove undefined properties for Firestore payloads
 function sanitizePayload<T extends Record<string, any>>(obj: T): T {
@@ -268,8 +269,8 @@ export async function getAllDonors(): Promise<DonorRecord[]> {
     );
     const snap = await getDocs(q);
     const list = snap.docs.map((d) => d.data() as DonorRecord);
-    return list.sort((a, b) =>
-      b.total_received_amount - a.total_received_amount
+    return list.sort(
+      (a, b) => b.total_received_amount - a.total_received_amount,
     );
   } catch (err) {
     console.error("Failed to fetch donors:", err);

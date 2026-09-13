@@ -12,9 +12,15 @@ import {
   onSnapshot,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase/config";
-import type { NotificationItem, NotificationType, NotificationTargetType, UserProfile } from "@/types";
+import { CURRENT_TENANT_ID } from "@/lib/firebase/tenants";
+import type {
+  NotificationItem,
+  NotificationType,
+  NotificationTargetType,
+  UserProfile,
+} from "@/types";
 
-const TENANT_ID = "ifeanyi-4-nkanu";
+const TENANT_ID = CURRENT_TENANT_ID;
 
 // Helper to remove undefined properties for Firestore payloads
 function sanitizePayload<T extends Record<string, any>>(obj: T): T {
@@ -63,11 +69,11 @@ export async function createNotification(params: {
  */
 export function subscribeUserNotifications(
   userProfile: UserProfile,
-  onUpdate: (notifications: NotificationItem[]) => void
+  onUpdate: (notifications: NotificationItem[]) => void,
 ) {
   const q = query(
     collection(db, "notifications"),
-    where("tenant_id", "==", TENANT_ID)
+    where("tenant_id", "==", TENANT_ID),
   );
 
   return onSnapshot(q, (snapshot) => {
@@ -76,9 +82,15 @@ export function subscribeUserNotifications(
     // Filter relevant notifications for this user
     const relevant = all.filter((n) => {
       if (n.target_type === "all") return true;
-      if (n.target_type === "user" && n.target_id === userProfile.id) return true;
-      if (n.target_type === "role" && n.target_id === userProfile.access_role) return true;
-      if (n.target_type === "scope" && (n.target_id === userProfile.ward_id || n.target_id === userProfile.lga_id)) {
+      if (n.target_type === "user" && n.target_id === userProfile.id)
+        return true;
+      if (n.target_type === "role" && n.target_id === userProfile.access_role)
+        return true;
+      if (
+        n.target_type === "scope" &&
+        (n.target_id === userProfile.ward_id ||
+          n.target_id === userProfile.lga_id)
+      ) {
         return true;
       }
       return false;
@@ -100,7 +112,7 @@ export function subscribeUserNotifications(
  */
 export async function markNotificationAsRead(
   notificationId: string,
-  userId: string
+  userId: string,
 ): Promise<void> {
   const notifRef = doc(db, "notifications", notificationId);
   await updateDoc(notifRef, {
@@ -113,10 +125,10 @@ export async function markNotificationAsRead(
  */
 export async function markAllNotificationsAsRead(
   notifications: NotificationItem[],
-  userId: string
+  userId: string,
 ): Promise<void> {
   const unreadList = notifications.filter((n) => !n.read_by.includes(userId));
   await Promise.all(
-    unreadList.map((n) => markNotificationAsRead(n.id, userId))
+    unreadList.map((n) => markNotificationAsRead(n.id, userId)),
   );
 }

@@ -52,7 +52,7 @@ export interface CreateCampaignActivityInput {
    *
    * Examples:
    *
-   * campaign / ifeanyi-4-nkanu
+   * campaign / ifeanyi-2027
    * state / enugu
    * lga / nkanu-west
    * ward / nkanu-west-ward-01

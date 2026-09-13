@@ -9,6 +9,7 @@ import {
   type ElectionResultDoc,
 } from "@/lib/firebase/election";
 import { generateElectionExportPackage } from "@/lib/electionExport";
+import { CURRENT_TENANT_ID } from "@/lib/firebase/tenants";
 import { useAuth } from "@/contexts/AuthContext";
 import type { ElectionCycle, ElectionContest } from "@/types";
 import {
@@ -66,13 +67,13 @@ export default function ElectionExportPage() {
   useEffect(() => {
     if (!selectedContestId) return;
     const unsubscribe = subscribeToElectionResults(
-      "ifeanyi-4-nkanu",
+      CURRENT_TENANT_ID,
       (docs) => {
         const filtered = docs.filter((d) => d.contest_id === selectedContestId);
         setResults(filtered);
       },
       (err) => console.error(err),
-      { contest_id: selectedContestId }
+      { contest_id: selectedContestId },
     );
     return () => unsubscribe();
   }, [selectedContestId]);
@@ -96,7 +97,9 @@ export default function ElectionExportPage() {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
         <Loader2 className="h-8 w-8 animate-spin text-apc-primary" />
-        <span className="ml-3 text-gray-500">Loading result export engine...</span>
+        <span className="ml-3 text-gray-500">
+          Loading result export engine...
+        </span>
       </div>
     );
   }
@@ -113,7 +116,8 @@ export default function ElectionExportPage() {
             Election Result Export Package
           </h1>
           <p className="text-sm text-gray-500 mt-1">
-            Generate formal result summaries identified explicitly by Election Cycle and Contest.
+            Generate formal result summaries identified explicitly by Election
+            Cycle and Contest.
           </p>
         </div>
       </div>
@@ -122,7 +126,9 @@ export default function ElectionExportPage() {
         <CardContent className="p-6 space-y-4">
           <div className="grid md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-bold text-gray-700 mb-1">Select Election Cycle</label>
+              <label className="block text-xs font-bold text-gray-700 mb-1">
+                Select Election Cycle
+              </label>
               <select
                 value={selectedCycleId}
                 onChange={(e) => setSelectedCycleId(e.target.value)}
@@ -137,7 +143,9 @@ export default function ElectionExportPage() {
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-gray-700 mb-1">Select Contest</label>
+              <label className="block text-xs font-bold text-gray-700 mb-1">
+                Select Contest
+              </label>
               <select
                 value={selectedContestId}
                 onChange={(e) => setSelectedContestId(e.target.value)}
@@ -154,9 +162,12 @@ export default function ElectionExportPage() {
 
           <div className="p-4 bg-gray-50 rounded-xl border flex flex-wrap items-center justify-between gap-4 text-xs">
             <div>
-              <p className="font-bold text-gray-900">{currentContest?.name || "No Contest Selected"}</p>
+              <p className="font-bold text-gray-900">
+                {currentContest?.name || "No Contest Selected"}
+              </p>
               <p className="text-gray-500">
-                Cycle: {currentCycle?.name} · Results Loaded: {results.length} PUs
+                Cycle: {currentCycle?.name} · Results Loaded: {results.length}{" "}
+                PUs
               </p>
             </div>
 
@@ -172,7 +183,8 @@ export default function ElectionExportPage() {
                 onClick={() => handleExport("excel")}
                 className="px-3 py-2 bg-white border rounded-lg font-bold text-emerald-700 hover:bg-emerald-50 flex items-center gap-1.5 shadow-sm"
               >
-                <FileSpreadsheet className="h-4 w-4 text-emerald-600" /> Export Excel
+                <FileSpreadsheet className="h-4 w-4 text-emerald-600" /> Export
+                Excel
               </button>
 
               <button

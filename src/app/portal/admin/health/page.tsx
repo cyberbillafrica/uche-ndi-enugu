@@ -17,6 +17,7 @@ import {
 import { subscribeToElectionResults } from "@/lib/firebase/election";
 import { getAllTasks } from "@/lib/firebase/firestore";
 import { runPeriodicAggregationJob } from "@/lib/firebase/jobs";
+import { CURRENT_TENANT_ID } from "@/lib/firebase/tenants";
 
 export default function AdminHealthPage() {
   const [loading, setLoading] = useState(true);
@@ -46,17 +47,17 @@ export default function AdminHealthPage() {
     checkHealth();
 
     const unsubscribe = subscribeToElectionResults(
-      "ifeanyi-4-nkanu",
+      CURRENT_TENANT_ID,
       (docs) => {
         const pending = docs.filter(
-          (d) => d.status === "submitted" || d.status === "pending_review"
+          (d) => d.status === "submitted" || d.status === "pending_review",
         ).length;
         setPendingReviews(pending);
       },
       (err) => {
         console.error("Health check election listener error:", err);
         setDbStatus("error");
-      }
+      },
     );
 
     return () => unsubscribe();
@@ -74,7 +75,8 @@ export default function AdminHealthPage() {
             System Health & Administration Monitoring
           </h1>
           <p className="text-sm text-gray-500 mt-1">
-            Real-time diagnostics for Firebase connectivity, pending election review queues, background job dispatch, and configuration state.
+            Real-time diagnostics for Firebase connectivity, pending election
+            review queues, background job dispatch, and configuration state.
           </p>
         </div>
 
@@ -90,14 +92,22 @@ export default function AdminHealthPage() {
 
       {/* Connectivity Status Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className={dbStatus === "ok" ? "bg-emerald-50/60 border-emerald-200" : "bg-red-50/60 border-red-200"}>
+        <Card
+          className={
+            dbStatus === "ok"
+              ? "bg-emerald-50/60 border-emerald-200"
+              : "bg-red-50/60 border-red-200"
+          }
+        >
           <CardContent className="p-5 flex items-center justify-between">
             <div>
               <p className="text-xs font-bold uppercase tracking-wide text-gray-500">
                 Firestore Database
               </p>
               <p className="text-lg font-bold text-gray-900 mt-1">
-                {dbStatus === "ok" ? "Connected (Healthy)" : "Error / Disconnected"}
+                {dbStatus === "ok"
+                  ? "Connected (Healthy)"
+                  : "Error / Disconnected"}
               </p>
             </div>
             {dbStatus === "ok" ? (
@@ -117,7 +127,9 @@ export default function AdminHealthPage() {
               <p className="text-2xl font-bold font-mono text-amber-800 mt-1">
                 {pendingReviews} PUs
               </p>
-              <p className="text-[11px] text-gray-500">Awaiting Officer Review</p>
+              <p className="text-[11px] text-gray-500">
+                Awaiting Officer Review
+              </p>
             </div>
             <Vote className="h-7 w-7 text-amber-600 shrink-0" />
           </CardContent>
@@ -129,7 +141,9 @@ export default function AdminHealthPage() {
               <p className="text-xs font-bold uppercase tracking-wide text-gray-500">
                 Configured Tasks
               </p>
-              <p className="text-2xl font-bold text-gray-900 mt-1">{taskCount}</p>
+              <p className="text-2xl font-bold text-gray-900 mt-1">
+                {taskCount}
+              </p>
               <p className="text-[11px] text-gray-500">Active Campaign Tasks</p>
             </div>
             <Server className="h-7 w-7 text-apc-primary shrink-0" />
@@ -145,7 +159,9 @@ export default function AdminHealthPage() {
               <p className="text-xs font-bold text-emerald-800 mt-1 truncate">
                 {lastJobTimestamp ? "Last Execution OK" : "Pending Job Sync"}
               </p>
-              <p className="text-[10px] text-gray-400 truncate">{lastJobTimestamp || "Job Idle"}</p>
+              <p className="text-[10px] text-gray-400 truncate">
+                {lastJobTimestamp || "Job Idle"}
+              </p>
             </div>
             <Clock className="h-7 w-7 text-emerald-600 shrink-0" />
           </CardContent>
@@ -160,8 +176,12 @@ export default function AdminHealthPage() {
           <div className="space-y-3 text-xs">
             <div className="p-3 bg-gray-50 rounded-xl border flex items-center justify-between">
               <div>
-                <p className="font-bold text-gray-900">Firebase Auth & Tenant Context</p>
-                <p className="text-gray-500">Active Tenant ID: ifeanyi-4-nkanu</p>
+                <p className="font-bold text-gray-900">
+                  Firebase Auth & Tenant Context
+                </p>
+                <p className="text-gray-500">
+                  Active Tenant ID: {CURRENT_TENANT_ID}
+                </p>
               </div>
               <span className="bg-emerald-100 text-emerald-800 font-bold px-2.5 py-0.5 rounded-full text-[10px]">
                 OPERATIONAL
@@ -170,8 +190,12 @@ export default function AdminHealthPage() {
 
             <div className="p-3 bg-gray-50 rounded-xl border flex items-center justify-between">
               <div>
-                <p className="font-bold text-gray-900">In-App Notification Dispatcher</p>
-                <p className="text-gray-500">Real-time snapshot listener connected</p>
+                <p className="font-bold text-gray-900">
+                  In-App Notification Dispatcher
+                </p>
+                <p className="text-gray-500">
+                  Real-time snapshot listener connected
+                </p>
               </div>
               <span className="bg-emerald-100 text-emerald-800 font-bold px-2.5 py-0.5 rounded-full text-[10px]">
                 OPERATIONAL
@@ -180,8 +204,12 @@ export default function AdminHealthPage() {
 
             <div className="p-3 bg-gray-50 rounded-xl border flex items-center justify-between">
               <div>
-                <p className="font-bold text-gray-900">Cloudinary Evidence Storage</p>
-                <p className="text-gray-500">Dedicated upload presets configured for results & reports</p>
+                <p className="font-bold text-gray-900">
+                  Cloudinary Evidence Storage
+                </p>
+                <p className="text-gray-500">
+                  Dedicated upload presets configured for results & reports
+                </p>
               </div>
               <span className="bg-emerald-100 text-emerald-800 font-bold px-2.5 py-0.5 rounded-full text-[10px]">
                 OPERATIONAL

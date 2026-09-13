@@ -1,14 +1,10 @@
-import {
-  collection,
-  getDocs,
-  query,
-  where,
-} from "firebase/firestore";
+import { collection, getDocs, query, where } from "firebase/firestore";
 import { db } from "@/lib/firebase/config";
 import { createNotification } from "@/lib/firebase/notifications";
+import { CURRENT_TENANT_ID } from "@/lib/firebase/tenants";
 import type { CampaignActivity } from "@/types";
 
-const TENANT_ID = "ifeanyi-4-nkanu";
+const TENANT_ID = CURRENT_TENANT_ID;
 
 /**
  * Server-side / Scheduled job to process upcoming campaign activity reminders.
@@ -23,7 +19,7 @@ export async function runActivityRemindersJob(): Promise<{
     const q = query(
       collection(db, "campaign_activities"),
       where("tenant_id", "==", TENANT_ID),
-      where("date", ">=", todayStr)
+      where("date", ">=", todayStr),
     );
 
     const snap = await getDocs(q);

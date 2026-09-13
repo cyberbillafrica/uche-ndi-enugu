@@ -22,7 +22,11 @@ import {
   getPublishedNews,
 } from "@/lib/firebase/firestore";
 import { getAllCampaignActivities } from "@/lib/firebase/campaignActivities";
-import { subscribeToElectionResults, type ElectionResultDoc } from "@/lib/firebase/election";
+import {
+  subscribeToElectionResults,
+  type ElectionResultDoc,
+} from "@/lib/firebase/election";
+import { CURRENT_TENANT_ID } from "@/lib/firebase/tenants";
 
 interface SearchResultItem {
   id: string;
@@ -84,9 +88,9 @@ export default function GlobalSearchModal() {
     loadSearchData();
 
     const unsubscribe = subscribeToElectionResults(
-      "ifeanyi-4-nkanu",
+      CURRENT_TENANT_ID,
       (docs) => setResults(docs),
-      (err) => console.error(err)
+      (err) => console.error(err),
     );
     return () => unsubscribe();
   }, [open, profile]);
@@ -219,7 +223,9 @@ export default function GlobalSearchModal() {
                 onChange={(e) => setQuery(e.target.value)}
                 className="w-full bg-transparent border-0 text-sm font-semibold focus:ring-0 text-gray-900 outline-none"
               />
-              {loading && <Loader2 className="h-4 w-4 animate-spin text-gray-400 shrink-0" />}
+              {loading && (
+                <Loader2 className="h-4 w-4 animate-spin text-gray-400 shrink-0" />
+              )}
               <button
                 onClick={() => setOpen(false)}
                 className="p-1 hover:bg-gray-200 rounded text-gray-400 hover:text-gray-600"
@@ -233,9 +239,12 @@ export default function GlobalSearchModal() {
               {!query.trim() ? (
                 <div className="p-8 text-center text-gray-400">
                   <Search className="h-8 w-8 mx-auto mb-2 opacity-40 text-apc-primary" />
-                  <p className="font-semibold text-gray-600">Type to search across Politicore</p>
+                  <p className="font-semibold text-gray-600">
+                    Type to search across Politicore
+                  </p>
                   <p className="text-[11px] text-gray-400 mt-1">
-                    Search members, activities, tasks, news articles, and election polling unit records.
+                    Search members, activities, tasks, news articles, and
+                    election polling unit records.
                   </p>
                 </div>
               ) : searchResults.length === 0 ? (
