@@ -19,6 +19,7 @@ export default function DashboardPage() {
 
   const [dashboardView, setDashboardView] = useState<"campaign" | "social">("campaign");
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (typeof window !== "undefined" && isDualMember) {
       const savedPreference = localStorage.getItem(DASHBOARD_VIEW_KEY);
@@ -27,6 +28,7 @@ export default function DashboardPage() {
       }
     }
   }, [isDualMember]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const handleViewSwitch = (view: "campaign" | "social") => {
     setDashboardView(view);

@@ -339,7 +339,7 @@ export default function IncidentsPage() {
                   <select
                     value={form.incident_type}
                     onChange={(e) =>
-                      setForm({ ...form, incident_type: e.target.value as any })
+                      setForm({ ...form, incident_type: e.target.value as ElectionIncidentDoc["incident_type"] })
                     }
                     className="w-full px-3 py-2 border rounded-lg text-sm bg-white"
                     required
@@ -370,7 +370,7 @@ export default function IncidentsPage() {
                   <select
                     value={form.severity}
                     onChange={(e) =>
-                      setForm({ ...form, severity: e.target.value as any })
+                      setForm({ ...form, severity: e.target.value as ElectionIncidentDoc["severity"] })
                     }
                     className="w-full px-3 py-2 border rounded-lg text-sm bg-white"
                     required

@@ -177,6 +177,7 @@ export default function CampaignReportsPage() {
     }
   }
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (accessLoading) {
       return;

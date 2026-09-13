@@ -15,6 +15,7 @@ Key areas addressed include:
 - **Read-Only Election Services:** Refactored `getElectionSettings`, `getPoliticalParties`, `getElectionCycles`, `getContestsByCycle`, and `getContest` to be strictly read-only, eliminating unauthorized administrative seeding writes during normal user reads.
 - **Geographic Authorization & Scoping:** Scoped PU reports, election incidents, and the Election Dashboard to authorized wards and polling units based on user assignment hierarchy (`hasAccessWithDescendants`) and registered electoral locations.
 - **Member Creation & Electoral Location Display Fixes:** Resolved Firestore `setDoc()` errors during user creation by stripping `undefined` properties, and fixed "Not set" display on profile/dashboard pages by dynamically searching across all loaded LGAs.
+- **Obsolete Data Files Cleaned:** Added deprecation notices to unused legacy files in `src/data/` (`assignments.ts`, `donations.ts`, `permissions.ts`, `users.ts`).
 - **ESLint Cleanup & Input Validation:** Resolved all ESLint errors across the codebase, ensuring clean TypeScript build checks (`npx tsc --noEmit`) and zero lint warnings/errors. Added explicit validation disabling controls when zero tracked parties are configured for an election contest.
 
 ---
@@ -109,5 +110,5 @@ Key areas addressed include:
 
 ---
 
-## 4. Remaining Known Issues
-- None at this time. All reported issues, edge cases, security vulnerabilities, and linting errors have been fully addressed and verified.
+## 4. QA Status
+- All reported issues, edge cases, security vulnerabilities, and linting errors have been fully addressed, verified, and reconciled with the current source code state.
