@@ -32,6 +32,7 @@ import {
   Image,
   Bell,
   Check,
+  ShieldCheck,
 } from "lucide-react";
 import {
   subscribeUserNotifications,
@@ -284,6 +285,12 @@ const adminNavigation = [
     name: "Reports",
     href: "/portal/admin/reports",
     icon: BarChart3,
+  },
+
+  {
+    name: "Audit Logs",
+    href: "/portal/admin/audit-logs",
+    icon: ShieldCheck,
   },
 
   {

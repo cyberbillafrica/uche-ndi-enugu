@@ -317,6 +317,10 @@ export interface EnuguStateElectoralData {
   updated_at?: unknown;
 }
 
+export type UserLifecycleStatus = "active" | "suspended" | "deactivated";
+
+export type OnboardingStatus = "pending" | "completed";
+
 export interface UserProfile {
   id?: string;
 
@@ -350,8 +354,11 @@ export interface UserProfile {
   // System access
   access_role: Role;
 
-  // Membership
+  // Membership & Lifecycle
   membership_types: MembershipType[];
+  lifecycle_status?: UserLifecycleStatus;
+  onboarding_status?: OnboardingStatus;
+  status_reason?: string | null;
 
   // Social points
   points: number;
@@ -680,4 +687,36 @@ export interface NotificationItem {
   read_by: string[]; // array of user_ids who marked read
   created_by?: string | null;
   created_at?: unknown;
+}
+
+// ============================================================
+// CENTRALIZED SYSTEM AUDIT LOG SYSTEM
+// ============================================================
+
+export type AuditResource =
+  | "user"
+  | "assignment"
+  | "permission"
+  | "donation"
+  | "task"
+  | "activity"
+  | "field_report"
+  | "issue"
+  | "election_config"
+  | "system_settings";
+
+export interface SystemAuditLog {
+  id: string;
+  tenant_id: string;
+  actor_id: string;
+  actor_name?: string | null;
+  actor_email?: string | null;
+  action: string;
+  affected_resource: AuditResource;
+  resource_id: string;
+  old_value?: Record<string, unknown> | null;
+  new_value?: Record<string, unknown> | null;
+  reason_notes?: string | null;
+  organizational_scope?: string | null;
+  timestamp: unknown;
 }

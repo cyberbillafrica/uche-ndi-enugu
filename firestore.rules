@@ -1048,6 +1048,16 @@ match /notifications/{notificationId} {
 
 
 // ============================================================
+// PLATFORM-WIDE CENTRALIZED SYSTEM AUDIT LOGS
+// ============================================================
+
+match /system_audits/{auditId} {
+  allow read, create: if isAdmin();
+  allow update, delete: if false; // System audit logs are strictly immutable
+}
+
+
+// ============================================================
 // DEFAULT DENY
 // ============================================================
 
