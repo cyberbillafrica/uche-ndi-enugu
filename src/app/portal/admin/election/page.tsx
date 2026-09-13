@@ -112,6 +112,9 @@ export default function AdminElectionManagementPage() {
     running_mate_name: "",
   });
 
+  // Unified Election Mode Toggle (synced with tenants/ifeanyi-4-nkanu)
+  const [electionMode, setElectionMode] = useState<boolean>(true);
+
   const [submitting, setSubmitting] = useState(false);
 
   // Auth guard
@@ -140,6 +143,16 @@ export default function AdminElectionManagementPage() {
 
         const loadedSettings = await getElectionSettings();
         setSettings(loadedSettings);
+
+        // Fetch current tenant election mode setting
+        const { getCurrentTenant } = await import("@/lib/firebase/tenants");
+        const { doc, getDoc } = await import("firebase/firestore");
+        const { db } = await import("@/lib/firebase/config");
+        const tenant = await getCurrentTenant();
+        const tenantSnap = await getDoc(doc(db, "tenants", tenant.id));
+        if (tenantSnap.exists()) {
+          setElectionMode(tenantSnap.data().election_mode_enabled ?? true);
+        }
 
         const loadedCycles = await getElectionCycles();
         setCycles(loadedCycles);
@@ -184,6 +197,36 @@ export default function AdminElectionManagementPage() {
       setCandidates(candList);
     });
   }, [selectedContestForCandidates]);
+
+  const handleToggleElectionMode = async (enabled: boolean) => {
+    if (!profile) return;
+    setSubmitting(true);
+    setFeedback(null);
+    try {
+      const { getCurrentTenant } = await import("@/lib/firebase/tenants");
+      const { doc, setDoc, serverTimestamp } = await import("firebase/firestore");
+      const { db } = await import("@/lib/firebase/config");
+      const tenant = await getCurrentTenant();
+      await setDoc(
+        doc(db, "tenants", tenant.id),
+        { election_mode_enabled: enabled, updated_at: serverTimestamp() },
+        { merge: true }
+      );
+      setElectionMode(enabled);
+      setFeedback({
+        type: "success",
+        text: `Election Mode has been ${enabled ? "ENABLED" : "DISABLED"} system-wide.`,
+      });
+    } catch (err: unknown) {
+      const errorObj = err as Error;
+      setFeedback({
+        type: "error",
+        text: errorObj.message || "Failed to update Election Mode.",
+      });
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   const handleSetActiveContest = async (contestId: string) => {
     if (!profile) return;
@@ -404,16 +447,33 @@ export default function AdminElectionManagementPage() {
           </p>
         </div>
 
-        {/* Current Active Contest Banner */}
-        <div className="bg-apc-light border border-apc-primary/30 p-4 rounded-xl text-xs space-y-1">
-          <span className="text-gray-500 font-medium block">
-            Active Operational Collation Contest:
-          </span>
-          <span className="font-bold text-apc-primary text-sm block">
-            {contests.find((c) => c.id === settings?.active_contest_id)?.name ||
-              settings?.active_contest_id ||
-              "Not Selected"}
-          </span>
+        {/* Unified Control Controls: Election Mode & Active Contest */}
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="bg-gray-50 border p-3 rounded-xl text-xs space-y-1">
+            <span className="text-gray-500 font-semibold block">
+              System Election Mode:
+            </span>
+            <button
+              onClick={() => handleToggleElectionMode(!electionMode)}
+              disabled={submitting}
+              className={`px-3 py-1 text-xs font-bold rounded-lg text-white transition-colors ${
+                electionMode ? "bg-emerald-600 hover:bg-emerald-700" : "bg-red-600 hover:bg-red-700"
+              }`}
+            >
+              {electionMode ? "ENABLED (Live)" : "DISABLED (Off)"}
+            </button>
+          </div>
+
+          <div className="bg-apc-light border border-apc-primary/30 p-3 rounded-xl text-xs space-y-1">
+            <span className="text-gray-500 font-medium block">
+              Active Collation Contest:
+            </span>
+            <span className="font-bold text-apc-primary text-sm block">
+              {contests.find((c) => c.id === settings?.active_contest_id)?.name ||
+                settings?.active_contest_id ||
+                "Not Selected"}
+            </span>
+          </div>
         </div>
       </div>
 

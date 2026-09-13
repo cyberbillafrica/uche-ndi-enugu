@@ -231,6 +231,17 @@ export type CampaignActivityStatus =
   | "completed"
   | "cancelled";
 
+export interface AttendanceParticipant {
+  user_id: string;
+  name: string;
+  rsvp?: "Going" | "Interested" | "Not Going";
+  checked_in?: boolean;
+  checked_in_at?: string | null;
+  checked_out?: boolean;
+  checked_out_at?: string | null;
+  verified_by?: string | null;
+}
+
 export interface CampaignActivity {
   id: string;
 
@@ -255,6 +266,7 @@ export interface CampaignActivity {
   organizer_name?: string;
 
   expected_attendance?: number;
+  participants?: AttendanceParticipant[];
 
   created_at?: unknown;
   updated_at?: unknown;
@@ -317,6 +329,10 @@ export interface EnuguStateElectoralData {
   updated_at?: unknown;
 }
 
+export type UserLifecycleStatus = "active" | "suspended" | "deactivated";
+
+export type OnboardingStatus = "pending" | "completed";
+
 export interface UserProfile {
   id?: string;
 
@@ -350,8 +366,11 @@ export interface UserProfile {
   // System access
   access_role: Role;
 
-  // Membership
+  // Membership & Lifecycle
   membership_types: MembershipType[];
+  lifecycle_status?: UserLifecycleStatus;
+  onboarding_status?: OnboardingStatus;
+  status_reason?: string | null;
 
   // Social points
   points: number;
@@ -579,4 +598,137 @@ export interface ElectionSettings {
   active_contest_id: string | null;
   updated_by?: string;
   updated_at?: unknown;
+}
+
+// ============================================================
+// CANDIDATE DONATION & CONTRIBUTION LEDGER
+// ============================================================
+
+export type DonationStatus = "received" | "pledged" | "cancelled";
+
+export type DonationSourceMethod =
+  | "cash"
+  | "bank_transfer"
+  | "pos"
+  | "cheque"
+  | "other";
+
+export interface DonorRecord {
+  id: string;
+  tenant_id: string;
+  full_name: string;
+  phone?: string | null;
+  email?: string | null;
+  reference_identifier?: string | null;
+  lga_id?: string | null;
+  ward_id?: string | null;
+  total_received_amount: number;
+  contribution_count: number;
+  latest_contribution_date?: string | null;
+  created_at?: unknown;
+  updated_at?: unknown;
+}
+
+export interface DonationRecord {
+  id: string;
+  tenant_id: string;
+  donor_id?: string | null;
+  donor_name: string;
+  donor_phone?: string | null;
+  donor_email?: string | null;
+  donor_reference?: string | null;
+  amount: number;
+  currency: string;
+  date_received: string; // YYYY-MM-DD
+  payment_method: DonationSourceMethod;
+  category: string; // e.g., "campaign_fund", "event_sponsorship", "logistics"
+  status: DonationStatus;
+  external_reference?: string | null;
+  notes?: string | null;
+  lga_id?: string | null;
+  ward_id?: string | null;
+  created_by: string;
+  created_by_name?: string | null;
+  created_at?: unknown;
+  updated_by?: string | null;
+  updated_at?: unknown;
+}
+
+export interface DonationAuditLog {
+  id: string;
+  tenant_id: string;
+  donation_id: string;
+  action: "created" | "updated" | "status_changed" | "cancelled";
+  performed_by: string;
+  performed_by_name?: string | null;
+  performed_at?: unknown;
+  details: string;
+  changes?: {
+    before?: Record<string, unknown>;
+    after?: Record<string, unknown>;
+  };
+}
+
+// ============================================================
+// IN-APP NOTIFICATION SYSTEM & ENGINE
+// ============================================================
+
+export type NotificationType =
+  | "system"
+  | "election_alert"
+  | "task_update"
+  | "activity_reminder"
+  | "report_status"
+  | "issue_update";
+
+export type NotificationTargetType =
+  | "user"
+  | "role"
+  | "scope"
+  | "all";
+
+export interface NotificationItem {
+  id: string;
+  tenant_id: string;
+  type: NotificationType;
+  title: string;
+  message: string;
+  link_url?: string | null;
+  target_type: NotificationTargetType;
+  target_id?: string | null; // user_id, role name, or scope_id
+  read_by: string[]; // array of user_ids who marked read
+  created_by?: string | null;
+  created_at?: unknown;
+}
+
+// ============================================================
+// CENTRALIZED SYSTEM AUDIT LOG SYSTEM
+// ============================================================
+
+export type AuditResource =
+  | "user"
+  | "assignment"
+  | "permission"
+  | "donation"
+  | "task"
+  | "activity"
+  | "field_report"
+  | "issue"
+  | "election_config"
+  | "system_settings";
+
+export interface SystemAuditLog {
+  id: string;
+  tenant_id: string;
+  actor_id: string;
+  actor_name?: string | null;
+  actor_email?: string | null;
+  action: string;
+  affected_resource: AuditResource;
+  resource_id: string;
+  old_value?: Record<string, unknown> | null;
+  new_value?: Record<string, unknown> | null;
+  reason_notes?: string | null;
+  organizational_scope?: string | null;
+  timestamp: unknown;
 }

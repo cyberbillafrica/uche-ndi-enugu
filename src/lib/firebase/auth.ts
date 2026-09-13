@@ -9,7 +9,9 @@ import {
 import { initializeApp, deleteApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 
-import { doc, setDoc, serverTimestamp } from "firebase/firestore";
+import { doc, setDoc, updateDoc, serverTimestamp } from "firebase/firestore";
+import { logSystemAudit } from "@/lib/firebase/audit";
+import type { UserLifecycleStatus, OnboardingStatus } from "@/types";
 
 import { auth, db, firebaseConfig } from "./config";
 
@@ -273,4 +275,39 @@ export async function logOut() {
  */
 export function onAuthStateChange(callback: (user: User | null) => void) {
   return onAuthStateChanged(auth, callback);
+}
+
+/**
+ * Administrative user lifecycle status update (activate, suspend, deactivate, restore).
+ */
+export async function updateUserLifecycleStatus(
+  userId: string,
+  newStatus: UserLifecycleStatus,
+  adminUserId: string,
+  adminUserName?: string,
+  reasonNotes?: string
+) {
+  try {
+    const userRef = doc(db, "users", userId);
+    await updateDoc(userRef, {
+      lifecycle_status: newStatus,
+      status_reason: reasonNotes || null,
+      updated_at: serverTimestamp(),
+    });
+
+    await logSystemAudit({
+      actor_id: adminUserId,
+      actor_name: adminUserName,
+      action: `USER_LIFECYCLE_${newStatus.toUpperCase()}`,
+      affected_resource: "user",
+      resource_id: userId,
+      new_value: { lifecycle_status: newStatus, status_reason: reasonNotes || null },
+      reason_notes: reasonNotes || `User lifecycle updated to ${newStatus}`,
+    });
+
+    return { error: null };
+  } catch (error: unknown) {
+    const err = error as Error;
+    return { error: err.message };
+  }
 }

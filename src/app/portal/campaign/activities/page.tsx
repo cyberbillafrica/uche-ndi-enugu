@@ -136,6 +136,11 @@ export default function CampaignActivitiesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
+  // Filters
+  const [search, setSearch] = useState("");
+  const [filterType, setFilterType] = useState<string>("all");
+  const [filterStatus, setFilterStatus] = useState<string>("all");
+
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState("");
@@ -171,12 +176,6 @@ export default function CampaignActivitiesPage() {
     setError("");
 
     try {
-      if (!canViewCampaignActivities) {
-        setActivities([]);
-        setLoading(false);
-        return;
-      }
-
       const data = isAdmin
         ? await getAllCampaignActivities()
         : await getCampaignActivitiesForAssignments(assignments);
@@ -193,6 +192,26 @@ export default function CampaignActivitiesPage() {
       setLoading(false);
     }
   };
+
+  const filteredActivities = useMemo(() => {
+    return activities.filter((act) => {
+      if (filterType !== "all" && act.activity_type !== filterType) {
+        return false;
+      }
+      if (filterStatus !== "all" && act.status !== filterStatus) {
+        return false;
+      }
+      if (search.trim()) {
+        const term = search.trim().toLowerCase();
+        return (
+          act.title.toLowerCase().includes(term) ||
+          (act.venue && act.venue.toLowerCase().includes(term)) ||
+          (act.description && act.description.toLowerCase().includes(term))
+        );
+      }
+      return true;
+    });
+  }, [activities, filterType, filterStatus, search]);
 
   useEffect(() => {
     if (!accessLoading) {
@@ -410,24 +429,61 @@ export default function CampaignActivitiesPage() {
 
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <CardTitle>
               Activities
               {!loading && (
                 <span className="ml-2 text-sm font-normal text-gray-500">
-                  ({activities.length})
+                  ({filteredActivities.length})
                 </span>
               )}
             </CardTitle>
 
-            <button
-              type="button"
-              onClick={() => void loadActivities()}
-              disabled={loading}
-              className="text-sm text-apc-primary hover:underline disabled:opacity-50"
-            >
-              Refresh
-            </button>
+            <div className="flex flex-wrap items-center gap-2">
+              <input
+                type="search"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search activities..."
+                className="px-3 py-1.5 border rounded-lg text-xs"
+              />
+
+              <select
+                value={filterType}
+                onChange={(e) => setFilterType(e.target.value)}
+                className="px-3 py-1.5 border rounded-lg text-xs"
+              >
+                <option value="all">All Types</option>
+                <option value="meeting">Meeting</option>
+                <option value="rally">Rally</option>
+                <option value="community_engagement">Community Engagement</option>
+                <option value="training">Training</option>
+                <option value="coordination">Coordination</option>
+                <option value="stakeholder_meeting">Stakeholder Meeting</option>
+                <option value="other">Other</option>
+              </select>
+
+              <select
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
+                className="px-3 py-1.5 border rounded-lg text-xs"
+              >
+                <option value="all">All Statuses</option>
+                <option value="scheduled">Scheduled</option>
+                <option value="ongoing">Ongoing</option>
+                <option value="completed">Completed</option>
+                <option value="cancelled">Cancelled</option>
+              </select>
+
+              <button
+                type="button"
+                onClick={() => void loadActivities()}
+                disabled={loading}
+                className="text-xs font-semibold text-apc-primary hover:underline disabled:opacity-50 border px-3 py-1.5 rounded-lg bg-gray-50"
+              >
+                Refresh
+              </button>
+            </div>
           </div>
         </CardHeader>
 
@@ -437,16 +493,18 @@ export default function CampaignActivitiesPage() {
               <Loader2 className="h-5 w-5 animate-spin" />
               <span>Loading activities...</span>
             </div>
-          ) : activities.length === 0 ? (
+          ) : filteredActivities.length === 0 ? (
             <div className="py-12 text-center">
               <CalendarDays className="mx-auto h-10 w-10 text-gray-300" />
 
               <h3 className="mt-4 font-semibold text-gray-900">
-                No activities yet
+                No matching activities
               </h3>
 
               <p className="mt-1 text-sm text-gray-500">
-                There are no campaign activities in your authorized scope.
+                {search || filterType !== "all" || filterStatus !== "all"
+                  ? "Try adjusting your search or filter settings."
+                  : "There are no campaign activities in your authorized scope."}
               </p>
 
               {canCreateActivity && (
@@ -462,11 +520,13 @@ export default function CampaignActivitiesPage() {
             </div>
           ) : (
             <div className="space-y-4">
-              {activities.map((activity) => (
+              {filteredActivities.map((activity) => (
                 <ActivityCard
                   key={activity.id}
                   activity={activity}
                   canManage={canManageCampaignActivities}
+                  profileId={profile?.id ?? ""}
+                  profileName={profile?.full_name ?? ""}
                   onEdit={async (updated) => {
                     if (!activity.id) return;
 
@@ -940,13 +1000,19 @@ function CreateActivityForm({
 function ActivityCard({
   activity,
   canManage,
+  profileId,
+  profileName,
   onEdit,
   onDelete,
 }: {
   activity: CampaignActivity;
   canManage: boolean;
+  profileId: string;
+  profileName: string;
   onEdit: (
-    updated: Partial<Parameters<typeof createCampaignActivity>[0]>,
+    updated: Partial<Parameters<typeof createCampaignActivity>[0]> & {
+      participants?: any[];
+    },
   ) => Promise<void>;
   onDelete: () => Promise<void>;
 }) {
@@ -1195,7 +1261,112 @@ function ActivityCard({
         </div>
       </div>
 
-      <div className="mt-4 flex items-center justify-between gap-3 border-t pt-3">
+      {/* RSVP & Standalone Attendance Management Engine */}
+      <div className="mt-4 border-t pt-3 space-y-3 text-xs">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <span className="font-bold text-gray-700">Your RSVP:</span>
+            {["Going", "Interested", "Not Going"].map((rsvpState) => {
+              const currentP = ((activity.participants || []).find((p) => p.user_id === profileId));
+              const isSelected = currentP?.rsvp === rsvpState;
+
+              return (
+                <button
+                  key={rsvpState}
+                  type="button"
+                  onClick={async () => {
+                    const currentList = activity.participants || [];
+                    const existingP = currentList.find((p) => p.user_id === profileId);
+                    const filtered = currentList.filter((p) => p.user_id !== profileId);
+
+                    if (rsvpState !== "Not Going") {
+                      filtered.push({
+                        ...(existingP || { user_id: profileId, name: profileName }),
+                        rsvp: rsvpState as any,
+                      });
+                    }
+
+                    await onEdit({ participants: filtered });
+                  }}
+                  className={`px-2.5 py-1 rounded-lg border font-semibold transition-colors ${
+                    isSelected
+                      ? "bg-apc-primary text-white font-bold"
+                      : "bg-gray-50 text-gray-700 hover:bg-gray-100"
+                  }`}
+                >
+                  {rsvpState}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Check-In / Check-Out Actions */}
+          <div className="flex items-center gap-2">
+            {(() => {
+              const myP = (activity.participants || []).find((p) => p.user_id === profileId);
+              const isCheckedIn = myP?.checked_in;
+
+              return (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const currentList = activity.participants || [];
+                    const existingP = currentList.find((p) => p.user_id === profileId);
+                    const filtered = currentList.filter((p) => p.user_id !== profileId);
+
+                    const nowISO = new Date().toISOString();
+                    if (!isCheckedIn) {
+                      filtered.push({
+                        ...(existingP || { user_id: profileId, name: profileName }),
+                        checked_in: true,
+                        checked_in_at: nowISO,
+                      });
+                    } else {
+                      filtered.push({
+                        ...(existingP || { user_id: profileId, name: profileName }),
+                        checked_out: true,
+                        checked_out_at: nowISO,
+                      });
+                    }
+
+                    await onEdit({ participants: filtered });
+                  }}
+                  className={`px-3 py-1 rounded-lg font-bold border transition-colors ${
+                    isCheckedIn
+                      ? "bg-amber-100 text-amber-800 border-amber-300 hover:bg-amber-200"
+                      : "bg-emerald-600 text-white hover:bg-emerald-700"
+                  }`}
+                >
+                  {isCheckedIn ? "Check Out" : "Check In Now"}
+                </button>
+              );
+            })()}
+          </div>
+        </div>
+
+        {/* Attendance Statistics */}
+        <div className="p-3 bg-gray-50 rounded-xl border flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <span className="font-bold text-gray-700">Attendance Statistics: </span>
+            <span className="text-gray-600">
+              {(activity.participants || []).filter((p) => p.checked_in).length} Checked-In ·{" "}
+              {(activity.participants || []).filter((p) => p.rsvp === "Going").length} RSVP Going
+            </span>
+          </div>
+
+          <span className="font-semibold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded">
+            {activity.expected_attendance
+              ? `${Math.round(
+                  (((activity.participants || []).filter((p) => p.checked_in).length) /
+                    activity.expected_attendance) *
+                    100
+                )}% Turnout Rate`
+              : "Live Attendance"}
+          </span>
+        </div>
+      </div>
+
+      <div className="mt-3 flex items-center justify-between gap-3 border-t pt-3">
         {activity.organizer_name && (
           <div className="text-xs text-gray-500">
             Organizer:{" "}

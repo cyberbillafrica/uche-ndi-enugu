@@ -30,7 +30,18 @@ import {
   Flag,
   Network,
   Image,
+  Bell,
+  Check,
+  ShieldCheck,
 } from "lucide-react";
+import {
+  subscribeUserNotifications,
+  markNotificationAsRead,
+  markAllNotificationsAsRead,
+} from "@/lib/firebase/notifications";
+import ContextualHelp from "@/components/help/ContextualHelp";
+import GlobalSearchModal from "@/components/search/GlobalSearchModal";
+import type { NotificationItem } from "@/types";
 
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
@@ -109,7 +120,6 @@ const navigation: NavItem[] = [
     name: "Tasks",
     href: "/portal/tasks",
     icon: CheckSquare,
-    socialOnly: true,
   },
 
   {
@@ -239,9 +249,15 @@ const adminNavigation = [
   },
 
   {
-    name: "Tasks",
+    name: "Task Manager",
     href: "/portal/admin/tasks",
     icon: CheckSquare,
+  },
+
+  {
+    name: "Donations",
+    href: "/portal/admin/donations",
+    icon: BarChart3,
   },
 
   {
@@ -271,6 +287,18 @@ const adminNavigation = [
     name: "Reports",
     href: "/portal/admin/reports",
     icon: BarChart3,
+  },
+
+  {
+    name: "Audit Logs",
+    href: "/portal/admin/audit-logs",
+    icon: ShieldCheck,
+  },
+
+  {
+    name: "System Health",
+    href: "/portal/admin/health",
+    icon: Settings,
   },
 
   {
@@ -748,12 +776,15 @@ export default function PortalLayout({
               className="flex items-center space-x-2"
               onClick={() => setSidebarOpen(false)}
             >
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-apc-primary">
-                <span className="font-bold text-white">I</span>
-              </div>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/images/logo.png"
+                alt="PolitiCore Logo"
+                className="h-8 w-auto object-contain"
+              />
 
               <span className="text-lg font-bold text-apc-primary">
-                Nwakaibeya 2027
+                PolitiCore
               </span>
             </Link>
 
@@ -791,12 +822,15 @@ export default function PortalLayout({
         <div className="flex h-full min-h-0 flex-col overflow-hidden border-r bg-white">
           <div className="flex h-16 shrink-0 items-center border-b px-6">
             <Link href="/" className="flex items-center space-x-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-apc-primary">
-                <span className="font-bold text-white">I</span>
-              </div>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/images/logo.png"
+                alt="PolitiCore Logo"
+                className="h-8 w-auto object-contain"
+              />
 
               <span className="text-lg font-bold text-apc-primary">
-                Nwakaibeya 2027
+                PolitiCore
               </span>
             </Link>
           </div>
@@ -825,12 +859,15 @@ export default function PortalLayout({
         <div className="sticky top-0 z-40 border-b bg-white lg:hidden">
           <div className="flex h-16 items-center justify-between px-4">
             <Link href="/" className="flex items-center space-x-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-apc-primary">
-                <span className="font-bold text-white">I</span>
-              </div>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/images/logo.png"
+                alt="PolitiCore Logo"
+                className="h-8 w-auto object-contain"
+              />
 
               <span className="font-bold text-apc-primary">
-                Nwakeibeya 2027
+                PolitiCore
               </span>
             </Link>
 
@@ -845,8 +882,116 @@ export default function PortalLayout({
           </div>
         </div>
 
+        {/* Header Search & Notification Bar */}
+        <div className="flex items-center justify-between px-4 sm:px-6 pt-3">
+          <GlobalSearchModal />
+          <NotificationCenter profile={profile} />
+        </div>
+
+        <ContextualHelp />
+
         <main className="p-4 sm:p-6 lg:p-8">{children}</main>
       </div>
+    </div>
+  );
+}
+
+function NotificationCenter({ profile }: { profile: any }) {
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    if (!profile) return;
+    const unsubscribe = subscribeUserNotifications(profile, setNotifications);
+    return () => unsubscribe();
+  }, [profile]);
+
+  if (!profile) return null;
+
+  const unreadCount = notifications.filter(
+    (n) => !n.read_by.includes(profile.id)
+  ).length;
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((prev) => !prev)}
+        className="relative p-2 text-gray-600 hover:text-apc-primary rounded-full hover:bg-gray-100 transition-colors"
+        aria-label="Notifications"
+      >
+        <Bell className="h-5 w-5" />
+        {unreadCount > 0 && (
+          <span className="absolute top-1 right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-600 text-[10px] font-bold text-white">
+            {unreadCount > 9 ? "9+" : unreadCount}
+          </span>
+        )}
+      </button>
+
+      {open && (
+        <div className="absolute right-0 mt-2 w-80 sm:w-96 rounded-2xl bg-white shadow-xl border border-gray-200 z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+          <div className="flex items-center justify-between p-4 border-b bg-gray-50">
+            <div className="flex items-center gap-2">
+              <Bell className="h-4 w-4 text-apc-primary" />
+              <span className="font-bold text-sm text-gray-900">Notifications</span>
+              {unreadCount > 0 && (
+                <span className="bg-apc-primary/10 text-apc-primary text-xs font-semibold px-2 py-0.5 rounded-full">
+                  {unreadCount} unread
+                </span>
+              )}
+            </div>
+
+            {unreadCount > 0 && (
+              <button
+                onClick={() => markAllNotificationsAsRead(notifications, profile.id)}
+                className="text-xs text-apc-primary hover:underline font-semibold flex items-center gap-1"
+              >
+                <Check className="h-3 w-3" /> Mark all read
+              </button>
+            )}
+          </div>
+
+          <div className="max-h-80 overflow-y-auto divide-y text-xs">
+            {notifications.length === 0 ? (
+              <p className="p-6 text-center text-gray-400">No notifications yet.</p>
+            ) : (
+              notifications.map((n) => {
+                const isUnread = !n.read_by.includes(profile.id);
+                return (
+                  <div
+                    key={n.id}
+                    onClick={() => {
+                      if (isUnread) markNotificationAsRead(n.id, profile.id);
+                    }}
+                    className={cn(
+                      "p-3.5 transition-colors cursor-pointer flex items-start gap-3",
+                      isUnread ? "bg-apc-primary/5 hover:bg-apc-primary/10" : "hover:bg-gray-50"
+                    )}
+                  >
+                    <div className="min-w-0 flex-1 space-y-0.5">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-gray-900">{n.title}</span>
+                        {isUnread && (
+                          <span className="h-2 w-2 rounded-full bg-apc-primary" />
+                        )}
+                      </div>
+                      <p className="text-gray-600 leading-relaxed">{n.message}</p>
+                      {n.link_url && (
+                        <a
+                          href={n.link_url}
+                          className="inline-block text-apc-primary font-semibold hover:underline pt-1"
+                        >
+                          View Details &rarr;
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

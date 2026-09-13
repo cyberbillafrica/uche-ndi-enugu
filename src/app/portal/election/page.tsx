@@ -124,8 +124,8 @@ export default function ElectionDashboard() {
   const [selectedWardId, setSelectedWardId] = useState<string>("all");
 
   // Configurable Party Comparison (Spec Section 38 & 39)
-  const [comparePartyA, setComparePartyA] = useState<string>("apc");
-  const [comparePartyB, setComparePartyB] = useState<string>("pdp");
+  const [comparePartyA, setComparePartyA] = useState<string>("");
+  const [comparePartyB, setComparePartyB] = useState<string>("");
 
   // Modals & Toasts
   const [toastAlerts, setToastAlerts] = useState<AlertToast[]>([]);
@@ -347,6 +347,21 @@ export default function ElectionDashboard() {
   // Current Contest Object & Tracked Parties List
   const currentContest = contests.find((c) => c.id === selectedContestId);
   const trackedParties = currentContest?.tracked_parties ?? [];
+
+  // Dynamically default party comparison selectors when trackedParties loads
+  useEffect(() => {
+    if (trackedParties.length >= 2) {
+      if (!comparePartyA || !trackedParties.includes(comparePartyA)) {
+        setComparePartyA(trackedParties[0]);
+      }
+      if (!comparePartyB || !trackedParties.includes(comparePartyB)) {
+        setComparePartyB(trackedParties[1]);
+      }
+    } else if (trackedParties.length === 1) {
+      setComparePartyA(trackedParties[0]);
+      setComparePartyB(trackedParties[0]);
+    }
+  }, [trackedParties, comparePartyA, comparePartyB]);
 
   // Aggregated Official Party Totals & Operational Breakdown
   const aggregates = useMemo(() => {
@@ -585,13 +600,13 @@ export default function ElectionDashboard() {
         </div>
 
         {/* Global Selectors */}
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-1.5 bg-gray-50 p-2 rounded-xl border border-gray-200">
-            <Layers className="w-4 h-4 text-gray-500" />
+        <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
+          <div className="flex items-center gap-1.5 bg-gray-50 p-2 rounded-xl border border-gray-200 max-w-full min-w-0">
+            <Layers className="w-4 h-4 text-gray-500 shrink-0" />
             <select
               value={selectedCycleId}
               onChange={(e) => setSelectedCycleId(e.target.value)}
-              className="text-xs font-bold text-gray-900 bg-transparent border-0 focus:ring-0 cursor-pointer"
+              className="text-xs font-bold text-gray-900 bg-transparent border-0 focus:ring-0 cursor-pointer truncate max-w-[160px] sm:max-w-xs"
             >
               <option value="all">All Election Cycles</option>
               {cycles.map((cy) => (
@@ -602,12 +617,12 @@ export default function ElectionDashboard() {
             </select>
           </div>
 
-          <div className="flex items-center gap-1.5 bg-apc-light/40 p-2 rounded-xl border border-apc-primary/30">
-            <Vote className="w-4 h-4 text-apc-primary" />
+          <div className="flex items-center gap-1.5 bg-apc-light/40 p-2 rounded-xl border border-apc-primary/30 max-w-full min-w-0">
+            <Vote className="w-4 h-4 text-apc-primary shrink-0" />
             <select
               value={selectedContestId}
               onChange={(e) => setSelectedContestId(e.target.value)}
-              className="text-xs font-bold text-apc-primary bg-transparent border-0 focus:ring-0 cursor-pointer"
+              className="text-xs font-bold text-apc-primary bg-transparent border-0 focus:ring-0 cursor-pointer truncate max-w-[160px] sm:max-w-xs"
             >
               <option value="all">All Open Contests</option>
               {contests.map((c) => (
@@ -622,8 +637,8 @@ export default function ElectionDashboard() {
 
       {/* Filter Bar */}
       <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <Filter className="w-4 h-4 text-gray-500" />
+        <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+          <Filter className="w-4 h-4 text-gray-500 shrink-0" />
           <span className="text-xs font-bold text-gray-700">Geographic Filter:</span>
           <select
             value={selectedLgaId}
@@ -631,7 +646,7 @@ export default function ElectionDashboard() {
               setSelectedLgaId(e.target.value);
               setSelectedWardId("all");
             }}
-            className="px-3 py-1.5 border rounded-lg text-xs font-semibold bg-gray-50"
+            className="px-3 py-1.5 border rounded-lg text-xs font-semibold bg-gray-50 max-w-[140px] sm:max-w-[180px] truncate"
           >
             <option value="all">All LGAs</option>
             {lgas.map((lga) => (
@@ -645,7 +660,7 @@ export default function ElectionDashboard() {
             value={selectedWardId}
             onChange={(e) => setSelectedWardId(e.target.value)}
             disabled={selectedLgaId === "all"}
-            className="px-3 py-1.5 border rounded-lg text-xs font-semibold bg-gray-50 disabled:bg-gray-100"
+            className="px-3 py-1.5 border rounded-lg text-xs font-semibold bg-gray-50 disabled:bg-gray-100 max-w-[150px] sm:max-w-[220px] truncate"
           >
             <option value="all">All Wards</option>
             {selectedLgaId !== "all" &&
@@ -660,14 +675,14 @@ export default function ElectionDashboard() {
         </div>
 
         {/* Party Comparison Selector (Spec Sec 38) */}
-        <div className="flex items-center gap-2 bg-slate-50 p-2 rounded-lg border text-xs">
-          <ArrowRightLeft className="w-3.5 h-3.5 text-slate-500" />
+        <div className="flex flex-wrap items-center gap-2 bg-slate-50 p-2 rounded-lg border text-xs max-w-full">
+          <ArrowRightLeft className="w-3.5 h-3.5 text-slate-500 shrink-0" />
           <span className="font-bold text-slate-700">Compare Parties:</span>
           <select
             value={comparePartyA}
             onChange={(e) => setComparePartyA(e.target.value)}
             disabled={trackedParties.length === 0}
-            className="px-2 py-1 border rounded bg-white font-bold uppercase disabled:bg-gray-100"
+            className="px-2 py-1 border rounded bg-white font-bold uppercase disabled:bg-gray-100 max-w-[90px] truncate"
           >
             {trackedParties.length === 0 ? (
               <option value="">N/A</option>
@@ -684,7 +699,7 @@ export default function ElectionDashboard() {
             value={comparePartyB}
             onChange={(e) => setComparePartyB(e.target.value)}
             disabled={trackedParties.length === 0}
-            className="px-2 py-1 border rounded bg-white font-bold uppercase disabled:bg-gray-100"
+            className="px-2 py-1 border rounded bg-white font-bold uppercase disabled:bg-gray-100 max-w-[90px] truncate"
           >
             {trackedParties.length === 0 ? (
               <option value="">N/A</option>
