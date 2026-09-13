@@ -231,6 +231,17 @@ export type CampaignActivityStatus =
   | "completed"
   | "cancelled";
 
+export interface AttendanceParticipant {
+  user_id: string;
+  name: string;
+  rsvp?: "Going" | "Interested" | "Not Going";
+  checked_in?: boolean;
+  checked_in_at?: string | null;
+  checked_out?: boolean;
+  checked_out_at?: string | null;
+  verified_by?: string | null;
+}
+
 export interface CampaignActivity {
   id: string;
 
@@ -255,6 +266,7 @@ export interface CampaignActivity {
   organizer_name?: string;
 
   expected_attendance?: number;
+  participants?: AttendanceParticipant[];
 
   created_at?: unknown;
   updated_at?: unknown;

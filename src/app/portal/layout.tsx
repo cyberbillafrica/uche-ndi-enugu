@@ -39,6 +39,7 @@ import {
   markNotificationAsRead,
   markAllNotificationsAsRead,
 } from "@/lib/firebase/notifications";
+import ContextualHelp from "@/components/help/ContextualHelp";
 import type { NotificationItem } from "@/types";
 
 import { cn } from "@/lib/utils";
@@ -878,6 +879,8 @@ export default function PortalLayout({
         <div className="flex items-center justify-end px-4 sm:px-6 pt-3">
           <NotificationCenter profile={profile} />
         </div>
+
+        <ContextualHelp />
 
         <main className="p-4 sm:p-6 lg:p-8">{children}</main>
       </div>

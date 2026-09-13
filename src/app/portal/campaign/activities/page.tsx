@@ -1010,7 +1010,9 @@ function ActivityCard({
   profileId: string;
   profileName: string;
   onEdit: (
-    updated: Partial<Parameters<typeof createCampaignActivity>[0]>,
+    updated: Partial<Parameters<typeof createCampaignActivity>[0]> & {
+      participants?: any[];
+    },
   ) => Promise<void>;
   onDelete: () => Promise<void>;
 }) {
@@ -1259,46 +1261,108 @@ function ActivityCard({
         </div>
       </div>
 
-      {/* RSVP Controls & Attendance Tracker */}
-      <div className="mt-4 border-t pt-3 flex flex-wrap items-center justify-between gap-3 text-xs">
-        <div className="flex items-center gap-2">
-          <span className="font-bold text-gray-700">Your RSVP:</span>
-          {["Going", "Interested", "Not Going"].map((rsvpState) => (
-            <button
-              key={rsvpState}
-              onClick={async () => {
-                const currentParticipants = (activity as any).participants || [];
-                const updatedParticipants = currentParticipants.filter(
-                  (p: any) => p.user_id !== profileId
-                );
-                if (rsvpState !== "Not Going") {
-                  updatedParticipants.push({
-                    user_id: profileId,
-                    name: profileName,
-                    rsvp: rsvpState,
-                    updated_at: new Date().toISOString(),
-                  });
-                }
-                await onEdit({
-                  ...activity,
-                  participants: updatedParticipants,
-                } as any);
-              }}
-              className={`px-2.5 py-1 rounded-lg border font-semibold transition-colors ${
-                ((activity as any).participants || []).some(
-                  (p: any) => p.user_id === profileId && p.rsvp === rsvpState
-                )
-                  ? "bg-apc-primary text-white font-bold"
-                  : "bg-gray-50 text-gray-700 hover:bg-gray-100"
-              }`}
-            >
-              {rsvpState}
-            </button>
-          ))}
+      {/* RSVP & Standalone Attendance Management Engine */}
+      <div className="mt-4 border-t pt-3 space-y-3 text-xs">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <span className="font-bold text-gray-700">Your RSVP:</span>
+            {["Going", "Interested", "Not Going"].map((rsvpState) => {
+              const currentP = ((activity.participants || []).find((p) => p.user_id === profileId));
+              const isSelected = currentP?.rsvp === rsvpState;
+
+              return (
+                <button
+                  key={rsvpState}
+                  type="button"
+                  onClick={async () => {
+                    const currentList = activity.participants || [];
+                    const existingP = currentList.find((p) => p.user_id === profileId);
+                    const filtered = currentList.filter((p) => p.user_id !== profileId);
+
+                    if (rsvpState !== "Not Going") {
+                      filtered.push({
+                        ...(existingP || { user_id: profileId, name: profileName }),
+                        rsvp: rsvpState as any,
+                      });
+                    }
+
+                    await onEdit({ participants: filtered });
+                  }}
+                  className={`px-2.5 py-1 rounded-lg border font-semibold transition-colors ${
+                    isSelected
+                      ? "bg-apc-primary text-white font-bold"
+                      : "bg-gray-50 text-gray-700 hover:bg-gray-100"
+                  }`}
+                >
+                  {rsvpState}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Check-In / Check-Out Actions */}
+          <div className="flex items-center gap-2">
+            {(() => {
+              const myP = (activity.participants || []).find((p) => p.user_id === profileId);
+              const isCheckedIn = myP?.checked_in;
+
+              return (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const currentList = activity.participants || [];
+                    const existingP = currentList.find((p) => p.user_id === profileId);
+                    const filtered = currentList.filter((p) => p.user_id !== profileId);
+
+                    const nowISO = new Date().toISOString();
+                    if (!isCheckedIn) {
+                      filtered.push({
+                        ...(existingP || { user_id: profileId, name: profileName }),
+                        checked_in: true,
+                        checked_in_at: nowISO,
+                      });
+                    } else {
+                      filtered.push({
+                        ...(existingP || { user_id: profileId, name: profileName }),
+                        checked_out: true,
+                        checked_out_at: nowISO,
+                      });
+                    }
+
+                    await onEdit({ participants: filtered });
+                  }}
+                  className={`px-3 py-1 rounded-lg font-bold border transition-colors ${
+                    isCheckedIn
+                      ? "bg-amber-100 text-amber-800 border-amber-300 hover:bg-amber-200"
+                      : "bg-emerald-600 text-white hover:bg-emerald-700"
+                  }`}
+                >
+                  {isCheckedIn ? "Check Out" : "Check In Now"}
+                </button>
+              );
+            })()}
+          </div>
         </div>
 
-        <div className="text-gray-500 font-medium">
-          RSVP Count: <span className="font-bold text-gray-900">{((activity as any).participants || []).length} Going/Interested</span>
+        {/* Attendance Statistics */}
+        <div className="p-3 bg-gray-50 rounded-xl border flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <span className="font-bold text-gray-700">Attendance Statistics: </span>
+            <span className="text-gray-600">
+              {(activity.participants || []).filter((p) => p.checked_in).length} Checked-In ·{" "}
+              {(activity.participants || []).filter((p) => p.rsvp === "Going").length} RSVP Going
+            </span>
+          </div>
+
+          <span className="font-semibold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded">
+            {activity.expected_attendance
+              ? `${Math.round(
+                  (((activity.participants || []).filter((p) => p.checked_in).length) /
+                    activity.expected_attendance) *
+                    100
+                )}% Turnout Rate`
+              : "Live Attendance"}
+          </span>
         </div>
       </div>
 
