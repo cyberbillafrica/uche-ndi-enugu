@@ -400,22 +400,43 @@ export function normalizeNewsArticle(id: string, data: Record<string, unknown>):
 }
 
 export async function getPublishedNews(limitCount: number = 20): Promise<NewsArticle[]> {
-  const q = query(
+  const qStatus = query(
     collection(db, "news"),
     where("status", "==", "published"),
     limit(limitCount),
   );
 
+  const qLegacy = query(
+    collection(db, "news"),
+    where("published", "==", true),
+    limit(limitCount),
+  );
+
   try {
-    const snap = await getDocs(q);
-    const articles = snap.docs.map((d) => normalizeNewsArticle(d.id, d.data()));
+    const [snapStatus, snapLegacy] = await Promise.all([
+      getDocs(qStatus).catch(() => ({ docs: [] })),
+      getDocs(qLegacy).catch(() => ({ docs: [] })),
+    ]);
+
+    const articleMap = new Map<string, NewsArticle>();
+
+    snapStatus.docs.forEach((d) => {
+      articleMap.set(d.id, normalizeNewsArticle(d.id, d.data()));
+    });
+    snapLegacy.docs.forEach((d) => {
+      if (!articleMap.has(d.id)) {
+        articleMap.set(d.id, normalizeNewsArticle(d.id, d.data()));
+      }
+    });
+
+    const articles = Array.from(articleMap.values());
     articles.sort((a, b) => {
       const timeA = (a.created_at as { seconds?: number })?.seconds || 0;
       const timeB = (b.created_at as { seconds?: number })?.seconds || 0;
       return timeB - timeA;
     });
 
-    return articles;
+    return articles.slice(0, limitCount);
   } catch (error) {
     console.error("Error fetching published news:", error);
     return [];
@@ -525,7 +546,10 @@ export async function deleteNewsArticle(id: string): Promise<void> {
 /**
  * Get announcements for the current tenant, filtered by user scope
  */
-export async function getUserAnnouncements(userProfile: any): Promise<Announcement[]> {
+export async function getUserAnnouncements(userProfile: {
+  access_role?: string;
+  membership_types?: string[];
+} | null): Promise<Announcement[]> {
   const tenant = await getCurrentTenant();
   const allAnnouncements = await getPortalAnnouncements(tenant.id);
   

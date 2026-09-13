@@ -23,9 +23,11 @@ import {
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
+import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 
-import { getWardById, getPollingUnitById } from "@/lib/constants";
+import { getAllLGAs, getWardById, getPollingUnitById } from "@/lib/constants";
+import type { LGA } from "@/types";
 
 import {
   formatScopeType,
@@ -87,6 +89,19 @@ export default function CampaignDashboard() {
    */
 
   const { profile, assignments: authAssignments, accessLoading } = useAuth();
+  const [lgas, setLgas] = useState<LGA[]>([]);
+
+  useEffect(() => {
+    async function loadLgas() {
+      try {
+        const data = await getAllLGAs();
+        setLgas(data);
+      } catch (err) {
+        console.error("Failed to load LGAs in campaign dashboard:", err);
+      }
+    }
+    loadLgas();
+  }, []);
 
   /*
    * Defensive normalization.
@@ -143,17 +158,24 @@ export default function CampaignDashboard() {
    * ------------------------------------------------------------
    */
 
-  const ward = getWardById(profile.ward_id);
+  const ward = getWardById(profile.ward_id, lgas);
 
   const pollingUnit = getPollingUnitById(
     profile.ward_id,
     profile.polling_unit_id,
+    lgas
   );
 
-  const wardLabel = ward ? `${ward.code} — ${ward.name}` : "Not set";
+  const wardLabel = ward
+    ? `${ward.code} — ${ward.name}`
+    : profile.ward_id
+    ? profile.ward_id
+    : "Not set";
 
   const pollingUnitLabel = pollingUnit
     ? `${pollingUnit.code} — ${pollingUnit.name}`
+    : profile.polling_unit_id
+    ? profile.polling_unit_id
     : "Not set";
 
   /*
@@ -636,8 +658,8 @@ export default function CampaignDashboard() {
               <PriorityRow
                 icon={<CalendarDays className="h-4 w-4" />}
                 title="Upcoming activities"
-                description="Review your campaign calendar."
-                href="/portal/campaign/calendar"
+                description="Review your campaign activities."
+                href="/portal/campaign/activities"
               />
             </div>
           </CardContent>
@@ -754,7 +776,7 @@ export default function CampaignDashboard() {
                   Election functions remain visible to users instead of
                   disappearing. Their actual ability to submit or manage
                   election information is determined by election mode and the
-                  user's authorization.
+                  user&apos;s authorization.
                 </p>
               </div>
             </div>

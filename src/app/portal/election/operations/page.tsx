@@ -212,11 +212,12 @@ export default function ElectionOperationsPage() {
       });
       setReviewNotes("");
       setSelectedResult(null);
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const errorObj = err as Error;
       console.error("Review action error:", err);
       setFeedbackMsg({
         type: "error",
-        text: err.message || "Failed to submit review decision.",
+        text: errorObj.message || "Failed to process review action.",
       });
     } finally {
       setSubmittingAction(false);

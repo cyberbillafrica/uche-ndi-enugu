@@ -3,21 +3,38 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { getAllUsers } from '@/lib/firebase/firestore';
+import { getAllLGAs } from '@/lib/constants';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Plus } from 'lucide-react';
+import type { LGA } from '@/types';
 
 export default function AdminMembersPage() {
   const [members, setMembers] = useState<any[]>([]);
+  const [lgas, setLgas] = useState<LGA[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetch = async () => {
-      const data = await getAllUsers();
-      setMembers(data);
+      const [userData, lgaData] = await Promise.all([
+        getAllUsers(),
+        getAllLGAs(),
+      ]);
+      setMembers(userData);
+      setLgas(lgaData);
       setLoading(false);
     };
     fetch().catch(() => setLoading(false));
   }, []);
+
+  const getWardName = (user: Record<string, unknown>) => {
+    if (user.ward) return String(user.ward);
+    if (!user.ward_id || !lgas.length) return String(user.ward_id || '-');
+    for (const lga of lgas) {
+      const w = lga.wards.find((ward) => ward.id === user.ward_id);
+      if (w) return w.name;
+    }
+    return String(user.ward_id);
+  };
 
   return (
     <div className="space-y-6">
@@ -56,7 +73,7 @@ export default function AdminMembersPage() {
                     <tr key={m.id} className="border-b hover:bg-gray-50">
                       <td className="py-3 px-4 font-medium">{m.full_name}</td>
                       <td className="py-3 px-4 text-gray-600">{m.email}</td>
-                      <td className="py-3 px-4">{m.ward}</td>
+                      <td className="py-3 px-4">{getWardName(m)}</td>
                       <td className="py-3 px-4">
                         {(m.membership_types || []).map((r: string) => (
                           <span key={r} className="inline-block bg-apc-light text-apc-primary text-xs px-2 py-1 rounded mr-1">

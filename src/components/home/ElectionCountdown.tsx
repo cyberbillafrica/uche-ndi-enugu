@@ -56,6 +56,7 @@ export default function ElectionCountdown() {
 
   const [mounted, setMounted] = useState(false);
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     /*
      * We are now safely inside the browser.
@@ -80,6 +81,7 @@ export default function ElectionCountdown() {
       window.clearInterval(interval);
     };
   }, []);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   /*
    * Before hydration has completed, render a static version.

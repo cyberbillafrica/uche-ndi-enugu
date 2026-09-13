@@ -1,0 +1,242 @@
+// ============================================================
+// FIRESTORE SECURITY RULES MIGRATION & RECOMMENDATIONS
+// ============================================================
+// File: docs/new.rules
+// Description: Instructions and complete rule changes required
+// to apply fixes to firestore.rules in production.
+
+/*
+===============================================================
+MIGRATION INSTRUCTIONS
+===============================================================
+
+Step 1: Open `firestore.rules` in your project or Firebase Console.
+
+Step 2: Update `organizational_assignments` rule block.
+        - REPLACE:
+            allow create, update, delete: if isAdmin()
+              && request.resource.data.tenant_id == callerTenantId();
+        - WITH:
+            allow create: if isAdmin()
+              && request.resource.data.tenant_id == callerTenantId();
+
+            allow update: if isAdmin()
+              && resource.data.tenant_id == callerTenantId()
+              && request.resource.data.tenant_id == callerTenantId();
+
+            allow delete: if isAdmin()
+              && resource.data.tenant_id == callerTenantId();
+
+        *Reason:* On document deletion, `request.resource.data` is null in Firestore.
+        Evaluating `request.resource.data.tenant_id` during a delete operation throws
+        a rule evaluation error, preventing admins from deleting assignments.
+
+Step 3: Update `tenants/{tenantId}` update rules to allow Admin settings persistence.
+        - ENSURE:
+            allow create, update: if isAdmin()
+              && tenantId == callerTenantId();
+
+Step 4: Update `election_cycles`, `election_contests`, `election_candidates`, and `election_settings` reads.
+        - Enforce tenant isolation on reads:
+            allow read: if isSignedIn() && resource.data.tenant_id == callerTenantId();
+
+Step 5: Update `election_results` create rule.
+        - Require contest existence and `status == "OPEN"` server-side:
+            && exists(/databases/$(database)/documents/election_contests/$(request.resource.data.contest_id))
+            && get(/databases/$(database)/documents/election_contests/$(request.resource.data.contest_id)).data.status == "OPEN"
+
+Step 6: Update `pu_reports` and `election_incidents` read/create rules.
+        - Restrict reads and creates strictly to tenant, admin, election officer, or registered ward & PU:
+            allow create: if isSignedIn()
+              && request.resource.data.tenant_id == callerTenantId()
+              && request.resource.data.submitted_by == request.auth.uid
+              && (
+                isAdminOrElectionOfficer()
+                || registeredAt(
+                  request.resource.data.ward_id,
+                  request.resource.data.polling_unit_id
+                )
+              );
+
+Step 7: Update `users/{userId}` update rule to preserve electoral integrity.
+        - ADD to `allow update: if isOwner(userId)`:
+            && (resource.data.ward_id == null || request.resource.data.ward_id == resource.data.ward_id)
+            && (resource.data.polling_unit_id == null || request.resource.data.polling_unit_id == resource.data.polling_unit_id);
+
+===============================================================
+FULL RECOMMENDED RULES BLOCKS FOR COPY-PASTE
+===============================================================
+*/
+
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ------------------------------------------------------------
+    // 1. ORGANIZATIONAL ASSIGNMENTS (FIXED DELETE RULE)
+    // ------------------------------------------------------------
+    match /organizational_assignments/{assignmentId} {
+
+      allow read: if isAdmin()
+        || (
+          isSignedIn()
+          && resource.data.user_id == request.auth.uid
+          && resource.data.tenant_id == callerTenantId()
+        );
+
+      allow create: if isAdmin()
+        && request.resource.data.tenant_id == callerTenantId();
+
+      allow update: if isAdmin()
+        && resource.data.tenant_id == callerTenantId()
+        && request.resource.data.tenant_id == callerTenantId();
+
+      allow delete: if isAdmin()
+        && resource.data.tenant_id == callerTenantId();
+    }
+
+    // ------------------------------------------------------------
+    // 2. TENANT-SCOPED ELECTION CONFIGURATION READS & TENANT SETTINGS
+    // ------------------------------------------------------------
+    match /tenants/{tenantId} {
+      allow read: if true;
+      allow create, update: if isAdmin()
+        && tenantId == callerTenantId();
+      allow delete: if false;
+    }
+
+    match /election_cycles/{cycleId} {
+      allow read: if isSignedIn()
+        && resource.data.tenant_id == callerTenantId();
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /election_contests/{contestId} {
+      allow read: if isSignedIn()
+        && resource.data.tenant_id == callerTenantId();
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /election_candidates/{candidateId} {
+      allow read: if isSignedIn()
+        && resource.data.tenant_id == callerTenantId();
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /election_settings/{tenantId} {
+      allow read: if isSignedIn()
+        && tenantId == callerTenantId();
+      allow create, update: if isAdmin();
+    }
+
+    // ------------------------------------------------------------
+    // 3. ELECTION RESULTS AUTHORITATIVE WRITE BOUNDARY
+    // ------------------------------------------------------------
+    function registeredAt(wardId, pollingUnitId) {
+      return isCampaignMember()
+        && callerProfile().ward_id == wardId
+        && callerProfile().polling_unit_id == pollingUnitId;
+    }
+
+    function canReadElectionResultStrict(data) {
+      return sameTenant(data)
+        && (
+          isAdmin()
+          || isElectionOfficer()
+          || registeredAt(data.ward_id, data.polling_unit_id)
+          || hasGlobalAccess("view_election_results")
+          || hasScopedAccess("view_election_results", "ward", data.ward_id)
+          || hasScopedAccess("view_election_results", "polling_unit", data.polling_unit_id)
+        );
+    }
+
+    match /election_results/{resultId} {
+      allow read: if canReadElectionResultStrict(resource.data);
+
+      allow create: if electionModeEnabled()
+        && !exists(/databases/$(database)/documents/election_results/$(resultId))
+        && request.resource.data.tenant_id == callerTenantId()
+        && request.resource.data.submitted_by == request.auth.uid
+        && request.resource.data.ward_id is string
+        && request.resource.data.polling_unit_id is string
+        && request.resource.data.results is list
+        && request.resource.data.status == "submitted"
+        && request.resource.data.verified == false
+        && request.resource.data.cloudinary_url is string
+        && resultId == request.resource.data.contest_id + "__" + request.resource.data.polling_unit_id
+        && exists(/databases/$(database)/documents/election_contests/$(request.resource.data.contest_id))
+        && get(/databases/$(database)/documents/election_contests/$(request.resource.data.contest_id)).data.status == "OPEN"
+        && (
+          isAdminOrElectionOfficer()
+          || registeredAt(
+            request.resource.data.ward_id,
+            request.resource.data.polling_unit_id
+          )
+        );
+    }
+
+    // ------------------------------------------------------------
+    // 4. PU REPORTS & ELECTION INCIDENTS AUTHORIZATION
+    // ------------------------------------------------------------
+    match /pu_reports/{reportId} {
+      allow read: if isSignedIn()
+        && resource.data.tenant_id == callerTenantId()
+        && (
+          isAdminOrElectionOfficer()
+          || registeredAt(resource.data.ward_id, resource.data.polling_unit_id)
+          || hasAccessWithDescendants("review_field_report", "ward", resource.data.ward_id)
+        );
+
+      allow create: if isSignedIn()
+        && request.resource.data.tenant_id == callerTenantId()
+        && request.resource.data.submitted_by == request.auth.uid
+        && (
+          isAdminOrElectionOfficer()
+          || registeredAt(
+            request.resource.data.ward_id,
+            request.resource.data.polling_unit_id
+          )
+        );
+
+      allow update, delete: if isAdmin();
+    }
+
+    match /election_incidents/{incidentId} {
+      allow read: if isSignedIn()
+        && resource.data.tenant_id == callerTenantId()
+        && (
+          isAdminOrElectionOfficer()
+          || registeredAt(resource.data.ward_id, resource.data.polling_unit_id)
+          || hasAccessWithDescendants("manage_issue", "ward", resource.data.ward_id)
+        );
+
+      allow create: if isSignedIn()
+        && request.resource.data.tenant_id == callerTenantId()
+        && request.resource.data.reported_by == request.auth.uid
+        && (
+          isAdminOrElectionOfficer()
+          || registeredAt(
+            request.resource.data.ward_id,
+            request.resource.data.polling_unit_id
+          )
+        );
+
+      allow update, delete: if isAdmin();
+    }
+
+    // ------------------------------------------------------------
+    // 5. USER PROFILE ELECTORAL INTEGRITY
+    // ------------------------------------------------------------
+    match /users/{userId} {
+      allow update: if isOwner(userId)
+        && request.resource.data.access_role == resource.data.access_role
+        && request.resource.data.tenant_id == resource.data.tenant_id
+        && request.resource.data.membership_types == resource.data.membership_types
+        && request.resource.data.points == resource.data.points
+        && request.resource.data.rank == resource.data.rank
+        && (resource.data.ward_id == null || request.resource.data.ward_id == resource.data.ward_id)
+        && (resource.data.polling_unit_id == null || request.resource.data.polling_unit_id == resource.data.polling_unit_id);
+    }
+  }
+}

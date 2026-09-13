@@ -91,11 +91,11 @@ export default function AddMemberPage() {
         polling_unit_id: form.polling_unit_id,
         membership_types: form.membership_types,
         access_role: form.access_role,
-        facebook_username: form.facebook_username || undefined,
-        x_username: form.x_username || undefined,
-        instagram_username: form.instagram_username || undefined,
-        tiktok_username: form.tiktok_username || undefined,
-        gender: form.gender || undefined,
+        ...(form.facebook_username ? { facebook_username: form.facebook_username, facebook_name: form.facebook_username } : {}),
+        ...(form.x_username ? { x_username: form.x_username, x_name: form.x_username } : {}),
+        ...(form.instagram_username ? { instagram_username: form.instagram_username, instagram_name: form.instagram_username } : {}),
+        ...(form.tiktok_username ? { tiktok_username: form.tiktok_username, tiktok_name: form.tiktok_username } : {}),
+        ...(form.gender ? { gender: form.gender } : {}),
       },
     );
 

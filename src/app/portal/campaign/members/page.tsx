@@ -72,33 +72,6 @@ export default function CampaignMembersPage() {
     );
   }
 
-  /*
-   * NO ASSIGNMENT FOR NON-ADMIN
-   */
-  if (!assignment && !isAdmin) {
-    return (
-      <div className="space-y-6 pb-8">
-        <BackLink />
-        <PageHeader />
-
-        <Card className="border-yellow-200 bg-yellow-50">
-          <CardContent className="p-6">
-            <div className="flex gap-4">
-              <AlertTriangle className="h-6 w-6 shrink-0 text-yellow-600" />
-              <div>
-                <h2 className="font-semibold text-yellow-900">
-                  No organizational assignment
-                </h2>
-                <p className="mt-1 text-sm text-yellow-800">
-                  An administrator must assign you to a campaign organizational position before scoped campaign data can be displayed.
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-6 pb-8">
@@ -251,16 +224,28 @@ function MemberRow({ member }: { member: any }) {
   const ward = getWardById(member.ward_id);
   const pollingUnit = getPollingUnitById(member.ward_id, member.polling_unit_id);
 
+  const puName = pollingUnit
+    ? `${pollingUnit.code} — ${pollingUnit.name}`
+    : member.polling_unit_id
+    ? member.polling_unit_id
+    : "Not set";
+
+  const wardName = ward
+    ? `${ward.code} — ${ward.name}`
+    : member.ward_id
+    ? member.ward_id
+    : "Not set";
+
   return (
     <div className="rounded-xl border p-4 transition-colors hover:bg-gray-50">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex items-start gap-3">
+        <div className="flex items-start gap-3 min-w-[200px]">
           <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-apc-primary/10 font-bold text-apc-primary">
             {member.full_name?.charAt(0)?.toUpperCase() ?? "M"}
           </div>
 
           <div>
-            <p className="font-semibold text-gray-900">
+            <p className="font-bold text-gray-900 text-base">
               {member.full_name || "Member"}
             </p>
 
@@ -268,7 +253,7 @@ function MemberRow({ member }: { member: any }) {
               {member.membership_types?.map((type: string) => (
                 <span
                   key={type}
-                  className="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-600"
+                  className="rounded-full bg-gray-100 px-2.5 py-0.5 text-[11px] font-semibold text-gray-600 capitalize"
                 >
                   {type.replace("_", " ")}
                 </span>
@@ -277,38 +262,36 @@ function MemberRow({ member }: { member: any }) {
           </div>
         </div>
 
-        <div className="text-sm">
-          <div className="flex items-center gap-2 text-gray-600">
-            <MapPin className="h-4 w-4 text-gray-400" />
-            <span>{ward ? ward.name : member.ward_id || "State-wide"}</span>
+        <div className="space-y-1 text-sm text-gray-700 min-w-[180px]">
+          <div className="flex items-center gap-2">
+            <Phone className="h-4 w-4 text-apc-primary shrink-0" />
+            <span className="font-semibold text-gray-900">{member.phone || "No phone listed"}</span>
           </div>
-          <p className="mt-1 pl-6 text-xs text-gray-400">
-            {pollingUnit ? pollingUnit.name : member.polling_unit_id || "All PUs"}
-          </p>
-        </div>
-
-        <div className="space-y-1 text-sm text-gray-500">
-          {member.phone && (
-            <div className="flex items-center gap-2">
-              <Phone className="h-3.5 w-3.5" />
-              <span>{member.phone}</span>
-            </div>
-          )}
 
           {member.email && (
-            <div className="flex items-center gap-2">
-              <Mail className="h-3.5 w-3.5" />
+            <div className="flex items-center gap-2 text-xs text-gray-500">
+              <Mail className="h-3.5 w-3.5 shrink-0" />
               <span className="truncate">{member.email}</span>
             </div>
           )}
         </div>
 
+        <div className="text-sm space-y-0.5 min-w-[220px]">
+          <div className="flex items-center gap-2 text-gray-700">
+            <MapPin className="h-4 w-4 text-emerald-600 shrink-0" />
+            <span className="font-medium text-xs">Ward: {wardName}</span>
+          </div>
+          <p className="pl-6 text-xs text-gray-500 font-medium">
+            PU: {puName}
+          </p>
+        </div>
+
         <Link
           href={`/portal/campaign/members/${member.id}`}
-          className="inline-flex items-center gap-1 text-sm font-semibold text-apc-primary hover:underline"
+          className="inline-flex items-center gap-1 text-xs font-bold text-apc-primary hover:underline bg-apc-primary/5 px-3 py-1.5 rounded-lg border border-apc-primary/20 shrink-0"
         >
-          View
-          <ArrowRight className="h-4 w-4" />
+          View Profile
+          <ArrowRight className="h-3.5 w-3.5" />
         </Link>
       </div>
     </div>

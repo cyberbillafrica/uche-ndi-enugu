@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  addDoc,
   collection,
   deleteDoc,
   doc,
@@ -10,8 +9,8 @@ import {
   query,
   serverTimestamp,
   setDoc,
-  updateDoc,
   where,
+  writeBatch,
 } from "firebase/firestore";
 
 import { db } from "./config";
@@ -181,22 +180,38 @@ export async function createPermissionGrant(data: {
   scope_id?: string | null;
   granted_by: string;
 }): Promise<string> {
-  const ref = await addDoc(collection(db, COLLECTION), {
+  const batch = writeBatch(db);
+
+  const grantRef = doc(collection(db, COLLECTION));
+  batch.set(grantRef, {
     ...data,
     created_at: serverTimestamp(),
     updated_at: serverTimestamp(),
   });
 
-  await writeUserAccessIndex({
-    tenant_id: data.tenant_id,
-    user_id: data.user_id,
-    permission: data.permission,
-    granted: data.granted,
-    scope_type: data.scope_type,
-    scope_id: data.scope_id,
-  });
+  const accessDocId = userAccessDocId(
+    data.user_id,
+    data.permission,
+    data.scope_type,
+    data.scope_id,
+  );
+  const accessRef = doc(db, "user_access", accessDocId);
+  batch.set(
+    accessRef,
+    {
+      user_id: data.user_id,
+      tenant_id: data.tenant_id,
+      permission: data.permission,
+      allowed: data.granted,
+      scope_type: data.scope_type ?? null,
+      scope_id: data.scope_id ?? null,
+      updated_at: serverTimestamp(),
+    },
+    { merge: true },
+  );
 
-  return ref.id;
+  await batch.commit();
+  return grantRef.id;
 }
 
 /*
@@ -221,7 +236,6 @@ export async function updatePermissionGrant(
   }>,
 ): Promise<void> {
   const grantRef = doc(db, COLLECTION, grantId);
-
   const beforeSnap = await getDoc(grantRef);
 
   if (!beforeSnap.exists()) {
@@ -233,27 +247,50 @@ export async function updatePermissionGrant(
     ...beforeSnap.data(),
   } as PermissionGrant;
 
-  await removeUserAccessIndex(
+  const batch = writeBatch(db);
+
+  // Remove old access index doc if permission or scope changed
+  const oldAccessDocId = userAccessDocId(
     previous.user_id,
     previous.permission,
     previous.scope_type,
     previous.scope_id,
   );
+  batch.delete(doc(db, "user_access", oldAccessDocId));
 
-  await updateDoc(grantRef, {
+  // Update grant document
+  batch.update(grantRef, {
     ...data,
     updated_at: serverTimestamp(),
   });
 
-  await writeUserAccessIndex({
-    tenant_id: previous.tenant_id,
-    user_id: previous.user_id,
-    permission: data.permission ?? previous.permission,
-    granted: data.granted ?? previous.granted,
-    scope_type:
-      data.scope_type !== undefined ? data.scope_type : previous.scope_type,
-    scope_id: data.scope_id !== undefined ? data.scope_id : previous.scope_id,
-  });
+  // Write new access index doc
+  const nextPermission = data.permission ?? previous.permission;
+  const nextScopeType = data.scope_type !== undefined ? data.scope_type : previous.scope_type;
+  const nextScopeId = data.scope_id !== undefined ? data.scope_id : previous.scope_id;
+  const nextGranted = data.granted ?? previous.granted;
+
+  const newAccessDocId = userAccessDocId(
+    previous.user_id,
+    nextPermission,
+    nextScopeType,
+    nextScopeId,
+  );
+  batch.set(
+    doc(db, "user_access", newAccessDocId),
+    {
+      user_id: previous.user_id,
+      tenant_id: previous.tenant_id,
+      permission: nextPermission,
+      allowed: nextGranted,
+      scope_type: nextScopeType ?? null,
+      scope_id: nextScopeId ?? null,
+      updated_at: serverTimestamp(),
+    },
+    { merge: true },
+  );
+
+  await batch.commit();
 }
 
 /*
@@ -267,7 +304,6 @@ export async function updatePermissionGrant(
 
 export async function deletePermissionGrant(grantId: string): Promise<void> {
   const grantRef = doc(db, COLLECTION, grantId);
-
   const beforeSnap = await getDoc(grantRef);
 
   if (!beforeSnap.exists()) {
@@ -279,12 +315,16 @@ export async function deletePermissionGrant(grantId: string): Promise<void> {
     ...beforeSnap.data(),
   } as PermissionGrant;
 
-  await removeUserAccessIndex(
+  const batch = writeBatch(db);
+
+  const oldAccessDocId = userAccessDocId(
     previous.user_id,
     previous.permission,
     previous.scope_type,
     previous.scope_id,
   );
+  batch.delete(doc(db, "user_access", oldAccessDocId));
+  batch.delete(grantRef);
 
-  await deleteDoc(grantRef);
+  await batch.commit();
 }

@@ -37,6 +37,32 @@ export function useScopedCampaignMembers(
     }
 
     if (!assignment) {
+      // Ordinary members without specific administrative assignments are scoped to their registered Polling Unit & Ward
+      if (profile?.polling_unit_id || profile?.ward_id) {
+        try {
+          setLoading(true);
+          setError(null);
+          setScopeSupported(true);
+          const allMembers = await getAllCampaignMembersForTenant();
+          const puScoped = allMembers.filter((m) => {
+            if (profile.polling_unit_id && m.polling_unit_id) {
+              return m.polling_unit_id === profile.polling_unit_id;
+            }
+            if (profile.ward_id && m.ward_id) {
+              return m.ward_id === profile.ward_id;
+            }
+            return false;
+          });
+          setMembers(puScoped);
+        } catch (err) {
+          console.error("Failed to load PU scoped campaign members:", err);
+          setError("Unable to load members in your polling unit.");
+        } finally {
+          setLoading(false);
+        }
+        return;
+      }
+
       setMembers([]);
       setError(null);
       setScopeSupported(true);
@@ -68,9 +94,11 @@ export function useScopedCampaignMembers(
     }
   }, [assignment, profile]);
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     loadMembers();
   }, [loadMembers]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   return {
     members,

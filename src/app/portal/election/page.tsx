@@ -72,8 +72,8 @@ function getDocTimestamp(doc: ElectionResultDoc): number {
     return isNaN(t) ? 0 : t;
   }
   if (typeof ts === "object") {
-    if ("seconds" in ts && typeof (ts as any).seconds === "number") {
-      return (ts as any).seconds * 1000;
+    if ("seconds" in ts && typeof (ts as { seconds?: number }).seconds === "number") {
+      return (ts as { seconds: number }).seconds * 1000;
     }
     if (ts instanceof Date) {
       return ts.getTime();
@@ -282,12 +282,31 @@ export default function ElectionDashboard() {
 
   // Hierarchical Scope Filtering
   const coveredResults = useMemo(() => {
-    if (isAdmin) return results;
+    if (isAdmin || profile?.access_role === "election_officer") return results;
 
     const activeAssignments = assignments.filter((a) => a.status === "active");
-    if (activeAssignments.length === 0) return [];
+
+    // Ordinary member without specific administrative assignments is scoped to their registered PU
+    if (activeAssignments.length === 0) {
+      if (profile?.ward_id && profile?.polling_unit_id) {
+        return results.filter(
+          (r) =>
+            r.ward_id === profile.ward_id &&
+            r.polling_unit_id === profile.polling_unit_id
+        );
+      }
+      return [];
+    }
 
     return results.filter((result) => {
+      // Check if user's registered PU matches
+      if (
+        profile?.ward_id === result.ward_id &&
+        profile?.polling_unit_id === result.polling_unit_id
+      ) {
+        return true;
+      }
+
       return activeAssignments.some(
         (assignment) =>
           assignmentCoversScope(
@@ -302,7 +321,7 @@ export default function ElectionDashboard() {
           )
       );
     });
-  }, [isAdmin, assignments, results, lgas]);
+  }, [isAdmin, profile, assignments, results, lgas]);
 
   // Operational Submissions vs Official Results
   const operationalSubmissions = useMemo(() => {
@@ -369,10 +388,26 @@ export default function ElectionDashboard() {
     const clarifyCount = operationalSubmissions.filter((r) => r.status === "clarification_required").length;
     const reopenedCount = operationalSubmissions.filter((r) => r.status === "reopened").length;
 
-    const totalPUsInScope = lgas.reduce(
-      (acc, l) => acc + l.wards.reduce((wAcc, w) => wAcc + w.pollingUnits.length, 0),
-      0
-    );
+    let totalPUsInScope = 0;
+    if (selectedWardId !== "all") {
+      for (const l of lgas) {
+        const w = l.wards.find((item) => item.id === selectedWardId);
+        if (w) {
+          totalPUsInScope = w.pollingUnits.length;
+          break;
+        }
+      }
+    } else if (selectedLgaId !== "all") {
+      const l = lgas.find((item) => item.id === selectedLgaId);
+      if (l) {
+        totalPUsInScope = l.wards.reduce((acc, w) => acc + w.pollingUnits.length, 0);
+      }
+    } else {
+      totalPUsInScope = lgas.reduce(
+        (acc, l) => acc + l.wards.reduce((wAcc, w) => wAcc + w.pollingUnits.length, 0),
+        0
+      );
+    }
 
     const reportingPercent = totalPUsInScope > 0
       ? ((approvedCount / totalPUsInScope) * 100).toFixed(1)
@@ -398,7 +433,7 @@ export default function ElectionDashboard() {
 
   // Chart Data per Ward
   const wardChartData = useMemo(() => {
-    const wardMap = new Map<string, Record<string, any>>();
+    const wardMap = new Map<string, Record<string, unknown>>();
 
     for (const r of officialApprovedResults) {
       let wardName = r.ward_id;
@@ -421,7 +456,7 @@ export default function ElectionDashboard() {
       const entry = wardMap.get(wardName)!;
       for (const pr of r.results) {
         const pKey = pr.party.toUpperCase();
-        entry[pKey] = (entry[pKey] || 0) + (Number(pr.votes) || 0);
+        entry[pKey] = ((entry[pKey] as number) || 0) + (Number(pr.votes) || 0);
       }
     }
 

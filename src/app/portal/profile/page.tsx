@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { FaFacebook, FaInstagram, FaTiktok } from "react-icons/fa";
@@ -11,11 +11,25 @@ import { ExternalLink, MapPin, ShieldCheck, User, Users } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 import { useAuth } from "@/contexts/AuthContext";
-import { getWardById, getPollingUnitById } from "@/lib/constants";
+import { getAllLGAs, getWardById, getPollingUnitById } from "@/lib/constants";
+import type { LGA } from "@/types";
 
 export default function ProfilePage() {
   const { user, profile, loading } = useAuth();
   const router = useRouter();
+  const [lgas, setLgas] = useState<LGA[]>([]);
+
+  useEffect(() => {
+    async function loadLgas() {
+      try {
+        const data = await getAllLGAs();
+        setLgas(data);
+      } catch (err) {
+        console.error("Failed to load LGAs in profile:", err);
+      }
+    }
+    loadLgas();
+  }, []);
 
   // ─────────────────────────────────────────────
   // Authentication
@@ -57,17 +71,24 @@ export default function ProfilePage() {
   // Electoral information
   // ─────────────────────────────────────────────
 
-  const ward = getWardById(profile.ward_id);
+  const ward = getWardById(profile.ward_id, lgas);
 
   const pollingUnit = getPollingUnitById(
     profile.ward_id,
     profile.polling_unit_id,
+    lgas
   );
 
-  const wardLabel = ward ? `${ward.code} — ${ward.name}` : "Not set";
+  const wardLabel = ward
+    ? `${ward.code} — ${ward.name}`
+    : profile.ward_id
+    ? profile.ward_id
+    : "Not set";
 
   const pollingUnitLabel = pollingUnit
     ? `${pollingUnit.code} — ${pollingUnit.name}`
+    : profile.polling_unit_id
+    ? profile.polling_unit_id
     : "Not set";
 
   // ─────────────────────────────────────────────

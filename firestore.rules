@@ -575,8 +575,15 @@ match /organizational_assignments/{assignmentId} {
       && resource.data.tenant_id == callerTenantId()
     );
 
-  allow create, update, delete: if isAdmin()
+  allow create: if isAdmin()
     && request.resource.data.tenant_id == callerTenantId();
+
+  allow update: if isAdmin()
+    && resource.data.tenant_id == callerTenantId()
+    && request.resource.data.tenant_id == callerTenantId();
+
+  allow delete: if isAdmin()
+    && resource.data.tenant_id == callerTenantId();
 }
 
 
@@ -798,12 +805,14 @@ match /issues/{issueId} {
 // ============================================================
 
 match /election_cycles/{cycleId} {
-  allow read: if isSignedIn();
+  allow read: if isSignedIn()
+    && resource.data.tenant_id == callerTenantId();
   allow create, update, delete: if isAdmin();
 }
 
 match /election_contests/{contestId} {
-  allow read: if isSignedIn();
+  allow read: if isSignedIn()
+    && resource.data.tenant_id == callerTenantId();
   allow create, update, delete: if isAdmin();
 }
 
@@ -813,12 +822,14 @@ match /political_parties/{partyId} {
 }
 
 match /election_candidates/{candidateId} {
-  allow read: if isSignedIn();
+  allow read: if isSignedIn()
+    && resource.data.tenant_id == callerTenantId();
   allow create, update, delete: if isAdmin();
 }
 
 match /election_settings/{tenantId} {
-  allow read: if isSignedIn();
+  allow read: if isSignedIn()
+    && tenantId == callerTenantId();
   allow create, update: if isAdmin();
 }
 
@@ -856,10 +867,13 @@ match /election_results/{resultId} {
     && request.resource.data.status == "submitted"
     && request.resource.data.verified == false
     && request.resource.data.cloudinary_url is string
-    && (
-      resultId == request.resource.data.contest_id + "__" + request.resource.data.polling_unit_id
-      || resultId == request.resource.data.ward_id + "__" + request.resource.data.polling_unit_id
+    && resultId == request.resource.data.contest_id + "__" + request.resource.data.polling_unit_id
+    && exists(
+      /databases/$(database)/documents/election_contests/$(request.resource.data.contest_id)
     )
+    && get(
+      /databases/$(database)/documents/election_contests/$(request.resource.data.contest_id)
+    ).data.status == "OPEN"
     && (
       isAdminOrElectionOfficer()
       ||
@@ -896,22 +910,30 @@ match /election_results/{resultId} {
 
 match /pu_reports/{reportId} {
 
-  /*
-   * Preserve existing tenant-wide read behaviour so existing
-   * Election reporting pages do not unexpectedly stop working.
-   */
   allow read: if isSignedIn()
-    && resource.data.tenant_id == callerTenantId();
+    && resource.data.tenant_id == callerTenantId()
+    && (
+      isAdminOrElectionOfficer()
+      || (
+        registeredAt(resource.data.ward_id, resource.data.polling_unit_id)
+      )
+      || hasAccessWithDescendants(
+        "review_field_report",
+        "ward",
+        resource.data.ward_id
+      )
+    );
 
-  /*
-   * Any authenticated user may create only their own report.
-   *
-   * Existing behaviour is retained, while Election users are
-   * expected to submit against their registered PU.
-   */
   allow create: if isSignedIn()
     && request.resource.data.tenant_id == callerTenantId()
-    && request.resource.data.submitted_by == request.auth.uid;
+    && request.resource.data.submitted_by == request.auth.uid
+    && (
+      isAdminOrElectionOfficer()
+      || registeredAt(
+        request.resource.data.ward_id,
+        request.resource.data.polling_unit_id
+      )
+    );
 
   allow update, delete: if isAdmin();
 }
@@ -923,15 +945,30 @@ match /pu_reports/{reportId} {
 
 match /election_incidents/{incidentId} {
 
-  /*
-   * Preserve existing tenant-wide read behaviour.
-   */
   allow read: if isSignedIn()
-    && resource.data.tenant_id == callerTenantId();
+    && resource.data.tenant_id == callerTenantId()
+    && (
+      isAdminOrElectionOfficer()
+      || (
+        registeredAt(resource.data.ward_id, resource.data.polling_unit_id)
+      )
+      || hasAccessWithDescendants(
+        "manage_issue",
+        "ward",
+        resource.data.ward_id
+      )
+    );
 
   allow create: if isSignedIn()
     && request.resource.data.tenant_id == callerTenantId()
-    && request.resource.data.reported_by == request.auth.uid;
+    && request.resource.data.reported_by == request.auth.uid
+    && (
+      isAdminOrElectionOfficer()
+      || registeredAt(
+        request.resource.data.ward_id,
+        request.resource.data.polling_unit_id
+      )
+    );
 
   allow update, delete: if isAdmin();
 }

@@ -1,46 +1,250 @@
-'use client';
+"use client";
 
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { BarChart3, TrendingUp } from 'lucide-react';
+import { useEffect, useState } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { getAllUsers, getAllTasks } from "@/lib/firebase/firestore";
+import { getAllLGAs } from "@/lib/constants";
+import {
+  BarChart3,
+  Download,
+  Printer,
+  Users,
+  Award,
+  CheckSquare,
+  TrendingUp,
+  MapPin,
+  Loader2,
+} from "lucide-react";
+import type { LGA } from "@/types";
 
 export default function AdminReportsPage() {
-  return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-gray-900">Reports</h1>
+  const [users, setUsers] = useState<any[]>([]);
+  const [tasks, setTasks] = useState<any[]>([]);
+  const [lgas, setLgas] = useState<LGA[]>([]);
+  const [loading, setLoading] = useState(true);
 
-      <div className="grid md:grid-cols-2 gap-6">
+  useEffect(() => {
+    async function loadData() {
+      try {
+        const [userData, taskData, lgaData] = await Promise.all([
+          getAllUsers(),
+          getAllTasks(),
+          getAllLGAs(),
+        ]);
+        setUsers(userData);
+        setTasks(taskData);
+        setLgas(lgaData);
+      } catch (err) {
+        console.error("Failed to load admin reports data:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadData();
+  }, []);
+
+  const totalMembers = users.length;
+  const campaignMembers = users.filter((u) =>
+    u.membership_types?.includes("campaign_member")
+  ).length;
+  const socialMembers = users.filter((u) =>
+    u.membership_types?.includes("social_member")
+  ).length;
+  const totalPoints = users.reduce((acc, u) => acc + (Number(u.points) || 0), 0);
+
+  // Ward performance map
+  const wardMap = new Map<string, { name: string; count: number; points: number }>();
+
+  users.forEach((u) => {
+    let wardName = u.ward || u.ward_id || "Unassigned";
+    if (u.ward_id && lgas.length > 0) {
+      for (const l of lgas) {
+        const w = l.wards.find((item) => item.id === u.ward_id);
+        if (w) {
+          wardName = w.name;
+          break;
+        }
+      }
+    }
+
+    if (!wardMap.has(wardName)) {
+      wardMap.set(wardName, { name: wardName, count: 0, points: 0 });
+    }
+    const entry = wardMap.get(wardName)!;
+    entry.count += 1;
+    entry.points += Number(u.points) || 0;
+  });
+
+  const wardPerformance = Array.from(wardMap.values()).sort(
+    (a, b) => b.points - a.points
+  );
+
+  const exportCSV = () => {
+    const headers = ["Member Name,Email,Ward,Membership,Points\n"];
+    const rows = users.map(
+      (u) =>
+        `"${u.full_name || ""}","${u.email || ""}","${u.ward_id || ""}","${(
+          u.membership_types || []
+        ).join(";")}",${u.points || 0}`
+    );
+    const csvContent = "data:text/csv;charset=utf-8," + headers.concat(rows).join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `campaign_engagement_report_${Date.now()}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handlePrint = () => {
+    window.print();
+  };
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[50vh] space-y-3">
+        <Loader2 className="h-8 w-8 animate-spin text-apc-primary" />
+        <span className="text-sm text-gray-500">Generating analytics reports...</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6 pb-12">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Campaign Analytics & Reports</h1>
+          <p className="text-sm text-gray-500">
+            Real-time performance metrics across member registrations, tasks, and ward distributions.
+          </p>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <button
+            onClick={exportCSV}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-white border rounded-lg text-xs font-semibold text-gray-700 hover:bg-gray-50 shadow-sm"
+          >
+            <Download className="h-4 w-4 text-apc-primary" /> Export CSV
+          </button>
+          <button
+            onClick={handlePrint}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-apc-primary text-white rounded-lg text-xs font-semibold hover:bg-apc-dark shadow-sm"
+          >
+            <Printer className="h-4 w-4" /> Print Report
+          </button>
+        </div>
+      </div>
+
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center space-x-2">
-              <TrendingUp className="h-5 w-5 text-apc-primary" />
-              <span>Engagement Overview</span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-gray-600">Member registrations, task completions, points earned.</p>
-            <div className="mt-4 h-48 bg-gray-100 rounded-lg flex items-center justify-center">
-              <BarChart3 className="h-12 w-12 text-gray-400" />
+          <CardContent className="p-5 flex items-center justify-between">
+            <div>
+              <p className="text-xs font-bold text-gray-400 uppercase">Total Registered</p>
+              <p className="text-2xl font-bold text-gray-900 mt-1">{totalMembers}</p>
             </div>
+            <Users className="h-8 w-8 text-blue-600 shrink-0" />
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center space-x-2">
-              <BarChart3 className="h-5 w-5 text-apc-primary" />
-              <span>Ward Performance</span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-gray-600">Top‑performing wards by volunteer sign‑ups and points.</p>
-            <div className="mt-4 h-48 bg-gray-100 rounded-lg flex items-center justify-center">
-              <BarChart3 className="h-12 w-12 text-gray-400" />
+          <CardContent className="p-5 flex items-center justify-between">
+            <div>
+              <p className="text-xs font-bold text-gray-400 uppercase">Campaign Council</p>
+              <p className="text-2xl font-bold text-emerald-800 mt-1">{campaignMembers}</p>
             </div>
+            <TrendingUp className="h-8 w-8 text-emerald-600 shrink-0" />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-5 flex items-center justify-between">
+            <div>
+              <p className="text-xs font-bold text-gray-400 uppercase">Active Tasks</p>
+              <p className="text-2xl font-bold text-amber-800 mt-1">{tasks.length}</p>
+            </div>
+            <CheckSquare className="h-8 w-8 text-amber-600 shrink-0" />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-5 flex items-center justify-between">
+            <div>
+              <p className="text-xs font-bold text-gray-400 uppercase">Awarded Points</p>
+              <p className="text-2xl font-bold text-purple-900 mt-1">
+                {totalPoints.toLocaleString()}
+              </p>
+            </div>
+            <Award className="h-8 w-8 text-purple-600 shrink-0" />
           </CardContent>
         </Card>
       </div>
 
-      <p className="text-gray-500">Detailed charts and exportable reports will be available in the next update.</p>
+      <div className="grid md:grid-cols-2 gap-6">
+        {/* Member Breakdown */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base font-bold">
+              <BarChart3 className="h-5 w-5 text-apc-primary" />
+              Member Type Distribution
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <div className="flex justify-between text-xs font-semibold mb-1">
+                <span>Campaign Council Members</span>
+                <span>{campaignMembers} ({totalMembers > 0 ? ((campaignMembers / totalMembers) * 100).toFixed(1) : 0}%)</span>
+              </div>
+              <div className="w-full bg-gray-100 rounded-full h-2.5">
+                <div
+                  className="bg-emerald-600 h-2.5 rounded-full"
+                  style={{ width: `${totalMembers > 0 ? (campaignMembers / totalMembers) * 100 : 0}%` }}
+                />
+              </div>
+            </div>
+
+            <div>
+              <div className="flex justify-between text-xs font-semibold mb-1">
+                <span>Social Media Members</span>
+                <span>{socialMembers} ({totalMembers > 0 ? ((socialMembers / totalMembers) * 100).toFixed(1) : 0}%)</span>
+              </div>
+              <div className="w-full bg-gray-100 rounded-full h-2.5">
+                <div
+                  className="bg-apc-primary h-2.5 rounded-full"
+                  style={{ width: `${totalMembers > 0 ? (socialMembers / totalMembers) * 100 : 0}%` }}
+                />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Top Wards */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base font-bold">
+              <MapPin className="h-5 w-5 text-apc-primary" />
+              Top Performing Wards (by Points & Registrations)
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {wardPerformance.slice(0, 5).map((w, idx) => (
+                <div key={w.name} className="flex items-center justify-between text-xs border-b pb-2">
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-gray-400">#{idx + 1}</span>
+                    <span className="font-semibold text-gray-900">{w.name}</span>
+                  </div>
+                  <div className="text-right">
+                    <span className="font-bold text-apc-primary">{w.points.toLocaleString()} pts</span>
+                    <span className="text-gray-400 ml-2">({w.count} members)</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

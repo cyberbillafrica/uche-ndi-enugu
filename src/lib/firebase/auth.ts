@@ -42,6 +42,10 @@ export async function signUpVolunteer(
     x_username?: string;
     instagram_username?: string;
     tiktok_username?: string;
+    facebook_name?: string;
+    x_name?: string;
+    instagram_name?: string;
+    tiktok_name?: string;
   },
 ) {
   try {
@@ -53,8 +57,16 @@ export async function signUpVolunteer(
 
     const user = userCredential.user;
 
+    // Filter out undefined fields to prevent Firestore setDoc error
+    const cleanedUserData: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(userData)) {
+      if (value !== undefined) {
+        cleanedUserData[key] = value;
+      }
+    }
+
     await setDoc(doc(db, "users", user.uid), {
-      ...userData,
+      ...cleanedUserData,
 
       email,
 
@@ -83,10 +95,11 @@ export async function signUpVolunteer(
       user,
       error: null,
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const err = error as Error;
     return {
       user: null,
-      error: error.message,
+      error: err.message,
     };
   }
 }
@@ -130,6 +143,10 @@ export async function createMemberByAdmin(
     x_username?: string;
     instagram_username?: string;
     tiktok_username?: string;
+    facebook_name?: string;
+    x_name?: string;
+    instagram_name?: string;
+    tiktok_name?: string;
   },
 ) {
   const secondaryAppName = `admin-create-member-${Date.now()}`;
@@ -151,6 +168,14 @@ export async function createMemberByAdmin(
 
     const newUser = userCredential.user;
 
+    // Filter out undefined fields to prevent Firestore setDoc error
+    const cleanedUserData: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(userData)) {
+      if (value !== undefined) {
+        cleanedUserData[key] = value;
+      }
+    }
+
     /**
      * Create the Firestore user profile through the
      * primary Firestore connection.
@@ -160,7 +185,7 @@ export async function createMemberByAdmin(
      * logged-in admin's profile.
      */
     await setDoc(doc(db, "users", newUser.uid), {
-      ...userData,
+      ...cleanedUserData,
 
       email,
 
@@ -187,10 +212,11 @@ export async function createMemberByAdmin(
       user: newUser,
       error: null,
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const err = error as Error;
     return {
       user: null,
-      error: error.message,
+      error: err.message,
     };
   } finally {
     /**
@@ -215,10 +241,11 @@ export async function signIn(email: string, password: string) {
       user: userCredential.user,
       error: null,
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const err = error as Error;
     return {
       user: null,
-      error: error.message,
+      error: err.message,
     };
   }
 }
@@ -233,9 +260,10 @@ export async function logOut() {
     return {
       error: null,
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const err = error as Error;
     return {
-      error: error.message,
+      error: err.message,
     };
   }
 }

@@ -154,7 +154,7 @@ export default function PUReportsPage() {
         try {
           cloudinaryUrl = await uploadToCloudinary(
             evidenceFile,
-            "ifeanyi-2027/news",
+            "ifeanyi-2027/pu-reports",
           );
         } catch (uploadErr) {
           console.warn("Cloudinary evidence upload fallback:", uploadErr);
@@ -350,7 +350,7 @@ export default function PUReportsPage() {
                   <select
                     value={form.report_type}
                     onChange={(e) =>
-                      setForm({ ...form, report_type: e.target.value as any })
+                      setForm({ ...form, report_type: e.target.value as PUReportDoc["report_type"] })
                     }
                     className="w-full px-3 py-2 border rounded-lg text-sm"
                     required

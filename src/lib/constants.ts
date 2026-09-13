@@ -61,18 +61,49 @@ export const parties = [
   },
 ] as const;
 
-// Sync functions preserved for backward compatibility
-export function getWardById(wardId?: string) {
-  if (!wardId) return undefined;
+// Helper to search across LGAs list
+export function findWardInLGAs(lgas: LGA[], wardId?: string) {
+  if (!wardId || !lgas || lgas.length === 0) return undefined;
+  for (const lga of lgas) {
+    const ward = lga.wards?.find((w) => w.id === wardId);
+    if (ward) return ward;
+  }
+  return undefined;
+}
 
+export function findPollingUnitInLGAs(lgas: LGA[], wardId?: string, puId?: string) {
+  if (!puId || !lgas || lgas.length === 0) return undefined;
+  const ward = findWardInLGAs(lgas, wardId);
+  if (ward) {
+    const pu = ward.pollingUnits?.find((p) => p.id === puId);
+    if (pu) return pu;
+  }
+  for (const lga of lgas) {
+    for (const w of lga.wards || []) {
+      const pu = w.pollingUnits?.find((p) => p.id === puId);
+      if (pu) return pu;
+    }
+  }
+  return undefined;
+}
+
+// Sync functions preserved for backward compatibility
+export function getWardById(wardId?: string, lgas?: LGA[]) {
+  if (!wardId) return undefined;
+  if (lgas && lgas.length > 0) {
+    const found = findWardInLGAs(lgas, wardId);
+    if (found) return found;
+  }
   return nkanuWestElectoralData.find((ward) => ward.id === wardId);
 }
 
-export function getPollingUnitById(wardId?: string, pollingUnitId?: string) {
-  if (!wardId || !pollingUnitId) return undefined;
-
+export function getPollingUnitById(wardId?: string, pollingUnitId?: string, lgas?: LGA[]) {
+  if (!pollingUnitId) return undefined;
+  if (lgas && lgas.length > 0) {
+    const found = findPollingUnitInLGAs(lgas, wardId, pollingUnitId);
+    if (found) return found;
+  }
   const ward = getWardById(wardId);
-
   return ward?.pollingUnits.find((pu) => pu.id === pollingUnitId);
 }
 
