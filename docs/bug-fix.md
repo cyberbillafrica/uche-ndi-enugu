@@ -1,7 +1,7 @@
 # Bug Fix & Technical Audit Documentation
 
 ## 1. Summary of Changes
-This document details the security enhancements, performance optimizations, logic fixes, ESLint cleanups, and UI/UX improvements made to the Politicore / Ifeanyi 4 Nkanu campaign platform codebase.
+This document details the security enhancements, performance optimizations, logic fixes, ESLint cleanups, and UI/UX improvements made to the Politicore / Ifeanyi-2027 campaign platform codebase.
 
 Key areas addressed include:
 - **Security & Access Boundary (IDOR & Rules):** Enforced strict owner or admin authorization boundaries in Firestore rules for task submissions, user profile updates, organizational assignments, election result uploads, PU field reports, and election incidents. Documented exact migration steps in `docs/new.rules`.
