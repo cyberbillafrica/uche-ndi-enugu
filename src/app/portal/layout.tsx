@@ -780,13 +780,15 @@ export default function PortalLayout({
               <img
                 src="/images/politicore-logo-bg.png"
                 alt="PolitiCore Logo"
-                className="h-8 w-auto object-contain"
+                className="h-16 w-auto object-contain"
               />
 
-              <span className="text-lg font-bold text-apc-primary">
-                PolitiCore
+              <span className="text-lg font-bold">
+                <span className="text-[#1A365D]">Politi</span>
+                <span className="text-[#27AE60]">Core</span>
               </span>
-            </Link>
+              </Link>
+
 
             <button
               type="button"
@@ -826,14 +828,15 @@ export default function PortalLayout({
               <img
                 src="/images/politicore-logo-bg.png"
                 alt="PolitiCore Logo"
-                className="h-8 w-auto object-contain"
+                className="h-16 w-auto object-contain"
               />
 
-              <span className="text-lg font-bold text-apc-primary">
-                PolitiCore
+              <span className="text-lg font-bold">
+                <span className="text-[#1A365D]">Politi</span>
+                <span className="text-[#27AE60]">Core</span>
               </span>
             </Link>
-          </div>
+            </div>
 
           <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto px-4 py-4">
             {renderNav()}
@@ -861,12 +864,15 @@ export default function PortalLayout({
             <Link href="/" className="flex items-center space-x-2">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src="/images/logo.png"
+                src="/images/politicore-logo-bg.png"
                 alt="PolitiCore Logo"
-                className="h-8 w-auto object-contain"
+                className="h-16 w-auto object-contain"
               />
 
-              <span className="font-bold text-apc-primary">PolitiCore</span>
+           <span className="text-lg font-bold">
+              <span className="text-[#1A365D]">Politi</span>
+              <span className="text-[#27AE60]">Core</span>
+            </span>
             </Link>
 
             <button
