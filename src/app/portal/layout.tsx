@@ -778,7 +778,7 @@ export default function PortalLayout({
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src="/images/logo.png"
+                src="/images/politicore-logo-bg.png"
                 alt="PolitiCore Logo"
                 className="h-8 w-auto object-contain"
               />
@@ -824,7 +824,7 @@ export default function PortalLayout({
             <Link href="/" className="flex items-center space-x-2">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src="/images/logo.png"
+                src="/images/politicore-logo-bg.png"
                 alt="PolitiCore Logo"
                 className="h-8 w-auto object-contain"
               />
@@ -866,9 +866,7 @@ export default function PortalLayout({
                 className="h-8 w-auto object-contain"
               />
 
-              <span className="font-bold text-apc-primary">
-                PolitiCore
-              </span>
+              <span className="font-bold text-apc-primary">PolitiCore</span>
             </Link>
 
             <button
@@ -898,6 +896,7 @@ export default function PortalLayout({
 
 function NotificationCenter({ profile }: { profile: any }) {
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
@@ -906,10 +905,21 @@ function NotificationCenter({ profile }: { profile: any }) {
     return () => unsubscribe();
   }, [profile]);
 
+  useEffect(() => {
+    if (!profile) return;
+
+    getUserAnnouncements(profile)
+      .then(setAnnouncements)
+      .catch((error) => {
+        console.error("Failed to load announcements:", error);
+        setAnnouncements([]);
+      });
+  }, [profile]);
+
   if (!profile) return null;
 
   const unreadCount = notifications.filter(
-    (n) => !n.read_by.includes(profile.id)
+    (n) => !n.read_by.includes(profile.id),
   ).length;
 
   return (
@@ -933,7 +943,9 @@ function NotificationCenter({ profile }: { profile: any }) {
           <div className="flex items-center justify-between p-4 border-b bg-gray-50">
             <div className="flex items-center gap-2">
               <Bell className="h-4 w-4 text-apc-primary" />
-              <span className="font-bold text-sm text-gray-900">Notifications</span>
+              <span className="font-bold text-sm text-gray-900">
+                Notifications
+              </span>
               {unreadCount > 0 && (
                 <span className="bg-apc-primary/10 text-apc-primary text-xs font-semibold px-2 py-0.5 rounded-full">
                   {unreadCount} unread
@@ -943,7 +955,9 @@ function NotificationCenter({ profile }: { profile: any }) {
 
             {unreadCount > 0 && (
               <button
-                onClick={() => markAllNotificationsAsRead(notifications, profile.id)}
+                onClick={() =>
+                  markAllNotificationsAsRead(notifications, profile.id)
+                }
                 className="text-xs text-apc-primary hover:underline font-semibold flex items-center gap-1"
               >
                 <Check className="h-3 w-3" /> Mark all read
@@ -952,42 +966,84 @@ function NotificationCenter({ profile }: { profile: any }) {
           </div>
 
           <div className="max-h-80 overflow-y-auto divide-y text-xs">
-            {notifications.length === 0 ? (
-              <p className="p-6 text-center text-gray-400">No notifications yet.</p>
+            {notifications.length === 0 && announcements.length === 0 ? (
+              <p className="p-6 text-center text-gray-400">
+                No notifications yet.
+              </p>
             ) : (
-              notifications.map((n) => {
-                const isUnread = !n.read_by.includes(profile.id);
-                return (
-                  <div
-                    key={n.id}
-                    onClick={() => {
-                      if (isUnread) markNotificationAsRead(n.id, profile.id);
-                    }}
-                    className={cn(
-                      "p-3.5 transition-colors cursor-pointer flex items-start gap-3",
-                      isUnread ? "bg-apc-primary/5 hover:bg-apc-primary/10" : "hover:bg-gray-50"
-                    )}
-                  >
-                    <div className="min-w-0 flex-1 space-y-0.5">
-                      <div className="flex items-center justify-between">
-                        <span className="font-bold text-gray-900">{n.title}</span>
-                        {isUnread && (
-                          <span className="h-2 w-2 rounded-full bg-apc-primary" />
+              <>
+                {announcements.length > 0 && (
+                  <div className="border-b bg-apc-light/20 px-3.5 py-2 text-[10px] font-semibold uppercase tracking-wide text-gray-500">
+                    Announcements
+                  </div>
+                )}
+
+                {announcements.map((announcement) => (
+                  <Dialog key={announcement.id}>
+                    <DialogTrigger className="block w-full p-3.5 text-left transition-colors hover:bg-apc-light/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-apc-primary">
+                      <div className="flex items-start gap-3">
+                        <Megaphone className="mt-0.5 h-4 w-4 shrink-0 text-apc-primary" />
+                        <div className="min-w-0 flex-1 space-y-0.5">
+                          <span className="block font-bold text-gray-900">
+                            {announcement.title}
+                          </span>
+                          <p className="line-clamp-2 text-gray-600 leading-relaxed">
+                            {announcement.content}
+                          </p>
+                        </div>
+                      </div>
+                    </DialogTrigger>
+                    <DialogContent className="max-h-[80vh] overflow-y-auto sm:max-w-lg">
+                      <DialogHeader>
+                        <DialogTitle>{announcement.title}</DialogTitle>
+                        <DialogDescription className="whitespace-pre-wrap leading-6">
+                          {announcement.content}
+                        </DialogDescription>
+                      </DialogHeader>
+                    </DialogContent>
+                  </Dialog>
+                ))}
+
+                {notifications.map((n) => {
+                  const isUnread = !n.read_by.includes(profile.id);
+                  return (
+                    <div
+                      key={n.id}
+                      onClick={() => {
+                        if (isUnread) markNotificationAsRead(n.id, profile.id);
+                      }}
+                      className={cn(
+                        "p-3.5 transition-colors cursor-pointer flex items-start gap-3",
+                        isUnread
+                          ? "bg-apc-primary/5 hover:bg-apc-primary/10"
+                          : "hover:bg-gray-50",
+                      )}
+                    >
+                      <div className="min-w-0 flex-1 space-y-0.5">
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-gray-900">
+                            {n.title}
+                          </span>
+                          {isUnread && (
+                            <span className="h-2 w-2 rounded-full bg-apc-primary" />
+                          )}
+                        </div>
+                        <p className="text-gray-600 leading-relaxed">
+                          {n.message}
+                        </p>
+                        {n.link_url && (
+                          <a
+                            href={n.link_url}
+                            className="inline-block text-apc-primary font-semibold hover:underline pt-1"
+                          >
+                            View Details &rarr;
+                          </a>
                         )}
                       </div>
-                      <p className="text-gray-600 leading-relaxed">{n.message}</p>
-                      {n.link_url && (
-                        <a
-                          href={n.link_url}
-                          className="inline-block text-apc-primary font-semibold hover:underline pt-1"
-                        >
-                          View Details &rarr;
-                        </a>
-                      )}
                     </div>
-                  </div>
-                );
-              })
+                  );
+                })}
+              </>
             )}
           </div>
         </div>
@@ -1013,19 +1069,6 @@ function UserPanel({
   loggingOut: boolean;
   logoutError: string | null;
 }) {
-  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
-
-  useEffect(() => {
-    if (!profile) return;
-
-    getUserAnnouncements(profile)
-      .then(setAnnouncements)
-      .catch((error) => {
-        console.error("Failed to load announcements:", error);
-        setAnnouncements([]);
-      });
-  }, [profile]);
-
   return (
     <div>
       <div className="mb-3 flex items-center gap-3">
@@ -1085,38 +1128,6 @@ function UserPanel({
         <p className="mb-2 text-xs text-red-600" role="alert">
           {logoutError}
         </p>
-      )}
-
-      {announcements.length > 0 && (
-        <div className="mb-3 space-y-2 border-t border-gray-100 pt-3">
-          <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
-            Announcements
-          </p>
-
-          {announcements.slice(0, 2).map((announcement) => (
-            <Dialog key={announcement.id}>
-              <DialogTrigger className="w-full rounded-lg bg-apc-light/50 p-2 text-left transition-colors hover:bg-apc-light focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apc-primary">
-                <span className="block text-xs font-medium text-gray-800">
-                  {announcement.title}
-                </span>
-
-                <span className="mt-1 block line-clamp-2 text-xs text-gray-600">
-                  {announcement.content}
-                </span>
-              </DialogTrigger>
-
-              <DialogContent className="max-h-[80vh] overflow-y-auto sm:max-w-lg">
-                <DialogHeader>
-                  <DialogTitle>{announcement.title}</DialogTitle>
-
-                  <DialogDescription className="whitespace-pre-wrap leading-6">
-                    {announcement.content}
-                  </DialogDescription>
-                </DialogHeader>
-              </DialogContent>
-            </Dialog>
-          ))}
-        </div>
       )}
 
       <button
