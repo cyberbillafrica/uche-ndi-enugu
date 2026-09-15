@@ -104,22 +104,26 @@ Polling Unit (e.g. pu-001)
 
 ---
 
-## G. Election Authorization Matrix
+## G. Election Authorization Matrix & Distinct Paths
 
-| Capability | Social-only Member | Campaign Member | Election Officer | Admin | Required Scope / Condition |
-| ---------- | ------------------ | --------------- | ---------------- | ----- | -------------------------- |
-| **Election Module Access** | ⛔ Denied | ✅ Eligible | ✅ Allowed (Tenant-Wide Election Domain) | ✅ Allowed (Global Admin) | Navigation & route access subject to permission |
-| **View Election Results** | ⛔ Denied | ✅ Eligible (Scoped) | ✅ Allowed (Tenant-Wide Election Domain) | ✅ Allowed (Global Admin) | Registered PU/Ward or Organizational Scope |
-| **Upload PU Election Result** | ⛔ Denied | ✅ Eligible (Registered PU) | ✅ Allowed (Tenant-Wide) | ✅ Allowed (Global Admin) | Open contest; registered PU or officer grant |
-| **Submit Election Incident** | ⛔ Denied | ✅ Eligible (Registered PU) | ✅ Allowed (Tenant-Wide) | ✅ Allowed (Global Admin) | Registered PU or active officer grant |
-| **Submit PU Field Report** | ⛔ Denied | ✅ Eligible (Registered PU) | ✅ Allowed (Tenant-Wide) | ✅ Allowed (Global Admin) | Registered PU or active officer grant |
-| **Election Operations Desk Review** | ⛔ Denied | ⛔ Denied | ✅ Allowed (Tenant-Wide Election Domain) | ✅ Allowed (Global Admin) | `role == 'election_officer'` or `admin` |
-| **Result Verification & Approval** | ⛔ Denied | ⛔ Denied | ✅ Allowed (Tenant-Wide Election Domain) | ✅ Allowed (Global Admin) | `role == 'election_officer'` or `admin` |
-| **Admin Result Correction** | ⛔ Denied | ⛔ Denied | ⛔ Denied | ✅ Allowed (Global Admin) | `role == 'admin'`; forces status to `pending_review` |
+### Five Independent Authorization Paths
+The platform enforces five distinct, non-interchangeable Election authorization paths:
+1. **Registered-location authorization:** Registered Ward/PU (`profile.ward_id`, `profile.polling_unit_id`).
+2. **Organizational authorization:** `OrganizationalAssignment` scope plus permitted descendants according to hierarchy policy.
+3. **Explicit authorization:** `PermissionGrant` / corresponding `user_access` enforcement representation.
+4. **Election Officer:** Tenant-wide global authority **within the Election domain** (submission management, review, verification, approval across all PUs). Does NOT grant access to Social Member, Campaign Member, or other application domains.
+5. **Admin:** Global administrative capability across the tenant.
 
-### Election Officer Authority Boundary
-- **ESTABLISHED PRODUCT DECISION:** Election Officer has **tenant-wide global authority within the Election domain**. An Election Officer can manage election result submissions from all PUs across the tenant, review uploaded results from any PU, approve/verify submitted results across the tenant, and perform election-management workflows.
-- **STRICT BOUNDARY:** Election Officer global election authority does **NOT** grant global application authority. An Election Officer does NOT automatically gain Social Member features, Campaign Member features, or unrestricted access to other campaign modules.
+| Capability | Social-only Member | Campaign Member | Election Officer | Admin |
+| ---------- | ------------------ | --------------- | ---------------- | ----- |
+| **Election Module Access** | ⛔ Denied | Eligible only when the applicable Election permission and scope conditions are satisfied. | ✅ Allowed (Tenant-Wide Election Domain) | ✅ Allowed (Global Admin) |
+| **View Election Results** | ⛔ Denied | Eligible only when the applicable Election permission and scope conditions are satisfied. | ✅ Allowed (Tenant-Wide Election Domain) | ✅ Allowed (Global Admin) |
+| **Upload PU Election Result** | ⛔ Denied | Eligible only when the applicable Election permission and scope conditions are satisfied (Registered PU or grant). | ✅ Allowed (Tenant-Wide Election Domain) | ✅ Allowed (Global Admin) |
+| **Submit Election Incident** | ⛔ Denied | Eligible only when the applicable Election permission and scope conditions are satisfied (Registered PU or grant). | ✅ Allowed (Tenant-Wide Election Domain) | ✅ Allowed (Global Admin) |
+| **Submit PU Field Report** | ⛔ Denied | Eligible only when the applicable Election permission and scope conditions are satisfied (Registered PU or grant). | ✅ Allowed (Tenant-Wide Election Domain) | ✅ Allowed (Global Admin) |
+| **Election Operations Desk Review** | ⛔ Denied | ⛔ Denied | ✅ Allowed (Tenant-Wide Election Domain) | ✅ Allowed (Global Admin) |
+| **Result Verification & Approval** | ⛔ Denied | ⛔ Denied | ✅ Allowed (Tenant-Wide Election Domain) | ✅ Allowed (Global Admin) |
+| **Admin Result Correction** | ⛔ Denied | ⛔ Denied | ⛔ Denied | ✅ Allowed (Global Admin; forces `status = "pending_review"`) |
 
 ---
 
@@ -176,14 +180,17 @@ Polling Unit (e.g. pu-001)
 
 ---
 
-## J. Tenant Isolation Matrix
+## J. Tenant Isolation & Query Reconciliation
+
+### Refined Tenant-Query Principle
+**Tenant-scoped collection queries must explicitly constrain the tenant where the collection/schema requires it, and query shape must remain compatible with the corresponding Firestore security rules.**
 
 | Query Function | File Path | Current Source Query | Includes `tenant_id` Filter? | Firestore Rule Expectation | Defect / Compatibility Status |
 | -------------- | --------- | -------------------- | ---------------------------- | -------------------------- | ----------------------------- |
-| `getUserOrganizationalAssignments` | `src/lib/firebase/organization.ts` | `where("user_id", "==", userId)` | ❌ No | `resource.data.tenant_id == callerTenantId()` | Source query defect (omits tenant filter) |
-| `getUserPermissionGrants` | `src/lib/firebase/organization.ts` | `where("user_id", "==", userId)` | ❌ No | `resource.data.tenant_id == callerTenantId()` | Source query defect (omits tenant filter) |
-| `getOrganizationalAssignmentsByUserId` | `src/lib/firebase/organizationalAssignments.ts` | `where("user_id", "==", userId)` | ❌ No | `resource.data.tenant_id == callerTenantId()` | Source query defect (omits tenant filter) |
-| `getPermissionGrantsByUserId` | `src/lib/firebase/permissionGrants.ts` | `where("user_id", "==", userId)` | ❌ No | `resource.data.tenant_id == callerTenantId()` | Source query defect (omits tenant filter) |
+| `getUserOrganizationalAssignments` | `src/lib/firebase/organization.ts` | `where("user_id", "==", userId)` | ❌ No | `resource.data.tenant_id == callerTenantId()` | Source query defect (omits required tenant filter) |
+| `getUserPermissionGrants` | `src/lib/firebase/organization.ts` | `where("user_id", "==", userId)` | ❌ No | `resource.data.tenant_id == callerTenantId()` | Source query defect (omits required tenant filter) |
+| `getOrganizationalAssignmentsByUserId` | `src/lib/firebase/organizationalAssignments.ts` | `where("user_id", "==", userId)` | ❌ No | `resource.data.tenant_id == callerTenantId()` | Source query defect (omits required tenant filter) |
+| `getPermissionGrantsByUserId` | `src/lib/firebase/permissionGrants.ts` | `where("user_id", "==", userId)` | ❌ No | `resource.data.tenant_id == callerTenantId()` | Source query defect (omits required tenant filter) |
 | `getAllCampaignMembersForTenant` | `src/lib/firebase/campaignMembers.ts` | `where("membership_types", "array-contains", "campaign_member")` | ❌ No | `resource.data.tenant_id == callerTenantId()` | Source query defect (function accepts `tenantId` parameter but query omits `where("tenant_id", "==", tenantId)`) |
 
 ---
@@ -215,7 +222,7 @@ Fetch Organizational Access (`getUserOrganizationalAssignments` & `getUserPermis
   1. `loading`
   2. `successfully loaded authorization state`
   3. `authorization-loading error`
-- **REQUIRED IMPLEMENTATION:** Expose authorization-loading error/state explicitly to the application rather than silently setting empty authorization arrays or fabricating access. Protected operations must fail closed.
+- **REQUIRED IMPLEMENTATION:** Expose authorization-loading error/state explicitly to the application rather than silently setting empty authorization arrays or fabricating access. Protected operations must fail closed without retaining stale authorization credentials.
 
 ---
 
@@ -223,7 +230,7 @@ Fetch Organizational Access (`getUserOrganizationalAssignments` & `getUserPermis
 
 - **CURRENT IMPLEMENTATION:** `getLeaderboard()` queries `collection(db, "users")` directly with `orderBy("points", "desc")`. `firestore.rules` restricts `/users/{userId}` to `isAdmin() || isOwner(userId)`. Non-admin users trigger permission errors.
 - **PRODUCT REQUIREMENT:** Ordinary Social Members must be able to view leaderboard rankings without exposing private user profile data (emails, phone numbers).
-- **RECOMMENDED PHASE 3 PROPOSAL:** Maintain a lightweight public projection collection (`/leaderboard_public`), updated via background triggers or write batches, containing non-sensitive fields (`user_id`, `display_name`, `avatar_url`, `points`, `rank`, `tenant_id`), with security rule `allow read: if isSignedIn()`. Do not implement or alter data during Phase 2.
+- **RECOMMENDED PHASE 3 PROPOSAL:** Maintain a lightweight public projection collection (`/leaderboard_public`), updated via background triggers or write batches, containing non-sensitive user fields (`user_id`, `display_name`, `avatar_url`, `points`, `rank`, `tenant_id`), with security rule `allow read: if isSignedIn()`. Do not implement or alter data during Phase 2.
 
 ---
 
@@ -265,15 +272,15 @@ Fetch Organizational Access (`getUserOrganizationalAssignments` & `getUserPermis
 
 ---
 
-## R. Confirmed vs. Suspected Runtime Causes
+## R. Confirmed Defects vs. Runtime Symptom Classifications
 
-| Observed Symptom | Confirmed Source / Rule Defect | Confirmed Runtime Cause | Possible Contributor / Cascading Factor |
-| ---------------- | ------------------------------ | ----------------------- | --------------------------------------- |
-| **Unable to load leaderboard** | Service queries `/users` directly | ✅ Confirmed (Query on `/users` rejected by rule) | None |
-| **Unable to delete assignment** | Rule evaluates `request.resource.data` | ✅ Confirmed (`request.resource` is null on delete) | None |
-| **Admin cannot create activity** | Rule lacks `isAdmin()` bypass | ✅ Confirmed (Admin lacks `/user_access` index) | None |
-| **Failed to load organizational access** | Query omits `tenant_id` filter | ✅ Confirmed (Query/rule tenant mismatch) | AuthContext catch converting error to `[]` |
-| **Scoped module access failures** | Rules check flat `/user_access` index | ✅ Confirmed (Rule lacks hierarchy expansion) | AuthContext error conversion to `[]` |
+| Observed Symptom | Confirmed Defect Type | Confirmed Query / Rule Incompatibility | Likely Contributor / Cascading Factor | Isolated Runtime Root Cause |
+| ---------------- | --------------------- | --------------------------------------- | ------------------------------------- | --------------------------- |
+| **Unable to load leaderboard** | Service query defect | ✅ Confirmed (`/users` read blocked by rules) | None | Querying `/users` rejected by rules |
+| **Unable to delete assignment** | Security rule defect | ✅ Confirmed (`request.resource` is null on delete) | None | Delete rule evaluates `request.resource.data` |
+| **Admin cannot create activity** | Security rule defect | ✅ Confirmed (Admin lacks `create_activity` `/user_access` index) | None | Activity rule lacks `isAdmin()` bypass |
+| **Failed to load organizational access** | Source query defect | ✅ Confirmed (Query omits `tenant_id` filter required by rules) | `AuthContext` catch converting error to `[]` | Query/rule tenant mismatch or index issue |
+| **Scoped module access failures** | Architectural rule gap | ✅ Confirmed (Rule checks flat `/user_access` without hierarchy expansion) | `AuthContext` error conversion to `[]` | Combination of flat rule checks & AuthContext error state |
 
 ---
 
@@ -297,7 +304,7 @@ Fetch Organizational Access (`getUserOrganizationalAssignments` & `getUserPermis
 
 ### Requirement 3: Tenant Query Filter Alignment
 - **CURRENT IMPLEMENTATION:** Organizational access and campaign member directory queries omit `tenant_id` filters.
-- **PRODUCT REQUIREMENT:** All tenant queries must include explicit tenant filtering.
+- **PRODUCT REQUIREMENT:** All tenant-scoped collection queries must explicitly constrain the tenant where the schema requires it.
 - **REQUIRED IMPLEMENTATION:** Include `where("tenant_id", "==", tenantId)` in queries.
 - **AFFECTED FILES:** `src/lib/firebase/organization.ts`, `organizationalAssignments.ts`, `permissionGrants.ts`, `campaignMembers.ts`.
 - **SECURITY IMPLICATION:** Strictly enforces multi-tenant boundary.
@@ -323,8 +330,12 @@ Fetch Organizational Access (`getUserOrganizationalAssignments` & `getUserPermis
 
 ## T. Items That MUST NOT Be Redesigned
 
-1. **Authorization Structure:** Identity, Profile/Membership, Organizational Context, Explicit Authorization, and Enforcement Representation must remain distinct.
-2. **Multi-Contest Election Structure:** Tenant → Cycle → Contest → Result schema must remain intact.
-3. **Admin Correction Workflow:** Corrections must set `status = "pending_review"` and `verified = false`.
-4. **Private Candidate Donation Ledger:** Must remain a private, offline contribution record system.
-5. **Permanently Removed Modules:** Campaign Communications, Campaign Documents, and Campaign Calendar must NOT be restored.
+1. **Settled Role Boundaries:** `access_role` is not an organizational position. Positions (Ward Coordinator, LGA Coordinator, Zone Coordinator, State Coordinator, Campaign Manager, Council Chairman) remain in `OrganizationalAssignment`.
+2. **Settled Membership Boundaries:** Membership type (`campaign_member`, `social_member`) does not itself grant unrestricted authority. Social-only members have NO Election module access.
+3. **Settled Election Officer Boundaries:** Election Officer has tenant-wide global authority **within the Election domain** (submissions, review, verification, approval across all PUs), but does NOT have global application authority or access to Social/Campaign Member domains.
+4. **Settled Registered Location Boundaries:** Registered Ward/PU is strictly distinct from `OrganizationalAssignment`.
+5. **Multi-Contest Election Structure:** Tenant → Cycle → Contest → Result schema must remain intact.
+6. **Admin Correction Workflow:** Corrections must set `status = "pending_review"` and `verified = false`.
+7. **Private Candidate Donation Ledger:** Must remain a private, offline contribution record system.
+8. **Permanently Removed Modules:** Campaign Communications, Campaign Documents, and Campaign Calendar must NOT be restored.
+9. **No Parallel Frameworks:** No second parallel authorization framework or new abstractions are to be introduced.
