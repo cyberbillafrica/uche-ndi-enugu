@@ -908,9 +908,6 @@ export default function PortalLayout({
                   <span className="text-[#27AE60]">Core</span>
                 </span>
 
-                <span className="mt-1 text-[9px] font-medium italic text-[#1A365D]">
-                  Secure Political Intelligence
-                </span>
               </div>
             </Link>
 
