@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import Image from "next/image";
+import NextImage from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { getUserAnnouncements } from "@/lib/firebase/firestore";
 
@@ -30,6 +30,7 @@ import {
   CalendarDays,
   Flag,
   Network,
+  Image,
   Bell,
   Check,
   ShieldCheck,
@@ -787,7 +788,7 @@ export default function PortalLayout({
               onClick={() => setSidebarOpen(false)}
               className="flex min-w-0 items-center gap-1"
             >
-              <Image
+              <NextImage
                 src="/images/politicore-logo-raw.png"
                 alt="PolitiCore Logo"
                 width={160}
@@ -844,7 +845,7 @@ export default function PortalLayout({
           {/* Desktop Brand Header */}
           <div className="flex h-20 shrink-0 items-center border-b px-5">
             <Link href="/" className="flex min-w-0 items-center gap-1">
-              <Image
+              <NextImage
                 src="/images/politicore-logo-raw.png"
                 alt="PolitiCore Logo"
                 width={160}
@@ -892,7 +893,7 @@ export default function PortalLayout({
         <header className="sticky top-0 z-30 border-b bg-white lg:hidden">
           <div className="flex h-20 items-center justify-between px-4">
             <Link href="/" className="flex min-w-0 items-center gap-2">
-              <Image
+              <NextImage
                 src="/images/politicore-logo-raw.png"
                 alt="PolitiCore Logo"
                 width={160}
