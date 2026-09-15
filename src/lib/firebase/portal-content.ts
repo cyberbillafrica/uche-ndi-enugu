@@ -99,11 +99,21 @@ export async function getPublishedEvents(
   tenantId: string,
 ): Promise<EventData[]> {
   const items = await getPortalContent(tenantId);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const todayMs = today.getTime();
+
   return items
     .filter(
       (item): item is EventData =>
         item.type === "event" && item.status === "published",
     )
+    .filter((event) => {
+      // Keep events happening today or in the future. Events without a
+      // parseable date are kept so malformed data never hides content.
+      const eventMs = new Date(event.date).getTime();
+      return Number.isNaN(eventMs) || eventMs >= todayMs;
+    })
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 }
 

@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { getUserAnnouncements } from "@/lib/firebase/firestore";
+import Image from "next/image";
 
 import {
   LayoutDashboard,
@@ -29,7 +30,6 @@ import {
   CalendarDays,
   Flag,
   Network,
-  Image,
   Bell,
   Check,
   ShieldCheck,
@@ -756,54 +756,74 @@ export default function PortalLayout({
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Mobile Sidebar */}
-
+      {/* Mobile Navigation Drawer */}
       <div
         className={cn(
           "fixed inset-0 z-50 lg:hidden",
-          sidebarOpen ? "block" : "hidden",
+          sidebarOpen ? "visible" : "invisible pointer-events-none",
         )}
+        aria-hidden={!sidebarOpen}
       >
         <div
-          className="fixed inset-0 bg-black/50"
+          className={cn(
+            "absolute inset-0 bg-black/50 transition-opacity duration-200",
+            sidebarOpen ? "opacity-100" : "opacity-0",
+          )}
           onClick={() => setSidebarOpen(false)}
         />
 
-        <div className="fixed inset-y-0 left-0 flex w-72 flex-col overflow-hidden bg-white shadow-xl">
-          <div className="flex h-16 shrink-0 items-center justify-between border-b px-6">
+        <aside
+          className={cn(
+            "absolute inset-y-0 left-0 flex w-72 flex-col bg-white shadow-2xl",
+            "transition-transform duration-200 ease-out",
+            sidebarOpen ? "translate-x-0" : "-translate-x-full",
+          )}
+          aria-label="Mobile navigation"
+        >
+          {/* Mobile Brand Header */}
+          <div className="flex h-20 shrink-0 items-center justify-between border-b px-5">
             <Link
               href="/"
-              className="flex items-center space-x-2"
               onClick={() => setSidebarOpen(false)}
+              className="flex min-w-0 items-center gap-1"
             >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src="/images/politicore-logo-bg.png"
+              <Image
+                src="/images/politicore-logo-raw.png"
                 alt="PolitiCore Logo"
-                className="h-16 w-auto object-contain"
+                width={160}
+                height={64}
+                priority
+                className="h-16 w-auto shrink-0 object-contain"
               />
 
-              <span className="text-lg font-bold">
-                <span className="text-[#1A365D]">Politi</span>
-                <span className="text-[#27AE60]">Core</span>
-              </span>
-              </Link>
+              <div className="flex flex-col leading-none">
+                <span className="text-lg font-bold tracking-tight">
+                  <span className="text-[#1A365D]">Politi</span>
+                  <span className="text-[#27AE60]">Core</span>
+                </span>
 
+                <span className="mt-1 text-[9px] font-medium italic text-[#1A365D]">
+                  Secure Political Intelligence
+                </span>
+              </div>
+            </Link>
 
             <button
               type="button"
               onClick={() => setSidebarOpen(false)}
-              className="rounded-lg p-2 hover:bg-gray-100"
+              className="ml-2 rounded-lg p-2 text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-900"
               aria-label="Close navigation"
             >
               <X className="h-5 w-5" />
             </button>
           </div>
 
-          <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto px-4 py-4">
-            {renderNav()}
+          {/* Mobile Navigation */}
+          <nav className="min-h-0 flex-1 overflow-y-auto px-4 py-5">
+            <div className="space-y-1">{renderNav()}</div>
           </nav>
 
+          {/* Mobile User Panel */}
           <div className="shrink-0 border-t bg-white p-4">
             <UserPanel
               userName={userName}
@@ -815,33 +835,43 @@ export default function PortalLayout({
               logoutError={logoutError}
             />
           </div>
-        </div>
+        </aside>
       </div>
 
       {/* Desktop Sidebar */}
-
-      <div className="hidden lg:fixed lg:inset-y-0 lg:flex lg:w-72 lg:flex-col">
-        <div className="flex h-full min-h-0 flex-col overflow-hidden border-r bg-white">
-          <div className="flex h-16 shrink-0 items-center border-b px-6">
-            <Link href="/" className="flex items-center space-x-2">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src="/images/politicore-logo-bg.png"
+      <aside className="fixed inset-y-0 left-0 z-40 hidden w-72 lg:flex">
+        <div className="flex h-full min-h-0 w-full flex-col overflow-hidden border-r bg-white">
+          {/* Desktop Brand Header */}
+          <div className="flex h-20 shrink-0 items-center border-b px-5">
+            <Link href="/" className="flex min-w-0 items-center gap-1">
+              <Image
+                src="/images/politicore-logo-raw.png"
                 alt="PolitiCore Logo"
-                className="h-16 w-auto object-contain"
+                width={160}
+                height={64}
+                priority
+                className="h-16 w-auto shrink-0 object-contain"
               />
 
-              <span className="text-lg font-bold">
-                <span className="text-[#1A365D]">Politi</span>
-                <span className="text-[#27AE60]">Core</span>
-              </span>
-            </Link>
-            </div>
+              <div className="flex flex-col leading-none">
+                <span className="text-lg font-bold tracking-tight">
+                  <span className="text-[#1A365D]">Politi</span>
+                  <span className="text-[#27AE60]">Core</span>
+                </span>
 
-          <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto px-4 py-4">
-            {renderNav()}
+                <span className="mt-1 text-[9px] font-medium italic text-[#1A365D]">
+                  Secure Political Intelligence
+                </span>
+              </div>
+            </Link>
+          </div>
+
+          {/* Desktop Navigation */}
+          <nav className="min-h-0 flex-1 overflow-y-auto px-4 py-5">
+            <div className="space-y-1">{renderNav()}</div>
           </nav>
 
+          {/* Desktop User Panel */}
           <div className="shrink-0 border-t bg-white p-4">
             <UserPanel
               userName={userName}
@@ -854,46 +884,61 @@ export default function PortalLayout({
             />
           </div>
         </div>
-      </div>
+      </aside>
 
-      {/* Main Content */}
-
+      {/* Main Application Area */}
       <div className="lg:pl-72">
-        <div className="sticky top-0 z-40 border-b bg-white lg:hidden">
-          <div className="flex h-16 items-center justify-between px-4">
-            <Link href="/" className="flex items-center space-x-2">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src="/images/politicore-logo-bg.png"
+        {/* Mobile Header */}
+        <header className="sticky top-0 z-30 border-b bg-white lg:hidden">
+          <div className="flex h-20 items-center justify-between px-4">
+            <Link href="/" className="flex min-w-0 items-center gap-2">
+              <Image
+                src="/images/politicore-logo-raw.png"
                 alt="PolitiCore Logo"
-                className="h-16 w-auto object-contain"
+                width={160}
+                height={64}
+                priority
+                className="h-16 w-auto shrink-0 object-contain"
               />
 
-           <span className="text-lg font-bold">
-              <span className="text-[#1A365D]">Politi</span>
-              <span className="text-[#27AE60]">Core</span>
-            </span>
+              <div className="flex flex-col leading-none">
+                <span className="text-lg font-bold tracking-tight">
+                  <span className="text-[#1A365D]">Politi</span>
+                  <span className="text-[#27AE60]">Core</span>
+                </span>
+
+                <span className="mt-1 text-[9px] font-medium italic text-[#1A365D]">
+                  Secure Political Intelligence
+                </span>
+              </div>
             </Link>
 
             <button
               type="button"
               onClick={() => setSidebarOpen(true)}
-              className="rounded-lg p-2 hover:bg-gray-100"
+              className="rounded-lg p-2 text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-900"
               aria-label="Open navigation"
             >
               <Menu className="h-6 w-6" />
             </button>
           </div>
+        </header>
+
+        {/* Search and Notifications */}
+        <div className="flex items-center justify-between gap-4 px-4 pt-4 sm:px-6 lg:px-8">
+          <div className="min-w-0 flex-1">
+            <GlobalSearchModal />
+          </div>
+
+          <div className="shrink-0">
+            <NotificationCenter profile={profile} />
+          </div>
         </div>
 
-        {/* Header Search & Notification Bar */}
-        <div className="flex items-center justify-between px-4 sm:px-6 pt-3">
-          <GlobalSearchModal />
-          <NotificationCenter profile={profile} />
-        </div>
-
+        {/* Contextual Help */}
         <ContextualHelp />
 
+        {/* Page Content */}
         <main className="p-4 sm:p-6 lg:p-8">{children}</main>
       </div>
     </div>

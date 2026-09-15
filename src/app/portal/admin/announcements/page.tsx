@@ -51,7 +51,9 @@ const DEFAULT_EVENT: Omit<EventData, "id" | "type" | "created_at" | "updated_at"
   time: "10:00",
   venue: "",
   ward: "",
-  status: "draft",
+  // Default to published so new events appear on the public homepage
+  // immediately; admins can untick "Publish now" to keep a draft.
+  status: "published",
 };
 
 type Tab = "announcements" | "events";
