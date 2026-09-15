@@ -1,4 +1,4 @@
-# Politicore Production Backup, Disaster Recovery and Restoration Guide
+# Politicore Production Backup, Disaster Recovery & Restoration Guide
 
 ## 1. Overview
 This document specifies the official application-level disaster recovery, scheduled Firestore backup workflows, and point-in-time restoration procedures for the Politicore Campaign & Multi-Contest Electoral Platform.
