@@ -1,261 +1,283 @@
-# Politicore / Ifeanyi 2027 — Phase 2: Authoritative Architecture Reconciliation
-
-## 1. Executive Summary
-
-This report performs a comprehensive reconciliation of product requirements, documentation claims, current Next.js/TypeScript application code, and Cloud Firestore Security Rules (`firestore.rules`).
+# Politicore / Ifeanyi 2027 — Phase 2.2: Final Authoritative Architecture Reconciliation Specification
 
 ---
 
-# PHASE 2.1 CORRECTIONS
+## A. Executive Architecture Summary
 
-## 1. Distinction Framework
+This document serves as the governing architecture reconciliation specification for the Politicore Campaign Management & Multi-Contest Electoral Platform (`ifeanyi-4-nkanu`). It synthesizes product intent, current Next.js/React application code, and Cloud Firestore Security Rules (`firestore.rules`).
 
-To avoid conflating desired architecture with current implementation, every key section evaluates features across five distinct categories:
-
-1. **PRODUCT REQUIREMENT:** Authoritative specification or product rule.
-2. **CURRENT DOCUMENTATION:** What `.md` files claim.
-3. **CURRENT SOURCE CODE:** What TypeScript files in `src/` actually execute.
-4. **CURRENT FIRESTORE RULE:** What rules in `firestore.rules` enforce.
-5. **INTENDED CORRECT IMPLEMENTATION:** Target architecture required after Phase 3.
-
----
-
-## 2. AuthContext Cascading Authorization Failure
-
-### Analysis of Current Implementation (`src/contexts/AuthContext.tsx`)
-
-In `AuthContext.tsx`, lines 250–290 wrap the organizational access fetch in a `try/catch` block:
-
-```tsx
-try {
-  const [organizationalAssignments, permissionGrants] = await Promise.all([
-    getUserOrganizationalAssignments(firebaseUser.uid),
-    getUserPermissionGrants(firebaseUser.uid),
-  ]);
-  setAssignments(getActiveAssignments(organizationalAssignments));
-  setGrants(permissionGrants);
-} catch (accessError) {
-  console.error("Failed to load organizational access:", accessError);
-  if (!cancelled) {
-    setAssignments([]);
-    setGrants([]);
-  }
-}
-```
-
-### Impact & Cascading Failure Path
-- **PRODUCT REQUIREMENT:** Failure to fetch organizational assignments/grants should be handled gracefully or retried without silently stripping an active coordinator's authority.
-- **CURRENT SOURCE CODE:** If an index or network error occurs during `getUserOrganizationalAssignments()` or `getUserPermissionGrants()`, the catch block executes and resets `assignments` and `grants` to empty arrays `[]`.
-- **CURRENT FIRESTORE RULE:** Security rules for scoped collections evaluate `hasAccess()` against `/user_access`.
-- **CASCADING IMPACT:**
-  1. Access query fails or throws an error.
-  2. `AuthContext` silently sets `assignments = []` and `grants = []`.
-  3. `resolvePermission()` returns `false` for all scoped checks.
-  4. Scoped UI components (e.g. Campaign Area, Members, Activities, Reports, Issues) render access blocker banners ("No organizational scope assigned").
-  5. User is locked out of valid operational capabilities despite holding valid Firestore assignment records.
+### Key Findings & Architectural Gaps
+1. **Leaderboard Query vs. Privacy Rule Lockout:** The client function `getLeaderboard()` queries `collection(db, "users")` directly with `orderBy("points", "desc")`. However, `firestore.rules` restricts `/users/{userId}` reads strictly to `isAdmin() || isOwner(userId)`. Consequently, non-admin users trigger permission errors when loading the leaderboard.
+2. **Organizational Hierarchy vs. Flat Security Rules (`hasAccess` / `user_access`):** Client-side permissions helpers (`src/lib/permissions.ts`) dynamically expand organizational scopes (State → Zone → LGA → Ward → PU). In contrast, `firestore.rules` evaluates scoped permissions via an exact document lookup on `/user_access/${permission}__${scopeType}__${scopeId}`. Higher-level coordinators (e.g. LGA Coordinators) are rejected by security rules when attempting to create or access resources scoped to descendant Wards/PUs unless explicit `user_access` index records exist for those descendant scopes or rules evaluate hierarchy.
+3. **Delete Rules `request.resource` Anti-Pattern:** Security rules for document deletions in collections such as `organizational_assignments`, `permission_grants`, `donations`, and `campaign_activities` evaluate `request.resource.data.tenant_id`. In Cloud Firestore Security Rules, `request.resource` is `null` during `delete` operations, causing permission evaluation errors.
+4. **AuthContext Cascading Failure Pathway:** When an error occurs during `getUserOrganizationalAssignments()` or `getUserPermissionGrants()`, `AuthContext.tsx` catches the exception and resets `assignments` and `grants` to empty arrays (`[]`). This causes downstream permission resolvers to lose organizational context and display access blocker UI elements.
+5. **Tenant Filter Omissions in Read Services:** Client query functions `getUserOrganizationalAssignments()`, `getUserPermissionGrants()`, `getOrganizationalAssignmentsByUserId()`, and `getPermissionGrantsByUserId()` query Firestore using `where("user_id", "==", userId)` without filtering by `where("tenant_id", "==", tenantId)`.
 
 ---
 
-## 3. Tenant Query Mismatches in Organizational Services
+## B. Identity and Membership Model
 
-### Source Verification
-
-- `src/lib/firebase/organization.ts`:
-  - `getUserOrganizationalAssignments(userId)` queries `collection(db, "organizational_assignments")` filtering ONLY by `where("user_id", "==", userId)`.
-  - `getUserPermissionGrants(userId)` queries `collection(db, "permission_grants")` filtering ONLY by `where("user_id", "==", userId)`.
-- `src/lib/firebase/organizationalAssignments.ts`:
-  - `getOrganizationalAssignmentsByUserId(userId)` queries `where("user_id", "==", userId)` without `where("tenant_id", "==", tenantId)`.
-- `src/lib/firebase/permissionGrants.ts`:
-  - `getPermissionGrantsByUserId(userId)` queries `where("user_id", "==", userId)` without `where("tenant_id", "==", tenantId)`.
-
-### Reconciliation
-- **PRODUCT REQUIREMENT:** All database reads for tenant-scoped collections must include `tenant_id` filtering for strict tenant isolation.
-- **CURRENT DOCUMENTATION:** Claimed all queries were tenant-scoped.
-- **CURRENT SOURCE CODE:** Queries filter by `user_id` only, omitting `tenant_id` constraints.
-- **CURRENT FIRESTORE RULE:** Rules require `resource.data.tenant_id == callerTenantId()`.
-- **INTENDED CORRECT IMPLEMENTATION:** Client queries must pass `tenantId` and include `where("tenant_id", "==", tenantId)`.
+1. **Authentication Identity:** Handled via Firebase Auth (`User.uid`). Profile documents are stored in `/users/{userId}`.
+2. **Membership Types:**
+   - `social_member`: Access to social media tasks, point earning, public campaign feed, and leaderboard.
+   - `campaign_member`: Access to campaign council features (Area, Members, Activities, Assignments, Reports, Issues) and location-scoped election reporting.
+   - **Dual Membership:** Users may possess both `social_member` and `campaign_member` types. In `src/app/portal/dashboard/page.tsx`, dual-membership users can toggle between Social and Campaign views.
+3. **Relationship to Authorization:** Membership type alone does NOT grant organizational authority or administrative capability.
 
 ---
 
-## 4. Admin Authorization & Rule Mismatches
+## C. Access Roles vs. OrganizationalAssignment
 
-### Feature-by-Feature Admin Access Reconciliation
+| Concept | Purpose | Example Values | Storage Location |
+| ------- | ------- | -------------- | ---------------- |
+| `access_role` | Application/System capability | `admin`, `member`, `election_officer`, `tenant_super_admin` | `users/{userId}.access_role` |
+| `OrganizationalAssignment` | Appointed leadership position in campaign hierarchy | `ward_coordinator`, `lga_coordinator`, `zone_coordinator`, `state_coordinator` | `/organizational_assignments/{id}` |
 
-1. **Campaign Activities (`/campaign_activities`):**
-   - **PRODUCT REQUIREMENT:** Admin can create, read, update, and delete activities globally without requiring an organizational assignment.
-   - **CURRENT SOURCE CODE:** `isAdminUser(profile)` bypasses permission checks in `src/lib/permissions.ts`.
-   - **CURRENT FIRESTORE RULE:** Rule line 875 requires `hasAccess("create_activity", request.resource.data.scope_type, request.resource.data.scope_id)` for activity creation, with **NO Admin bypass** in the creation check.
-   - **MISMATCH:** Firestore rules reject activity creation by Admins who lack explicit `/user_access` index records.
-
-2. **Field Reports (`/campaign_field_reports`):**
-   - **PRODUCT REQUIREMENT:** Admin has global read/update/delete authority.
-   - **CURRENT SOURCE CODE:** Admin accesses globally without scope checks.
-   - **CURRENT FIRESTORE RULE:** Rule line 950 permits Admin read/update/delete (`isAdmin()`).
-   - **STATUS:** Matched for read/update/delete.
-
-3. **Issues (`/issues`):**
-   - **PRODUCT REQUIREMENT:** Admin has global access.
-   - **CURRENT SOURCE CODE:** Admin accesses globally.
-   - **CURRENT FIRESTORE RULE:** Rule line 1005 permits Admin read/update/delete (`isAdmin()`).
-   - **STATUS:** Matched for read/update/delete.
+- **Strict Boundary:** Organizational positions (e.g. Ward Coordinator) must NEVER be saved into `access_role`.
+- **Admin Independence:** Admins possess system-wide administrative capabilities and do NOT require an `OrganizationalAssignment` to perform administrative tasks.
 
 ---
 
-## 5. Election Authorization Capability Matrix
+## D. PermissionGrant vs. Materialized `user_access`
 
-| Capability | Current App Mechanism | Current Rule Mechanism | Product Requirement | Correct Final Mechanism |
-| ---------- | --------------------- | ---------------------- | ------------------- | ----------------------- |
-| **1. Access Election Route (`/portal/election`)** | Checks `membership_types.includes("campaign_member")` or `isAdmin()` | Navigation sidebar hides link from Social-only members | Scoped to permitted region or registered PU | Authenticated Campaign Member, Election Officer, or Admin |
-| **2. View Election Results** | Aggregates results; non-admin members scoped to `profile.ward_id`/`polling_unit_id` | Scoped queries; rules check tenant & status | Authenticated users with valid organizational access view scope | Scoped organizational assignment + registered PU fallback |
-| **3. Upload PU Result (`/portal/election/upload`)** | Requires uploader to select open contest & upload Form EC8 image | Rules check `status == "OPEN"` & uploader scope | Scoped upload for registered PU or officer | Registered PU (Campaign Member) or Election Officer/Admin grant |
-| **4. Submit Incident (`/portal/election/incidents`)** | Checks uploader `polling_unit_id` | Rules check `polling_unit_id` matching uploader | Scoped incident reporting for registered PU | Registered PU (Campaign Member) or Election Officer/Admin grant |
-| **5. Submit PU Report (`/portal/election/pu-reports`)** | Checks uploader `polling_unit_id` | Rules check `polling_unit_id` matching uploader | Scoped report submission for registered PU | Registered PU (Campaign Member) or Election Officer/Admin grant |
-| **6. Election Officer Review (`/portal/election/operations`)** | Restricted to `role === "election_officer"` or `admin` | Rules check `isElectionOfficer()` (`role == 'election_officer' \|\| role == 'admin'`) | Broad operational authority | `access_role` (`election_officer` or `admin`) |
-| **7. Result Verification** | Operations desk performs review decision (`approved`, `rejected`, etc.) | Rules enforce history logging & officer role | Broad operational authority | `access_role` (`election_officer` or `admin`) |
-| **8. Admin Correction (`correctElectionResult`)** | Admin modifies vote counts; forces status to `pending_review` | Rules verify `isAdmin()` & force `verified = false` | Admin administrative correction | `access_role` (`admin`) forcing `pending_review` |
+- `PermissionGrant`: Administrative document stored in `/permission_grants/{grantId}` defining explicit grants or denials (`granted: true | false`).
+- `user_access` Index: Materialized lookup document created atomically in `/user_access/${permission}__${scopeType}__${scopeId}` via Firestore `writeBatch` when a `PermissionGrant` is created or updated. Enables single-document `exists()` checks in `firestore.rules`.
 
 ---
 
-## 6. Registered Location vs. Organizational Assignment
+## E. Organizational Hierarchy
 
-### Explicit Separation
-
-- **Registered Location (`profile.ward_id`, `profile.polling_unit_id`):**
-  - Represents where a campaign member lives/votes.
-  - Used strictly for self-service field operations: uploading Form EC8 election results for their own PU, reporting local incidents, and submitting local PU field reports.
-  - Does **NOT** confer leadership or coordinator privileges over other members.
-- **OrganizationalAssignment (`position`, `scope_type`, `scope_id`):**
-  - Represents an appointed leadership role (e.g. Ward Coordinator, LGA Coordinator, State Coordinator).
-  - Confers supervisory and operational authority over subordinate scopes and campaign council features.
-  - Grants explicit permissions materialized into `/user_access`.
-
----
-
-## 7. Hierarchy Reconciliation Across Architecture Layers
+The campaign organizational structure operates across five geographic levels:
 
 ```text
-┌─────────────────────────────────────────────────────────────────────────┐
-│ Layer 1: Application Hierarchy Resolution (src/lib/permissions.ts)       │
-│ - Uses assignmentCoversScope() & isScopeDescendant()                     │
-│ - Dynamically expands State → Zone → LGA → Ward → Polling Unit            │
-├─────────────────────────────────────────────────────────────────────────┤
-│ Layer 2: user_access Document Index (src/lib/firebase/permissionGrants) │
-│ - Writes exact keys: ${permission}__${scopeType}__${scopeId}             │
-│ - Does NOT automatically write rows for subordinate descendant scopes    │
-├─────────────────────────────────────────────────────────────────────────┤
-│ Layer 3: Firestore Security Rules (firestore.rules)                      │
-│ - hasAccess() performs single doc exists() check on exact key            │
-│ - Does NOT perform dynamic parent scope expansion or wildcard resolution │
-└─────────────────────────────────────────────────────────────────────────┘
+State (enugu-state)
+  ↓
+Senatorial Zone (e.g. enugu-east)
+  ↓
+LGA (e.g. nkanu-west)
+  ↓
+Ward (e.g. ward-01)
+  ↓
+Polling Unit (e.g. pu-001)
 ```
 
-### Hierarchy Breakdown Gaps
-- **State Assignment:** App code grants authority over all 17 LGAs. Firestore rules check exact key `/user_access/view_activities__state__enugu-state`, failing checks for activities scoped to LGA or Ward IDs.
-- **LGA Assignment:** App code grants authority over subordinate Wards & PUs. Firestore rules fail because no `/user_access/view_activities__lga__nkanu-west` index exists for Ward scope requests.
+- **Application Resolution:** Implemented in `src/lib/permissions.ts` via `assignmentCoversScope()` and `isScopeDescendant()`.
+- **Inherited Scope Authority:** Higher-level assignments confer authority over descendant scopes where permission policy permits.
 
 ---
 
-## 8. Leaderboard Architectural Options (Proposals vs. Facts)
+## F. Registered Location Model
 
-### Problem
-`getLeaderboard()` queries `collection(db, "users")`, which is blocked by `firestore.rules` (`allow read: if isAdmin() || isOwner(userId)`).
-
-### Evaluated Proposals (No Code Implemented Yet)
-
-1. **Proposal A: Public Leaderboard Collection (`/leaderboard_public`)**
-   - Cloud Function or batch trigger syncs top users' non-sensitive fields (`user_id`, `display_name`, `avatar_url`, `points`, `rank`, `tenant_id`) into `/leaderboard_public`.
-   - Security rule allows public read for signed-in users.
-   - **Pros:** Maximum security; zero exposure of user emails/phone numbers.
-2. **Proposal B: Field-Masked Rules or Sanitized User Queries**
-   - Firestore security rules do not natively support column-level read masking.
-   - **Cons:** Not natively supported in Firestore rules without subcollection projections.
-3. **Proposal C: Secondary Projection Subcollection (`/users/{id}/public/profile`)**
-   - Maintain a public subcollection under each user document.
-
-**Decision:** Proposal A (`/leaderboard_public`) is the recommended architectural proposal for Phase 3.
+- **Definition:** Captured on `user.profile` as `ward_id` and `polling_unit_id`.
+- **Purpose:** Identifies where a campaign member is registered to vote.
+- **Operational Scope:** Provides self-service election result uploads, field report submissions, and incident reporting for that specific registered location.
+- **Separation:** Registered location is distinct from an `OrganizationalAssignment` and does NOT grant leadership or coordinator authority over other members.
 
 ---
 
-## 9. Rebuilt Query/Rule Compatibility Matrix
+## G. Election Authorization Matrix
 
-| Collection | Actual Current Query (`src/`) | Actual Current Rule (`firestore.rules`) | Compatible? | Root Cause / Required Change |
-| ---------- | ----------------------------- | --------------------------------------- | ----------- | ---------------------------- |
-| `/users` (Leaderboard) | `query(collection(db, "users"), orderBy("points", "desc"), limit(50))` | `allow read: if isAdmin() \|\| isOwner(userId)` | ❌ No | Fails for non-admins; query public projection collection instead |
-| `/organizational_assignments` | `query(collection(db, "organizational_assignments"), where("user_id", "==", userId))` | `allow read: if isAdmin() \|\| (resource.data.tenant_id == callerTenantId() && resource.data.user_id == request.auth.uid)` | ⚠️ Partial | Missing `tenant_id` filter in client query |
-| `/permission_grants` | `query(collection(db, "permission_grants"), where("user_id", "==", userId))` | `allow read: if isAdmin() \|\| (resource.data.tenant_id == callerTenantId() && resource.data.user_id == request.auth.uid)` | ⚠️ Partial | Missing `tenant_id` filter in client query |
-| `/campaign_activities` | `query(collection(db, "campaign_activities"), where("tenant_id", "==", tenantId))` | `allow read: if isAdmin() \|\| hasAccess("view_activities", scope_type, scope_id)` | ❌ No | Non-admin users fail when missing exact `user_access` index |
-| `/campaign_activities` (Create) | `addDoc(collection(db, "campaign_activities"), data)` | `allow create: if hasAccess("create_activity", scope_type, scope_id)` | ❌ No | Admin lacks `isAdmin()` bypass in activity create rule |
-| `/campaign_assignments` | `query(collection(db, "campaign_assignments"), where("tenant_id", "==", tenantId))` | `allow read: if isAdmin() \|\| hasAccess("view_assignments", scope_type, scope_id)` | ❌ No | Fails for coordinators assigned at higher hierarchy levels |
-| `/campaign_field_reports` | `query(collection(db, "campaign_field_reports"), where("tenant_id", "==", tenantId))` | `allow read: if isAdmin() \|\| hasAccess("review_field_report", scope_type, scope_id)` | ❌ No | Scoped read fails without exact `user_access` index |
-| `/issues` | `query(collection(db, "issues"), where("tenant_id", "==", tenantId))` | `allow read: if isAdmin() \|\| hasAccess("manage_issue", scope_type, scope_id)` | ❌ No | Scoped read fails without exact `user_access` index |
-| `/tasks` | `query(collection(db, "tasks"), where("tenant_id", "==", tenantId), where("status", "==", "active"))` | `allow read: if isAdmin() \|\| (isSocialMember() && resource.data.status == "active")` | ✅ Yes | Matches |
-| `/task_submissions` | `query(collection(db, "task_submissions"), where("tenant_id", "==", tenantId), where("user_id", "==", userId))` | `allow read: if isAdmin() \|\| (isSignedIn() && resource.data.user_id == request.auth.uid)` | ✅ Yes | Matches |
-| `/donations` | `query(collection(db, "donations"), where("tenant_id", "==", tenantId))` | `allow read: if isAdmin()` | ✅ Yes | Private Admin ledger |
-| `/election_results` | `query(collection(db, "election_results"), where("tenant_id", "==", tenantId), where("contest_id", "==", contestId))` | `allow read: if isSignedIn() && sameTenant(resource.data)` | ✅ Yes | Authenticated tenant users view contest results |
+| Capability | Social-only Member | Campaign Member | Election Officer | Admin | Required Scope / Condition |
+| ---------- | ------------------ | --------------- | ---------------- | ----- | -------------------------- |
+| **Election Module Access** | ⛔ Denied | ✅ Allowed | ✅ Allowed | ✅ Allowed | Navigation & portal route access |
+| **View Election Results** | ⛔ Denied | ✅ Allowed (Scoped) | ✅ Allowed (Global) | ✅ Allowed (Global) | Registered PU/Ward or Organizational Scope |
+| **Upload PU Election Result** | ⛔ Denied | ✅ Allowed (Registered PU) | ✅ Allowed | ✅ Allowed | Open contest; registered PU or officer grant |
+| **Submit Election Incident** | ⛔ Denied | ✅ Allowed (Registered PU) | ✅ Allowed | ✅ Allowed | Registered PU or active officer grant |
+| **Submit PU Field Report** | ⛔ Denied | ✅ Allowed (Registered PU) | ✅ Allowed | ✅ Allowed | Registered PU or active officer grant |
+| **Election Operations Desk Review** | ⛔ Denied | ⛔ Denied | ✅ Allowed | ✅ Allowed | `role == 'election_officer'` or `admin` |
+| **Result Verification & Approval** | ⛔ Denied | ⛔ Denied | ✅ Allowed | ✅ Allowed | `role == 'election_officer'` or `admin` |
+| **Admin Result Correction** | ⛔ Denied | ⛔ Denied | ⛔ Denied | ✅ Allowed | `role == 'admin'`; sets status to `pending_review` |
 
 ---
 
-## 10. Functional Error Root Causes Matrix
+## H. Election Result Visibility Matrix
 
-| Observed Symptom | Immediate Failing Query/Action | Current Rule | Root Cause | Secondary / Cascading Cause | Required Implementation Area |
-| ---------------- | ------------------------------ | ------------ | ---------- | --------------------------- | ---------------------------- |
-| **Failed to load organizational access** | `getUserOrganizationalAssignments(uid)` | Requires tenant match | Query omits `tenant_id` constraint | `AuthContext` catches error and resets assignments to `[]` | Client query update (`organization.ts`) |
-| **Failed to load your submissions** | `query(task_submissions)` | `resource.data.user_id == request.auth.uid` | Missing tenant filter or uid mismatch | UI displays fallback error | Client query update (`tasks/page.tsx`) |
-| **Failed to load tasks** | `query(tasks)` | Requires `isSocialMember()` | User profile missing `social_member` tag | UI fails task load | Profile registration / rules update |
-| **Failed to load PU scoped campaign members** | `getScopedCampaignMembers()` | Scoped user query | User collection read restricted to owner/admin | Hook cannot query member list across Wards | Scoped directory fetch service |
-| **Failed to load organizational assignments** | `getOrganizationalAssignmentsByUserId()` | Tenant rule check | Client query omits `tenant_id` filter | UI shows empty assignment table | Service query update (`organizationalAssignments.ts`) |
-| **Failed to load campaign assignments** | `query(campaign_assignments)` | `hasAccess("view_assignments", ...)` | Rules check exact `/user_access` key without hierarchy | Higher-level coordinator blocked | Security rules `hasAccess` update |
-| **Failed to load campaign reports** | `query(campaign_field_reports)` | `hasAccess("review_field_report", ...)` | Rules check exact `/user_access` key without hierarchy | Higher-level coordinator blocked | Security rules `hasAccess` update |
-| **Unable to load issues** | `query(issues)` | `hasAccess("manage_issue", ...)` | Rules check exact `/user_access` key without hierarchy | Higher-level coordinator blocked | Security rules `hasAccess` update |
-| **Unable to load campaign coordination data** | `query(users)` / scoped query | Restricted `/users` read | Non-admin user cannot read user list | UI coordination view fails | Scoped member query utility |
-| **Unable to update assignment** | `updateDoc(organizational_assignments)` | `isAdmin() && sameTenant()` | Admin missing tenant context in request payload | Update rejected | Update payload & rules validation |
-| **Unable to delete assignment** | `deleteDoc(organizational_assignments)` | `allow delete: if isAdmin() && sameTenant(resource.data)` | Rule evaluated `request.resource.data` (`null` on delete) | Delete operation crashes rule engine | Firestore rules fix (`resource.data`) |
-| **Unable to load leaderboard** | `query(users, orderBy("points"))` | `allow read: if isAdmin() \|\| isOwner(userId)` | Non-admin querying `/users` blocked by security rules | Unhandled permission error | Create `/leaderboard_public` collection & update service |
-| **Admin cannot create activity** | `addDoc(campaign_activities)` | `allow create: if hasAccess("create_activity", ...)` | Activity create rule lacks `isAdmin()` bypass | Admin lacks explicit `/user_access` row | Add `isAdmin()` bypass to activity create rule |
+| User Category | Viewing Authority | Scope Boundaries |
+| ------------- | ----------------- | ---------------- |
+| **Social-only Member** | ⛔ Denied | None (Blocked at routing and database boundaries) |
+| **Campaign Member (Registered PU)** | ✅ Allowed | Restricted to registered Ward/PU results (`profile.ward_id`, `profile.polling_unit_id`) |
+| **Campaign Member (With Assignment)** | ✅ Allowed | Scoped to assigned geographic area and subordinate descendants |
+| **Election Officer** | ✅ Allowed | Tenant-wide global result visibility |
+| **Admin** | ✅ Allowed | Tenant-wide global result visibility |
+| **Explicit Permission Grant** | ✅ Allowed | Scoped according to explicit `view_election_dashboard` grant scope |
 
 ---
 
-## 11. Dependency-Checked Implementation Sequence for Phase 3
+## I. Election Submission / Review / Correction Workflow
 
 ```text
-Step 1: AuthContext / Organizational Access Foundation
-  - Fix AuthContext error handling to prevent silent [] fallback.
-  - Fix getUserOrganizationalAssignments() & getUserPermissionGrants() to include tenant_id.
+[Field Agent / Campaign Member]
+       │
+       ├─► Upload Form EC8 Photo ──► Cloudinary ("ifeanyi-2027/election-results")
+       │
+       └─► Form EC8 Data + Vote Counts ──► Firestore (`election_results/{contestId}__{puId}`)
+                                                    │ (Status: "submitted", verified: false)
+                                                    ▼
+                                    [Election Operations Desk]
+                                    (`/portal/election/operations`)
+                                                    │
+                                   ┌────────────────┴────────────────┐
+                                   ▼                                 ▼
+                         [Approve Result]                  [Reject / Clarify]
+                                   │                                 │
+                         (Status: "approved",                        ▼
+                          verified: true)                (Status: "rejected" /
+                                   │                       "clarification_required")
+                                   ▼
+                       [Admin Correction]
+                   (`correctElectionResult`)
+                                   │
+                                   ▼
+                        (Status: "pending_review",
+                         verified: false)
+                                   │
+                                   ▼
+                     [Election Officer Re-Review]
+```
 
-Step 2: Security Rules Delete Anti-Pattern Fix
-  - Replace request.resource.data.tenant_id with resource.data.tenant_id in all allow delete blocks.
+- **Correction Enforcement:** `adminCorrectionUpdate()` in `firestore.rules` enforces that any administrative modification sets `status = "pending_review"` and `verified = false`.
 
-Step 3: Security Rules Admin Bypass & Hierarchical Rule Helpers
-  - Add explicit isAdmin() bypass to campaign_activities create rule.
-  - Enhance hasAccess() helper in firestore.rules to support scope inheritance.
+---
 
-Step 4: Public Leaderboard Infrastructure
-  - Create /leaderboard_public collection sync and update getLeaderboard() service.
+## J. Tenant Isolation Matrix
 
-Step 5: Scoped Feature Query & Rule Alignment
-  - Update queries for campaign_activities, campaign_assignments, field_reports, issues, and tasks.
+| Query Function | File Path | Current Query | Includes `tenant_id`? | Rule Requires `tenant_id`? | Status / Gap |
+| -------------- | --------- | ------------- | --------------------- | -------------------------- | ------------ |
+| `getUserOrganizationalAssignments` | `src/lib/firebase/organization.ts` | `where("user_id", "==", userId)` | ❌ No | ✅ Yes (`callerTenantId()`) | Source defect |
+| `getUserPermissionGrants` | `src/lib/firebase/organization.ts` | `where("user_id", "==", userId)` | ❌ No | ✅ Yes (`callerTenantId()`) | Source defect |
+| `getOrganizationalAssignmentsByUserId` | `src/lib/firebase/organizationalAssignments.ts` | `where("user_id", "==", userId)` | ❌ No | ✅ Yes (`callerTenantId()`) | Source defect |
+| `getPermissionGrantsByUserId` | `src/lib/firebase/permissionGrants.ts` | `where("user_id", "==", userId)` | ❌ No | ✅ Yes (`callerTenantId()`) | Source defect |
+| `getAllCampaignMembersForTenant` | `src/lib/firebase/firestore.ts` | `where("tenant_id", "==", tenantId)` | ✅ Yes | ✅ Yes | Matched |
 
-Step 6: Campaign Members & Coordination Scoped Directory Services
-  - Implement tenant-aware scoped member directory queries.
+---
 
-Step 7: Election Operations & Operations Desk Verification
-  - Validate role-based election officer and uploader scope boundaries.
+## K. AuthContext Authorization Flow
 
-Step 8: Automated Rules & End-to-End Verification
-  - Execute npm run test and verify zero build/lint regressions.
+```text
+Firebase Auth Change
+       │
+       ▼
+Fetch User Profile (`getUserProfile`)
+       │
+       ▼
+Fetch Organizational Access (`getUserOrganizationalAssignments` & `getUserPermissionGrants`)
+       │
+       ├─► SUCCESS: Set active assignments & permission grants.
+       │
+       └─► CATCH ERROR: Console error & set assignments = [], grants = [].
+                               │
+                               ▼
+            [Cascading Authorization Failure]
+            - resolvePermission() loses context.
+            - Scoped UI components render blocker banners.
 ```
 
 ---
 
-# PHASE 2.1 FINAL STATUS
+## L. Leaderboard Authorization / Visibility
 
-- **Current implementation accurately distinguished from intended architecture:** YES
-- **AuthContext cascading failure identified:** YES
-- **Tenant query mismatches accurately identified:** YES
-- **Admin rule mismatches accurately identified:** YES
-- **Election authorization separated by capability:** YES
-- **Registered location separated from OrganizationalAssignment:** YES
-- **Hierarchy layers accurately distinguished:** YES
-- **Leaderboard solution treated as proposal rather than fact:** YES
-- **Functional error root causes verified:** YES
-- **Implementation sequence dependency-checked:** YES
+- **Current State:** `getLeaderboard()` queries `collection(db, "users")`, which requires `isAdmin() || isOwner(userId)`. Non-admin users fail with permission errors.
+- **Recommended Phase 3 Direction:** Create a lightweight public projection collection (`/leaderboard_public`), updated via Firestore writes or background triggers, containing non-sensitive user fields (`user_id`, `display_name`, `avatar_url`, `points`, `rank`, `tenant_id`), with security rule `allow read: if isSignedIn()`.
+
+---
+
+## M. Campaign Activities Authorization
+
+- **Product Requirement:** Admins can manage and create activities globally.
+- **Current Rule:** Line 875 of `firestore.rules` evaluates `hasAccess("create_activity", scope_type, scope_id)` on `allow create`, lacking an `isAdmin()` bypass.
+- **Gap:** Admins without explicit `/user_access` index records are rejected when creating activities.
+
+---
+
+## N. Campaign Member Directory Authorization
+
+- Admin users access member directory globally via `getAllCampaignMembersForTenant(tenantId)`.
+- Campaign Coordinators access member list scoped to their assigned geographic area and subordinate locations.
+
+---
+
+## O. Field Reports and Issues Authorization
+
+- Field reports and issues support submission by authorized campaign members for their registered location or assigned scope.
+- Review and status management are restricted to users with assigned supervisory permissions or Admin roles.
+
+---
+
+## P. Tasks and Leaderboard Behavior
+
+- Tasks are visible to social members (`status == "active"`).
+- Member submissions are private to the submitter and Admin reviewers (`/task_submissions`).
+
+---
+
+## Q. Known Source / Rule / Query Mismatches
+
+1. Delete rules across multiple collections evaluate `request.resource.data.tenant_id` (`null` on delete).
+2. `campaign_activities` create rule lacks `isAdmin()` bypass.
+3. Organizational assignment and permission grant queries omit `tenant_id` filters.
+4. Leaderboard service queries private `/users` collection directly.
+
+---
+
+## R. Confirmed vs. Suspected Runtime Causes
+
+| Observed Symptom | Confirmed Root Cause | Suspected / Contributing Factor |
+| ---------------- | -------------------- | ------------------------------- |
+| **Unable to load leaderboard** | Query on `/users` rejected by rules | None |
+| **Unable to delete assignment** | Delete rule evaluates `request.resource.data` | None |
+| **Admin cannot create activity** | Activity create rule lacks `isAdmin()` bypass | None |
+| **Failed to load organizational access** | Query omits `tenant_id` | `AuthContext` error catch resets state to `[]` |
+
+---
+
+## S. Phase 3 Implementation Requirements
+
+### Requirement 1: Security Rules Delete Anti-Pattern Fix
+- **CURRENT STATE:** Rules evaluate `request.resource.data.tenant_id` on delete.
+- **REQUIRED STATE:** Evaluate `resource.data.tenant_id` on delete.
+- **WHY:** `request.resource` is null during deletion.
+- **AFFECTED FILES:** `firestore.rules`.
+- **SECURITY IMPLICATION:** Prevents deletion crashes while maintaining tenant isolation.
+- **TEST REQUIREMENT:** Unit test deleting an assignment as Admin.
+
+### Requirement 2: Admin Activity Creation Rule Bypass
+- **CURRENT STATE:** Activity creation requires `hasAccess("create_activity", ...)`.
+- **REQUIRED STATE:** Allow creation if `isAdmin() || hasAccess("create_activity", ...)`.
+- **WHY:** Admins must have global operational access without explicit assignment documents.
+- **AFFECTED FILES:** `firestore.rules`.
+- **SECURITY IMPLICATION:** Restores intended Admin administrative capability.
+- **TEST REQUIREMENT:** Verify Admin activity creation succeeds.
+
+### Requirement 3: Tenant Query Filter Alignment
+- **CURRENT STATE:** Organizational access queries filter by `user_id` only.
+- **REQUIRED STATE:** Include `where("tenant_id", "==", tenantId)` in queries.
+- **WHY:** Ensures query alignment with tenant-scoped security rules.
+- **AFFECTED FILES:** `src/lib/firebase/organization.ts`, `organizationalAssignments.ts`, `permissionGrants.ts`.
+- **SECURITY IMPLICATION:** Strictly enforces multi-tenant boundary.
+- **TEST REQUIREMENT:** Verify queries pass tenant ID parameter.
+
+### Requirement 4: AuthContext Error Handling Resilience
+- **CURRENT STATE:** Access fetch failure resets state to `assignments = []` and `grants = []`.
+- **REQUIRED STATE:** Preserve user profile state and report error without wiping active credentials silently.
+- **WHY:** Prevents cascading UI lockouts.
+- **AFFECTED FILES:** `src/contexts/AuthContext.tsx`.
+- **SECURITY IMPLICATION:** Prevents unintended authorization drops.
+- **TEST REQUIREMENT:** Test AuthContext error boundaries.
+
+### Requirement 5: Leaderboard Projection Collection
+- **CURRENT STATE:** Leaderboard queries `/users` directly.
+- **REQUIRED STATE:** Query `/leaderboard_public` projection collection.
+- **WHY:** Exposes point rankings without leaking private user profile fields.
+- **AFFECTED FILES:** `src/lib/firebase/firestore.ts`, `firestore.rules`.
+- **SECURITY IMPLICATION:** Protects user PII (emails, phone numbers).
+- **TEST REQUIREMENT:** Verify non-admin user can fetch leaderboard.
+
+---
+
+## T. Items That MUST NOT Be Redesigned
+
+1. **Four Authorization Abstractions:** `access_role`, `membership_type`, `OrganizationalAssignment`, and `PermissionGrant` / `user_access` must remain distinct.
+2. **Multi-Contest Election Structure:** Tenant → Cycle → Contest → Result schema must remain intact.
+3. **Admin Correction Workflow:** Corrections must set `status = "pending_review"` and `verified = false`.
+4. **Private Candidate Donation Ledger:** Must remain a private, offline contribution record system.
+5. **Permanently Removed Modules:** Campaign Communications, Campaign Documents, and Campaign Calendar must NOT be restored.
