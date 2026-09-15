@@ -782,7 +782,7 @@ export default function PortalLayout({
           aria-label="Mobile navigation"
         >
           {/* Mobile Brand Header */}
-          <div className="flex h-20 shrink-0 items-center justify-between border-b pl-2 pr-5">
+          <div className="flex h-20 shrink-0 items-center justify-between border-b pl-0 pr-5">
             <Link
               href="/"
               onClick={() => setSidebarOpen(false)}
@@ -843,8 +843,8 @@ export default function PortalLayout({
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-72 lg:flex">
         <div className="flex h-full min-h-0 w-full flex-col overflow-hidden border-r bg-white">
           {/* Desktop Brand Header */}
-          <div className="flex h-20 shrink-0 items-center border-b pl-2 pr-5">
-            <Link href="/" className="flex min-w-0 items-center gap-1">
+          <div className="flex h-20 shrink-0 items-center border-b pl-0 pr-5">
+            <Link href="/" className="flex min-w-0 items-center gap-0">
               <NextImage
                 src="/images/politicore-logo-raw.png"
                 alt="PolitiCore Logo"
@@ -891,7 +891,7 @@ export default function PortalLayout({
       <div className="lg:pl-72">
         {/* Mobile Header */}
         <header className="sticky top-0 z-30 border-b bg-white lg:hidden">
-          <div className="flex h-20 items-center justify-between pl-2 pr-4">
+          <div className="flex h-20 items-center justify-between pl-0 pr-4">
             <Link href="/" className="flex min-w-0 items-center gap-2">
               <NextImage
                 src="/images/politicore-logo-raw.png"
