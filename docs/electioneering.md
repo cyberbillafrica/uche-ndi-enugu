@@ -1,4 +1,4 @@
-# Electioneering & Election Management Engine
+# Electioneering and Election Management Engine
 
 ## Overview
 
