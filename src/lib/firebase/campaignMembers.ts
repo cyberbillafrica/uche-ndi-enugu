@@ -55,6 +55,7 @@ export async function getAllCampaignMembersForTenant(
 ): Promise<ScopedCampaignMember[]> {
   const membersQuery = query(
     collection(db, "users"),
+    where("tenant_id", "==", tenantId),
     where("membership_types", "array-contains", "campaign_member"),
   );
 

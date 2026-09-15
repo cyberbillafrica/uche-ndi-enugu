@@ -3,21 +3,21 @@
 import { collection, getDocs, query, where } from "firebase/firestore";
 
 import { db } from "./config";
+import { CURRENT_TENANT_ID } from "./tenants";
 
 import type { OrganizationalAssignment, PermissionGrant } from "@/types";
 
 /**
  * Get all organizational assignments belonging to the
- * currently authenticated user.
- *
- * Firestore rules require the query to be constrained by
- * user_id, so this is intentionally scoped.
+ * currently authenticated user within the given tenant.
  */
 export async function getUserOrganizationalAssignments(
   userId: string,
+  tenantId: string = CURRENT_TENANT_ID,
 ): Promise<OrganizationalAssignment[]> {
   const q = query(
     collection(db, "organizational_assignments"),
+    where("tenant_id", "==", tenantId),
     where("user_id", "==", userId),
   );
 
@@ -35,9 +35,11 @@ export async function getUserOrganizationalAssignments(
  */
 export async function getUserPermissionGrants(
   userId: string,
+  tenantId: string = CURRENT_TENANT_ID,
 ): Promise<PermissionGrant[]> {
   const q = query(
     collection(db, "permission_grants"),
+    where("tenant_id", "==", tenantId),
     where("user_id", "==", userId),
   );
 

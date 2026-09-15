@@ -93,6 +93,18 @@ export async function signUpVolunteer(
       updated_at: serverTimestamp(),
     });
 
+    try {
+      const { syncLeaderboardProjection } = await import("./firestore");
+      await syncLeaderboardProjection(user.uid, {
+        full_name: payload.full_name,
+        points: 0,
+        ward_id: payload.ward_id,
+        tenant_id: payload.tenant_id,
+      });
+    } catch (syncErr) {
+      console.warn("Leaderboard projection sync warning on volunteer signup:", syncErr);
+    }
+
     return {
       user,
       error: null,

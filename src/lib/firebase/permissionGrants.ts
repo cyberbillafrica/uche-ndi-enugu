@@ -150,8 +150,13 @@ export async function getAllPermissionGrants(): Promise<PermissionGrant[]> {
 
 export async function getPermissionGrantsByUserId(
   userId: string,
+  tenantId: string = CURRENT_TENANT_ID,
 ): Promise<PermissionGrant[]> {
-  const q = query(collection(db, COLLECTION), where("user_id", "==", userId));
+  const q = query(
+    collection(db, COLLECTION),
+    where("tenant_id", "==", tenantId),
+    where("user_id", "==", userId),
+  );
 
   const snap = await getDocs(q);
 

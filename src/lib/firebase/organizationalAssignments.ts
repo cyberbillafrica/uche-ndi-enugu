@@ -251,6 +251,7 @@ export async function getAllOrganizationalAssignments(): Promise<
 
 export async function getOrganizationalAssignmentsByUserId(
   userId: string,
+  tenantId: string = CURRENT_TENANT_ID,
 ): Promise<OrganizationalAssignment[]> {
   if (!userId) {
     return [];
@@ -260,6 +261,7 @@ export async function getOrganizationalAssignmentsByUserId(
 
   const q = query(
     assignmentsRef,
+    where("tenant_id", "==", tenantId),
     where("user_id", "==", userId),
     orderBy("created_at", "desc"),
   );

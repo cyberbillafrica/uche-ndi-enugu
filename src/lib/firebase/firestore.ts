@@ -335,6 +335,28 @@ export async function verifyTaskSubmission(
       updated_at: serverTimestamp(),
     });
   });
+
+  // Sync updated user profile to public leaderboard projection
+  try {
+    const submissionDoc = await getDoc(doc(db, "task_submissions", submissionId));
+    if (submissionDoc.exists()) {
+      const uId = submissionDoc.data().user_id;
+      if (uId) {
+        const uDoc = await getDoc(doc(db, "users", uId));
+        if (uDoc.exists()) {
+          const userData = uDoc.data();
+          await syncLeaderboardProjection(uId, {
+            full_name: userData.full_name,
+            points: userData.points,
+            ward_id: userData.ward_id,
+            tenant_id: userData.tenant_id,
+          });
+        }
+      }
+    }
+  } catch (syncErr) {
+    console.warn("Post-verification leaderboard sync warning:", syncErr);
+  }
 }
 
 // ─────────────────────────────────────────────
@@ -342,6 +364,27 @@ export async function verifyTaskSubmission(
 // ─────────────────────────────────────────────
 
 export async function getLeaderboard(topN: number = 50) {
+  // Try reading from the public non-sensitive leaderboard projection collection
+  try {
+    const publicQ = query(
+      collection(db, "leaderboard_public"),
+      orderBy("points", "desc"),
+      limit(topN),
+    );
+
+    const publicSnap = await getDocs(publicQ);
+
+    if (!publicSnap.empty) {
+      return publicSnap.docs.map((d) => ({
+        id: d.id,
+        ...d.data(),
+      }));
+    }
+  } catch (publicError) {
+    console.warn("Public leaderboard projection query fallback:", publicError);
+  }
+
+  // Fallback query for admin users
   const q = query(
     collection(db, "users"),
     orderBy("points", "desc"),
@@ -352,8 +395,43 @@ export async function getLeaderboard(topN: number = 50) {
 
   return snap.docs.map((d) => ({
     id: d.id,
-    ...d.data(),
+    full_name: d.data().full_name,
+    points: d.data().points,
+    ward_id: d.data().ward_id,
   }));
+}
+
+/**
+ * Sync user profile to the public non-sensitive leaderboard projection
+ */
+export async function syncLeaderboardProjection(
+  userId: string,
+  profileData: {
+    full_name?: string;
+    points?: number;
+    ward_id?: string;
+    tenant_id?: string;
+  },
+) {
+  if (!userId) return;
+
+  try {
+    const { doc, setDoc } = await import("firebase/firestore");
+    const projRef = doc(db, "leaderboard_public", userId);
+    await setDoc(
+      projRef,
+      {
+        user_id: userId,
+        full_name: profileData.full_name || "Anonymous Member",
+        points: profileData.points || 0,
+        ward_id: profileData.ward_id || null,
+        tenant_id: profileData.tenant_id || CURRENT_TENANT_ID,
+      },
+      { merge: true },
+    );
+  } catch (err) {
+    console.warn("Failed to sync leaderboard projection:", err);
+  }
 }
 
 // ─────────────────────────────────────────────

@@ -609,6 +609,23 @@ service cloud.firestore {
 
 
     // ============================================================
+    // LEADERBOARD PUBLIC PROJECTION
+    //
+    // Non-sensitive public leaderboard projections for social members.
+    // ============================================================
+
+    match /leaderboard_public/{docId} {
+
+      allow read: if isSignedIn();
+
+      allow create, update: if isAdmin()
+        || (isSignedIn() && request.auth.uid == docId);
+
+      allow delete: if isAdmin();
+    }
+
+
+    // ============================================================
     // SOCIAL MEDIA TASKS
     // ============================================================
 
@@ -869,13 +886,16 @@ service cloud.firestore {
           resource.data.scope_id
         );
 
-      allow create: if isSignedIn()
-        && newDataSameTenant()
-        && request.resource.data.created_by == request.auth.uid
-        && hasAccess(
-          "create_activity",
-          request.resource.data.scope_type,
-          request.resource.data.scope_id
+      allow create: if (isAdmin() && newDataSameTenant())
+        || (
+          isSignedIn()
+            && newDataSameTenant()
+            && request.resource.data.created_by == request.auth.uid
+            && hasAccess(
+              "create_activity",
+              request.resource.data.scope_type,
+              request.resource.data.scope_id
+            )
         );
 
       allow update: if isAdmin()
