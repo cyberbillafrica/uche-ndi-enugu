@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { getUserAnnouncements } from "@/lib/firebase/firestore";
-import Image from "next/image";
 
 import {
   LayoutDashboard,
@@ -30,6 +29,7 @@ import {
   CalendarDays,
   Flag,
   Network,
+  Image,
   Bell,
   Check,
   ShieldCheck,
