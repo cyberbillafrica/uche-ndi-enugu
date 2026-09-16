@@ -618,10 +618,7 @@ service cloud.firestore {
 
       allow read: if isSignedIn();
 
-      allow create, update: if isAdmin()
-        || (isSignedIn() && request.auth.uid == docId);
-
-      allow delete: if isAdmin();
+      allow create, update, delete: if isAdmin();
     }
 
 
