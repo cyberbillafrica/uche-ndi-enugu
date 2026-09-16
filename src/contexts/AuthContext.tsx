@@ -96,6 +96,7 @@ interface AuthContextType {
    */
   loading: boolean;
   accessLoading: boolean;
+  accessError: string | null;
 
   /*
    * Membership state
@@ -125,6 +126,7 @@ const AuthContext = createContext<AuthContextType>({
 
   loading: true,
   accessLoading: true,
+  accessError: null,
 
   isSocialMember: false,
   isCampaignMember: false,
@@ -153,6 +155,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const [accessLoading, setAccessLoading] = useState(true);
+  const [accessError, setAccessError] = useState<string | null>(null);
 
   /*
    * ------------------------------------------------------------
@@ -170,6 +173,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
        */
       setLoading(true);
       setAccessLoading(true);
+      setAccessError(null);
 
       /*
        * Clear previous access immediately.
@@ -280,22 +284,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
            * resolver.
            */
           setGrants(permissionGrants);
-        } catch (accessError) {
-          /*
-           * IMPORTANT:
-           *
-           * Organizational access is an enhancement to the
-           * existing application.
-           *
-           * If the new collections cannot be read, we do not
-           * break the existing Social / Election Officer /
-           * Admin application.
-           */
-          console.error("Failed to load organizational access:", accessError);
+          setAccessError(null);
+        } catch (err: unknown) {
+          const errorMessage =
+            err instanceof Error ? err.message : "Failed to load authorization";
+          console.error("Failed to load organizational access:", err);
 
           if (!cancelled) {
             setAssignments([]);
             setGrants([]);
+            setAccessError(errorMessage);
           }
         } finally {
           if (!cancelled) {
@@ -361,8 +359,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
    * ============================================================
    */
 
-  const hasPermission = (permission: Permission, scope?: PermissionScope) =>
-    resolvePermission(
+  const hasPermission = (permission: Permission, scope?: PermissionScope) => {
+    // Fail closed if there was an error loading authorization state,
+    // unless the user is an admin.
+    if (accessError && profile?.access_role !== "admin") {
+      return false;
+    }
+
+    return resolvePermission(
       {
         profile,
         assignments,
@@ -371,6 +375,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       permission,
       scope,
     );
+  };
 
   /*
    * ============================================================
@@ -389,6 +394,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         loading,
         accessLoading,
+        accessError,
 
         isSocialMember,
         isCampaignMember,

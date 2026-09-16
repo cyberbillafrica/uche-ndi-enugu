@@ -17,7 +17,7 @@ import {
 
 import { db } from "./config";
 import { getAnnouncements as getPortalAnnouncements } from "./portal-content";
-import { getCurrentTenant } from "./tenants";
+import { CURRENT_TENANT_ID, getCurrentTenant } from "./tenants";
 
 
 // ============================================================
@@ -79,10 +79,31 @@ export async function updateUserProfile(
   userId: string,
   data: Record<string, unknown>,
 ) {
-  await updateDoc(doc(db, "users", userId), {
+  const userRef = doc(db, "users", userId);
+  await updateDoc(userRef, {
     ...data,
     updated_at: serverTimestamp(),
   });
+
+  try {
+    const snap = await getDoc(userRef);
+    if (snap.exists()) {
+      const uData = snap.data();
+      await syncLeaderboardProjection(userId, {
+        display_name: (uData.display_name || uData.full_name) as string,
+        full_name: uData.full_name as string,
+        points: Number(uData.points) || 0,
+        rank: uData.rank as string,
+        tenant_id: uData.tenant_id as string,
+        state_id: uData.state_id as string,
+        zone_id: uData.zone_id as string,
+        lga_id: uData.lga_id as string,
+        ward_id: uData.ward_id as string,
+      });
+    }
+  } catch (syncErr) {
+    console.warn("Leaderboard projection sync warning on profile update:", syncErr);
+  }
 }
 
 // ─────────────────────────────────────────────
@@ -335,25 +356,114 @@ export async function verifyTaskSubmission(
       updated_at: serverTimestamp(),
     });
   });
+
+  // Sync updated user profile to public leaderboard projection
+  try {
+    const submissionDoc = await getDoc(doc(db, "task_submissions", submissionId));
+    if (submissionDoc.exists()) {
+      const uId = submissionDoc.data().user_id;
+      if (uId) {
+        const uDoc = await getDoc(doc(db, "users", uId));
+        if (uDoc.exists()) {
+          const userData = uDoc.data();
+          await syncLeaderboardProjection(uId, {
+            display_name: (userData.display_name || userData.full_name) as string,
+            full_name: userData.full_name as string,
+            points: Number(userData.points) || 0,
+            rank: userData.rank as string,
+            tenant_id: userData.tenant_id as string,
+            state_id: userData.state_id as string,
+            zone_id: userData.zone_id as string,
+            lga_id: userData.lga_id as string,
+            ward_id: userData.ward_id as string,
+          });
+        }
+      }
+    }
+  } catch (syncErr) {
+    console.warn("Post-verification leaderboard sync warning:", syncErr);
+  }
 }
 
 // ─────────────────────────────────────────────
 // Leaderboard
 // ─────────────────────────────────────────────
 
-export async function getLeaderboard(topN: number = 50) {
-  const q = query(
-    collection(db, "users"),
+export async function getLeaderboard(
+  topN: number = 50,
+  tenantId: string = CURRENT_TENANT_ID,
+) {
+  // Authoritative query against the public non-sensitive leaderboard projection
+  const publicQ = query(
+    collection(db, "leaderboard_public"),
+    where("tenant_id", "==", tenantId),
     orderBy("points", "desc"),
     limit(topN),
   );
 
-  const snap = await getDocs(q);
+  const publicSnap = await getDocs(publicQ);
 
-  return snap.docs.map((d) => ({
-    id: d.id,
-    ...d.data(),
-  }));
+  return publicSnap.docs.map((d) => {
+    const data = d.data();
+    return {
+      id: d.id,
+      user_id: data.user_id || d.id,
+      display_name: data.display_name || data.full_name || "Anonymous Member",
+      full_name: data.display_name || data.full_name || "Anonymous Member",
+      points: Number(data.points) || 0,
+      rank: data.rank || "Volunteer",
+      tenant_id: data.tenant_id || tenantId,
+      state_id: data.state_id || "enugu-state",
+      zone_id: data.zone_id || null,
+      lga_id: data.lga_id || null,
+      ward_id: data.ward_id || null,
+    };
+  });
+}
+
+/**
+ * Sync user profile to the public non-sensitive leaderboard projection.
+ * Schema includes user_id, display_name, points, rank, tenant_id,
+ * state_id, zone_id, lga_id, ward_id. (Polling unit is explicitly excluded).
+ */
+export async function syncLeaderboardProjection(
+  userId: string,
+  profileData: {
+    display_name?: string;
+    full_name?: string;
+    points?: number;
+    rank?: string;
+    tenant_id?: string;
+    state_id?: string;
+    zone_id?: string;
+    lga_id?: string;
+    ward_id?: string;
+  },
+) {
+  if (!userId) return;
+
+  try {
+    const { doc, setDoc } = await import("firebase/firestore");
+    const projRef = doc(db, "leaderboard_public", userId);
+    await setDoc(
+      projRef,
+      {
+        user_id: userId,
+        display_name:
+          profileData.display_name || profileData.full_name || "Anonymous Member",
+        points: Number(profileData.points) || 0,
+        rank: profileData.rank || "Volunteer",
+        tenant_id: profileData.tenant_id || CURRENT_TENANT_ID,
+        state_id: profileData.state_id || "enugu-state",
+        zone_id: profileData.zone_id || null,
+        lga_id: profileData.lga_id || null,
+        ward_id: profileData.ward_id || null,
+      },
+      { merge: true },
+    );
+  } catch (err) {
+    console.warn("Failed to sync leaderboard projection:", err);
+  }
 }
 
 // ─────────────────────────────────────────────
