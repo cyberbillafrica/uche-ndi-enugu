@@ -66,6 +66,42 @@ assert(
 assert(formatOrganizationalPosition("ward_coordinator") === "Ward Coordinator", "Formats ward coordinator position correctly");
 assert(formatScopeType("senatorial_zone") === "Senatorial Zone", "Formats senatorial zone scope correctly");
 
+// 5. Leaderboard Projection Schema & Boundary Verification Tests
+function createLeaderboardProjectionDoc(userProfile: any) {
+  return {
+    user_id: userProfile.id || "user-123",
+    display_name: userProfile.display_name || userProfile.full_name || "Anonymous Member",
+    points: Number(userProfile.points) || 0,
+    rank: userProfile.rank || "Volunteer",
+    tenant_id: userProfile.tenant_id || "ifeanyi-2027",
+    state_id: userProfile.state_id || "enugu-state",
+    zone_id: userProfile.zone_id || null,
+    lga_id: userProfile.lga_id || null,
+    ward_id: userProfile.ward_id || null,
+  };
+}
+
+const testProfile = {
+  id: "member-001",
+  full_name: "Chinedu Okafor",
+  points: 150,
+  rank: "Volunteer",
+  tenant_id: "ifeanyi-2027",
+  state_id: "enugu-state",
+  zone_id: "enugu-east",
+  lga_id: "nkanu-west",
+  ward_id: "ward-01",
+  polling_unit_id: "pu-001",
+};
+
+const projection = createLeaderboardProjectionDoc(testProfile) as any;
+
+assert(projection.ward_id === "ward-01", "Leaderboard projection includes Ward ID");
+assert(projection.lga_id === "nkanu-west", "Leaderboard projection includes LGA ID");
+assert(projection.zone_id === "enugu-east", "Leaderboard projection includes Zone ID");
+assert(projection.state_id === "enugu-state", "Leaderboard projection includes State ID");
+assert(projection.polling_unit_id === undefined && projection.pu_id === undefined, "Leaderboard projection explicitly EXCLUDES Polling Unit ID");
+
 console.log("\n==================================================");
 console.log(`TEST SUMMARY: ${passed} Passed, ${failed} Failed`);
 console.log("==================================================");

@@ -616,9 +616,11 @@ service cloud.firestore {
 
     match /leaderboard_public/{docId} {
 
-      allow read: if isSignedIn();
+      allow read: if isSignedIn()
+        && sameTenant(resource.data);
 
-      allow create, update, delete: if isAdmin();
+      allow create, update, delete: if isAdmin()
+        && sameTenant(resource.data);
     }
 
 

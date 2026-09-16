@@ -245,6 +245,27 @@ export async function updateCampaignMemberProfile(
     ...data,
     updated_at: serverTimestamp(),
   });
+
+  try {
+    const snap = await getDoc(memberRef);
+    if (snap.exists()) {
+      const { syncLeaderboardProjection } = await import("./firestore");
+      const uData = snap.data();
+      await syncLeaderboardProjection(memberId, {
+        display_name: (uData.display_name || uData.full_name) as string,
+        full_name: uData.full_name as string,
+        points: Number(uData.points) || 0,
+        rank: uData.rank as string,
+        tenant_id: uData.tenant_id as string,
+        state_id: uData.state_id as string,
+        zone_id: uData.zone_id as string,
+        lga_id: uData.lga_id as string,
+        ward_id: uData.ward_id as string,
+      });
+    }
+  } catch (syncErr) {
+    console.warn("Leaderboard projection sync warning on campaign member profile update:", syncErr);
+  }
 }
 
 /*
