@@ -17,7 +17,7 @@ import {
 
 import { db } from "./config";
 import { getAnnouncements as getPortalAnnouncements } from "./portal-content";
-import { getCurrentTenant } from "./tenants";
+import { CURRENT_TENANT_ID, getCurrentTenant } from "./tenants";
 
 
 // ============================================================

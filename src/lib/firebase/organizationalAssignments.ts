@@ -17,6 +17,7 @@ import {
 } from "firebase/firestore";
 
 import { db } from "@/lib/firebase/config";
+import { CURRENT_TENANT_ID } from "@/lib/firebase/tenants";
 import { POSITION_DEFAULT_PERMISSIONS } from "@/lib/permissions";
 
 import type {

@@ -96,15 +96,15 @@ export async function signUpVolunteer(
     try {
       const { syncLeaderboardProjection } = await import("./firestore");
       await syncLeaderboardProjection(user.uid, {
-        display_name: payload.full_name,
-        full_name: payload.full_name,
+        display_name: userData.full_name,
+        full_name: userData.full_name,
         points: 0,
         rank: "Volunteer",
-        tenant_id: payload.tenant_id || CURRENT_TENANT_ID,
-        state_id: payload.state_id || "enugu-state",
-        zone_id: payload.zone_id,
-        lga_id: payload.lga_id,
-        ward_id: payload.ward_id,
+        tenant_id: CURRENT_TENANT_ID,
+        state_id: "enugu-state",
+        zone_id: undefined,
+        lga_id: userData.lga_id,
+        ward_id: userData.ward_id,
       });
     } catch (syncErr) {
       console.warn("Leaderboard projection sync warning on volunteer signup:", syncErr);

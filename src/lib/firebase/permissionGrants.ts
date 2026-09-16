@@ -14,6 +14,7 @@ import {
 } from "firebase/firestore";
 
 import { db } from "./config";
+import { CURRENT_TENANT_ID } from "./tenants";
 
 import type { Permission, PermissionGrant, ScopeType } from "@/types";
 

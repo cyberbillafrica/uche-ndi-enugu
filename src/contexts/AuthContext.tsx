@@ -362,7 +362,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const hasPermission = (permission: Permission, scope?: PermissionScope) => {
     // Fail closed if there was an error loading authorization state,
     // unless the user is an admin.
-    if (accessError && profile?.role !== "admin") {
+    if (accessError && profile?.access_role !== "admin") {
       return false;
     }
 
