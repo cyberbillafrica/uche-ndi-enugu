@@ -32,20 +32,25 @@ export default function HomePage() {
 
   useEffect(() => {
     async function loadHomepageData() {
+      setNewsLoading(true);
+
+      // Load news and events independently so a failure in one data source
+      // cannot blank out the other section of the homepage.
       try {
-        setNewsLoading(true);
-
-        const tenant = await getCurrentTenant();
-
         const newsData = await getPublishedNews(3);
-        const eventsData = await getPublishedEvents(tenant.id);
-
         setLatestNews(newsData);
-        setEvents(eventsData);
       } catch (err) {
-        console.error("Failed to load homepage data:", err);
+        console.error("Failed to load homepage news:", err);
       } finally {
         setNewsLoading(false);
+      }
+
+      try {
+        const tenant = await getCurrentTenant();
+        const eventsData = await getPublishedEvents(tenant.id);
+        setEvents(eventsData);
+      } catch (err) {
+        console.error("Failed to load homepage events:", err);
       }
     }
 
