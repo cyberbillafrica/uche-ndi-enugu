@@ -55,6 +55,8 @@ import {
 } from "@/components/ui/select";
 
 import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/components/ui/toast";
+import { getErrorMessage } from "@/lib/errors";
 import { hasPermission } from "@/lib/permissions";
 import { getAllLGAs } from "@/lib/constants";
 import {
@@ -103,6 +105,7 @@ export default function MemberDetailPage() {
     assignments: currentAssignments,
     grants: currentGrants,
   } = useAuth();
+  const toast = useToast();
 
   const [member, setMember] = useState<ScopedCampaignMember | null>(null);
   const [lgas, setLgas] = useState<LGA[]>([]);
@@ -758,7 +761,7 @@ export default function MemberDetailPage() {
       loadMember();
     } catch (err) {
       console.error("Failed to save profile:", err);
-      alert("Failed to save profile changes");
+      toast.error(getErrorMessage(err, "We couldn't save the profile changes. Please try again."));
     }
   }
 }
@@ -999,6 +1002,7 @@ function AssignmentManager({
   }) => Promise<void>;
   onClose: () => void;
 }) {
+  const toast = useToast();
   const [position, setPosition] =
     useState<OrganizationalPosition>("campaign_member");
   const [scopeType, setScopeType] = useState<ScopeType>("ward");
@@ -1028,7 +1032,7 @@ function AssignmentManager({
 
   const handleSubmit = async () => {
     if (!isValidCombination()) {
-      alert("Invalid position/scope combination");
+      toast.warning("Please choose a valid position and geographic scope combination.");
       return;
     }
 

@@ -34,6 +34,9 @@ import {
 } from "lucide-react";
 
 import { useAuth } from "@/contexts/AuthContext";
+import { HelpLink } from "@/components/help/HelpLink";
+import { useToast } from "@/components/ui/toast";
+import { getErrorMessage } from "@/lib/errors";
 import { getAllLGAs } from "@/lib/constants";
 import { assignmentCoversScope, isAdminUser } from "@/lib/permissions";
 import {
@@ -89,6 +92,7 @@ export default function ElectionDashboard() {
   const router = useRouter();
   const { profile, assignments, accessLoading } = useAuth();
   const isAdmin = isAdminUser(profile);
+  const toast = useToast();
 
   useEffect(() => {
     if (accessLoading) return;
@@ -548,11 +552,16 @@ export default function ElectionDashboard() {
         existingDoc: editingResult,
       });
 
+      toast.success(
+        "Correction saved. The result has been returned to the review queue for re-verification.",
+      );
       setEditingResult(null);
       setEditReason("");
     } catch (err) {
       console.error("Failed to correct election result:", err);
-      alert("Failed to save correction. Please try again.");
+      toast.error(
+        getErrorMessage(err, "We couldn't save the correction. Please try again."),
+      );
     } finally {
       setSavingEdit(false);
     }
@@ -636,9 +645,12 @@ export default function ElectionDashboard() {
             <Vote className="w-4 h-4" />
             <span>CONTEST-AWARE ELECTION DASHBOARD</span>
           </div>
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-900">
-            Official Results & Operational Collation
-          </h1>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h1 className="text-2xl md:text-3xl font-bold text-gray-900">
+              Official Results & Operational Collation
+            </h1>
+            <HelpLink article="election-dashboard" label="Election guide" />
+          </div>
           <p className="text-sm text-gray-500 mt-1">
             Official totals are calculated strictly from{" "}
             <span className="font-bold text-emerald-700">APPROVED</span>{" "}

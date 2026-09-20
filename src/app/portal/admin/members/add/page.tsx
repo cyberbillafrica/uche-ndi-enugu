@@ -4,11 +4,14 @@ import { useRouter } from "next/navigation";
 import { createMemberByAdmin } from "@/lib/firebase/auth";
 import { getAllLGAs } from "@/lib/constants";
 import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/components/ui/toast";
+import { getErrorMessage } from "@/lib/errors";
 import type { MembershipType, Role, LGA } from "@/types";
 
 export default function AddMemberPage() {
   const router = useRouter();
   const { profile, loading: authLoading } = useAuth();
+  const toast = useToast();
 
   useEffect(() => {
     if (!authLoading && profile && profile.access_role !== "admin") {
@@ -57,7 +60,7 @@ export default function AddMemberPage() {
     tiktok_username: "",
     gender: "",
   });
-  const [error, setError] = useState("");
+  const [error] = useState("");
   const [loading, setLoading] = useState(false);
 
   const selectedLga = lgas.find((lga) => lga.id === form.lga_id);
@@ -77,7 +80,6 @@ export default function AddMemberPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError("");
     setLoading(true);
 
     const { user, error: createError } = await createMemberByAdmin(
@@ -100,10 +102,11 @@ export default function AddMemberPage() {
     );
 
     if (createError) {
-      setError(createError);
+      toast.error(getErrorMessage(createError));
       setLoading(false);
       return;
     }
+    toast.success("New member account created successfully.");
     router.push("/portal/admin/members");
   };
 
@@ -126,9 +129,6 @@ export default function AddMemberPage() {
         onSubmit={handleSubmit}
         className="space-y-6 bg-white rounded-xl shadow p-8"
       >
-        {error && (
-          <div className="p-4 bg-red-50 text-red-700 rounded-lg">{error}</div>
-        )}
         <div className="grid md:grid-cols-2 gap-6">
           <div>
             <label className="block text-sm font-medium mb-2">

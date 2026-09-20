@@ -11,6 +11,9 @@ import {
 } from "@/lib/firebase/donations";
 import { getAllLGAs } from "@/lib/constants";
 import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/components/ui/toast";
+import { getErrorMessage } from "@/lib/errors";
+import { HelpLink } from "@/components/help/HelpLink";
 import type {
   DonationRecord,
   DonorRecord,
@@ -38,12 +41,11 @@ import {
 
 export default function AdminDonationsPage() {
   const { profile } = useAuth();
+  const toast = useToast();
   const [donations, setDonations] = useState<DonationRecord[]>([]);
   const [donors, setDonors] = useState<DonorRecord[]>([]);
   const [lgas, setLgas] = useState<LGA[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
 
   // Filters
   const [searchTerm, setSearchTerm] = useState("");
@@ -94,7 +96,7 @@ export default function AdminDonationsPage() {
         setLgas(lgaData);
       } catch (err) {
         console.error("Failed to load donations ledger:", err);
-        setError("Unable to load donation records.");
+        toast.error("We couldn't load the donation records. Please refresh the page.");
       } finally {
         setLoading(false);
       }
@@ -186,18 +188,16 @@ export default function AdminDonationsPage() {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.donor_name.trim()) {
-      setError("Donor name is required.");
+      toast.warning("Please enter the donor's name.");
       return;
     }
     const numAmount = Number(form.amount);
     if (isNaN(numAmount) || numAmount <= 0) {
-      setError("Please enter a valid positive donation amount.");
+      toast.warning("Please enter a valid positive donation amount.");
       return;
     }
 
     setSaving(true);
-    setError("");
-    setSuccess("");
 
     try {
       if (editingDonation) {
@@ -222,7 +222,7 @@ export default function AdminDonationsPage() {
           profile?.id || "admin",
           profile?.full_name || "Admin User"
         );
-        setSuccess("Donation record updated successfully.");
+        toast.success("Donation record updated successfully.");
       } else {
         await createDonation({
           donor_name: form.donor_name.trim(),
@@ -242,7 +242,7 @@ export default function AdminDonationsPage() {
           created_by: profile?.id || "admin",
           created_by_name: profile?.full_name || "Admin User",
         });
-        setSuccess("Donation record created successfully.");
+        toast.success("Donation recorded in the private ledger.");
       }
 
       setShowFormModal(false);
@@ -253,9 +253,8 @@ export default function AdminDonationsPage() {
       setDonations(updatedDonations);
       setDonors(updatedDonors);
     } catch (err: unknown) {
-      const errorObj = err as Error;
       console.error("Failed to save donation record:", err);
-      setError(errorObj.message || "Failed to save donation record.");
+      toast.error(getErrorMessage(err, "We couldn't save the donation record. Please try again."));
     } finally {
       setSaving(false);
     }
@@ -292,9 +291,12 @@ export default function AdminDonationsPage() {
             <Banknote className="h-4 w-4" />
             <span>Candidate Contribution Ledger</span>
           </div>
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-900">
-            Donation & Contribution Ledger
-          </h1>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h1 className="text-2xl md:text-3xl font-bold text-gray-900">
+              Donation & Contribution Ledger
+            </h1>
+            <HelpLink article="donation-ledger" label="Ledger guide" />
+          </div>
           <p className="text-sm text-gray-500 mt-1">
             Private administrative record-keeping, audit trail, and analytics for candidate campaign contributions.
           </p>
@@ -308,20 +310,6 @@ export default function AdminDonationsPage() {
           <span>Record Contribution</span>
         </button>
       </div>
-
-      {success && (
-        <div className="flex items-center gap-2 p-4 bg-green-50 text-green-700 rounded-xl border border-green-200 text-sm">
-          <CheckCircle2 className="h-5 w-5 shrink-0" />
-          <span>{success}</span>
-        </div>
-      )}
-
-      {error && (
-        <div className="flex items-center gap-2 p-4 bg-red-50 text-red-700 rounded-xl border border-red-200 text-sm">
-          <AlertCircle className="h-5 w-5 shrink-0" />
-          <span>{error}</span>
-        </div>
-      )}
 
       {/* Analytics Snapshot Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

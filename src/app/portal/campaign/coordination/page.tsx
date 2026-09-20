@@ -26,6 +26,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { db } from "@/lib/firebase/config";
 import { CURRENT_TENANT_ID } from "@/lib/firebase/tenants";
 
+import { useToast } from "@/components/ui/toast";
+import { getErrorMessage } from "@/lib/errors";
 import {
   createOrganizationalAssignment,
   deleteOrganizationalAssignment,
@@ -173,6 +175,7 @@ function permissionLabel(permission: Permission) {
 
 export default function CampaignCoordinationPage() {
   const { profile, loading: authLoading } = useAuth();
+  const toast = useToast();
 
   const [members, setMembers] = useState<UserProfile[]>([]);
   const [assignments, setAssignments] = useState<OrganizationalAssignment[]>(
@@ -182,7 +185,6 @@ export default function CampaignCoordinationPage() {
 
   const [loading, setLoading] = useState(true);
 
-  const [error, setError] = useState<string | null>(null);
 
   const [search, setSearch] = useState("");
 
@@ -239,7 +241,6 @@ export default function CampaignCoordinationPage() {
 
     try {
       setLoading(true);
-      setError(null);
 
       const usersQuery = query(
         collection(db, "users"),
@@ -294,7 +295,7 @@ export default function CampaignCoordinationPage() {
     } catch (err) {
       console.error("Failed to load campaign coordination data:", err);
 
-      setError("Unable to load campaign coordination data.");
+      toast.error("We couldn't load the coordination data. Please refresh and try again.");
     } finally {
       setLoading(false);
     }
@@ -368,20 +369,18 @@ export default function CampaignCoordinationPage() {
     setSelectedPosition(assignment.position);
     setSelectedScopeType(assignment.scope_type);
     setSelectedScopeId(assignment.scope_id);
-    setError(null);
   }
 
   async function createAssignment() {
     if (!profile?.id) return;
 
     if (!selectedUserId || !selectedScopeId.trim()) {
-      setError("Select a member and provide a scope ID.");
+      toast.warning("Please select a member and provide a scope for the assignment.");
       return;
     }
 
     try {
       setCreatingAssignment(true);
-      setError(null);
 
       if (editingAssignmentId) {
         await updateOrganizationalAssignment(editingAssignmentId, {
@@ -403,13 +402,21 @@ export default function CampaignCoordinationPage() {
 
       resetAssignmentForm();
       await loadData();
+      toast.success(
+        editingAssignmentId
+          ? "Organizational assignment updated."
+          : "Organizational assignment created.",
+      );
     } catch (err) {
       console.error("Failed to save assignment:", err);
 
-      setError(
-        editingAssignmentId
-          ? "Unable to update organizational assignment."
-          : "Unable to create organizational assignment.",
+      toast.error(
+        getErrorMessage(
+          err,
+          editingAssignmentId
+            ? "We couldn't update the organizational assignment. Please try again."
+            : "We couldn't create the organizational assignment. Please try again.",
+        ),
       );
     } finally {
       setCreatingAssignment(false);
@@ -435,10 +442,11 @@ export default function CampaignCoordinationPage() {
       });
 
       await loadData();
+      toast.success(`Assignment marked as ${nextStatus}.`);
     } catch (err) {
       console.error("Failed to update assignment:", err);
 
-      setError("Unable to update assignment.");
+      toast.error(getErrorMessage(err, "We couldn't update the assignment. Please try again."));
     }
   }
 
@@ -453,10 +461,11 @@ export default function CampaignCoordinationPage() {
       await deleteOrganizationalAssignment(assignmentId);
 
       await loadData();
+      toast.success("Organizational assignment removed.");
     } catch (err) {
       console.error("Failed to delete assignment:", err);
 
-      setError("Unable to delete assignment.");
+      toast.error(getErrorMessage(err, "We couldn't remove the assignment. Please try again."));
     }
   }
 
@@ -473,13 +482,12 @@ export default function CampaignCoordinationPage() {
     if (!profile?.id) return;
 
     if (!grantUserId) {
-      setError("Select a member for the permission grant.");
+      toast.warning("Please select a member for the permission grant.");
       return;
     }
 
     try {
       setCreatingGrant(true);
-      setError(null);
 
       await createPermissionGrant({
         tenant_id: profile.tenant_id || CURRENT_TENANT_ID,
@@ -497,10 +505,11 @@ export default function CampaignCoordinationPage() {
       setGrantScopeType("");
 
       await loadData();
+      toast.success("Permission grant saved.");
     } catch (err) {
       console.error("Failed to create permission grant:", err);
 
-      setError("Unable to create permission grant.");
+      toast.error(getErrorMessage(err, "We couldn't create the permission grant. Please try again."));
     } finally {
       setCreatingGrant(false);
     }
@@ -520,10 +529,11 @@ export default function CampaignCoordinationPage() {
       await deletePermissionGrant(grantId);
 
       await loadData();
+      toast.success("Permission grant removed.");
     } catch (err) {
       console.error("Failed to delete permission grant:", err);
 
-      setError("Unable to delete permission grant.");
+      toast.error(getErrorMessage(err, "We couldn't remove the permission grant. Please try again."));
     }
   }
 
@@ -606,25 +616,6 @@ export default function CampaignCoordinationPage() {
         </div>
       </section>
 
-      {/* ======================================================
-          ERROR
-          ====================================================== */}
-
-      {error && (
-        <div className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4">
-          <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-red-600" />
-
-          <p className="text-sm text-red-700">{error}</p>
-
-          <button
-            type="button"
-            onClick={() => setError(null)}
-            className="ml-auto"
-          >
-            <XCircle className="h-5 w-5 text-red-400" />
-          </button>
-        </div>
-      )}
 
       {/* ======================================================
           SUMMARY

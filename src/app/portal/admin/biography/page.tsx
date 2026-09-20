@@ -18,6 +18,8 @@ import {
 } from "lucide-react";
 
 import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/components/ui/toast";
+import { getErrorMessage } from "@/lib/errors";
 import { getBiography, updateBiography } from "@/lib/firebase/biography";
 import { uploadToCloudinary } from "@/lib/cloudinary";
 import { getCurrentTenant } from "@/lib/firebase/tenants";
@@ -48,12 +50,11 @@ const DEFAULT_BIOGRAPHY: Omit<
 export default function AdminBiographyPage() {
   const { profile, loading: authLoading } = useAuth();
   const router = useRouter();
+  const toast = useToast();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [bio, setBio] = useState<BiographyData | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
 
   // ─── AUTH GUARD ───
@@ -70,7 +71,6 @@ export default function AdminBiographyPage() {
   const loadBiography = useCallback(async () => {
     try {
       setLoading(true);
-      setError(null);
       const tenant = await getCurrentTenant();
       const data = await getBiography(tenant.id);
 
@@ -84,7 +84,7 @@ export default function AdminBiographyPage() {
       }
     } catch (err) {
       console.error("Failed to load biography:", err);
-      setError("Unable to load biography. Please refresh and try again.");
+      toast.error("We couldn't load the biography. Please refresh and try again.");
     } finally {
       setLoading(false);
     }
@@ -102,17 +102,15 @@ export default function AdminBiographyPage() {
     if (!bio) return;
 
     if (!bio.full_name.trim()) {
-      setError("Full name is required.");
+      toast.warning("Please enter the candidate's full name.");
       return;
     }
     if (!bio.about.trim()) {
-      setError("About section is required.");
+      toast.warning("Please write the biography content before saving.");
       return;
     }
 
     setSaving(true);
-    setError(null);
-    setSuccess(null);
 
     try {
       const tenant = await getCurrentTenant();
@@ -120,13 +118,13 @@ export default function AdminBiographyPage() {
         ...bio,
         status,
       });
-      setSuccess(
-        `Biography ${status === "published" ? "published" : "saved as draft"} successfully!`,
+      toast.success(
+        `Biography ${status === "published" ? "published" : "saved as draft"} successfully.`,
       );
       await loadBiography();
     } catch (err) {
       console.error("Failed to save biography:", err);
-      setError("Failed to save biography. Please try again.");
+      toast.error(getErrorMessage(err, "We couldn't save the biography. Please try again."));
     } finally {
       setSaving(false);
     }
@@ -139,7 +137,6 @@ export default function AdminBiographyPage() {
     if (!file) return;
 
     setUploadingImage(true);
-    setError(null);
 
     try {
       const tenant = await getCurrentTenant();
@@ -148,10 +145,10 @@ export default function AdminBiographyPage() {
         if (!prev) return prev;
         return { ...prev, image_url: url };
       });
-      setSuccess("Image uploaded successfully!");
+      toast.success("Image uploaded successfully.");
     } catch (err) {
       console.error("Failed to upload image:", err);
-      setError(err instanceof Error ? err.message : "Failed to upload image.");
+      toast.error(getErrorMessage(err, "We couldn't upload the image. Please try again."));
     } finally {
       setUploadingImage(false);
       e.target.value = "";
@@ -272,37 +269,6 @@ export default function AdminBiographyPage() {
           </a>
         </div>
       </div>
-
-      {/* ─── NOTIFICATIONS ─── */}
-      {error && (
-        <div className="flex items-center justify-between gap-4 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-          <div className="flex items-center gap-2">
-            <AlertCircle className="h-5 w-5 shrink-0" />
-            <span>{error}</span>
-          </div>
-          <button
-            onClick={() => setError(null)}
-            className="text-red-500 hover:text-red-700"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-      )}
-
-      {success && (
-        <div className="flex items-center justify-between gap-4 rounded-lg border border-green-200 bg-green-50 p-4 text-sm text-green-700">
-          <div className="flex items-center gap-2">
-            <CheckCircle className="h-5 w-5 shrink-0" />
-            <span>{success}</span>
-          </div>
-          <button
-            onClick={() => setSuccess(null)}
-            className="text-green-500 hover:text-green-700"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-      )}
 
       {/* ─── FORM ─── */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 space-y-6">

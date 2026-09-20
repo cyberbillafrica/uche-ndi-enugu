@@ -13,11 +13,13 @@ import { assignmentCoversScope, isAdminUser } from "@/lib/permissions";
 import type { LGA } from "@/types";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useToast } from "@/components/ui/toast";
+import { getErrorMessage } from "@/lib/errors";
+import { HelpLink } from "@/components/help/HelpLink";
 import {
   AlertTriangle,
   Plus,
   Loader2,
-  CheckCircle2,
   AlertCircle,
   Upload,
   X,
@@ -27,6 +29,7 @@ import {
 export default function IncidentsPage() {
   const { profile, assignments, accessLoading } = useAuth();
   const isAdmin = isAdminUser(profile);
+  const toast = useToast();
 
   const [lgas, setLgas] = useState<LGA[]>([]);
   const [incidents, setIncidents] = useState<ElectionIncidentDoc[]>([]);
@@ -36,8 +39,6 @@ export default function IncidentsPage() {
   // Form State
   const [showForm, setShowForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [formError, setFormError] = useState("");
-  const [successMsg, setSuccessMessage] = useState("");
 
   const [form, setForm] = useState({
     lga_id: profile?.lga_id ?? "nkanu-west",
@@ -115,23 +116,21 @@ export default function IncidentsPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setFormError("");
-    setSuccessMessage("");
 
     if (!form.ward_id) {
-      setFormError("Ward is required.");
+      toast.warning("Please select a ward for the incident.");
       return;
     }
 
     if (!form.description.trim()) {
-      setFormError("Incident description is required.");
+      toast.warning("Please describe what happened before submitting.");
       return;
     }
 
     // Scoping check for non-admin
     if (!isAdmin) {
       if (form.ward_id !== profile?.ward_id) {
-        setFormError(
+        toast.error(
           "You can only report incidents within your registered Ward.",
         );
         return;
@@ -162,7 +161,7 @@ export default function IncidentsPage() {
         cloudinary_url: cloudinaryUrl,
       });
 
-      setSuccessMessage("Election incident reported successfully!");
+      toast.success("Election incident reported. Administrators and Election Officers have been notified.");
       setShowForm(false);
       setForm({
         lga_id: profile?.lga_id ?? "nkanu-west",
@@ -176,8 +175,8 @@ export default function IncidentsPage() {
       setEvidencePreview(null);
     } catch (err: any) {
       console.error("Failed to report election incident:", err);
-      setFormError(
-        err.message || "Failed to report incident. Please try again.",
+      toast.error(
+        getErrorMessage(err, "We couldn't submit the incident report. Please try again."),
       );
     } finally {
       setSubmitting(false);
@@ -198,9 +197,12 @@ export default function IncidentsPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">
-            Election Incident Reports
-          </h1>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h1 className="text-2xl font-bold text-gray-900">
+              Election Incident Reports
+            </h1>
+            <HelpLink article="election-incidents" label="Incidents guide" />
+          </div>
           <p className="text-sm text-gray-500">
             Report and track irregularities, BVAS malfunctions, late arrivals,
             or security incidents.
@@ -208,24 +210,13 @@ export default function IncidentsPage() {
         </div>
 
         <button
-          onClick={() => {
-            setShowForm((prev) => !prev);
-            setFormError("");
-            setSuccessMessage("");
-          }}
+          onClick={() => setShowForm((prev) => !prev)}
           className="inline-flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-red-700 transition-colors"
         >
           <AlertTriangle className="h-4 w-4" />
           {showForm ? "Cancel" : "Report Incident"}
         </button>
       </div>
-
-      {successMsg && (
-        <div className="flex items-center gap-2 p-4 bg-green-50 text-green-700 rounded-lg border border-green-200 text-sm">
-          <CheckCircle2 className="h-5 w-5 shrink-0" />
-          <span>{successMsg}</span>
-        </div>
-      )}
 
       {/* Form */}
       {showForm && (
@@ -246,13 +237,6 @@ export default function IncidentsPage() {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
-              {formError && (
-                <div className="flex items-center gap-2 p-3 bg-red-50 text-red-700 rounded-lg border border-red-200 text-sm">
-                  <AlertCircle className="h-4 w-4 shrink-0" />
-                  <span>{formError}</span>
-                </div>
-              )}
-
               {/* Location Selectors */}
               <div className="grid md:grid-cols-3 gap-4">
                 <div>

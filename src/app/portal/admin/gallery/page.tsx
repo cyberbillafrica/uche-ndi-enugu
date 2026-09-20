@@ -26,6 +26,8 @@ import {
 import { Input } from "@/components/ui/input";
 
 import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/components/ui/toast";
+import { getErrorMessage } from "@/lib/errors";
 import {
   getGallery,
   updateGallery,
@@ -39,12 +41,11 @@ import type { GalleryImage } from "@/types";
 export default function AdminGalleryPage() {
   const { profile, loading: authLoading } = useAuth();
   const router = useRouter();
+  const toast = useToast();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [images, setImages] = useState<GalleryImage[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [tenantId, setTenantId] = useState<string>("");
   const [pendingUploadUrl, setPendingUploadUrl] = useState<string | null>(null);
@@ -66,14 +67,13 @@ export default function AdminGalleryPage() {
   const loadGallery = useCallback(async () => {
     try {
       setLoading(true);
-      setError(null);
       const tenant = await getCurrentTenant();
       setTenantId(tenant.id);
       const data = await getGallery(tenant.id);
       setImages(data?.images || []);
     } catch (err) {
       console.error("Failed to load gallery:", err);
-      setError("Unable to load gallery. Please refresh and try again.");
+      toast.error("We couldn't load the gallery. Please refresh and try again.");
     } finally {
       setLoading(false);
     }
@@ -92,7 +92,6 @@ export default function AdminGalleryPage() {
     if (!file) return;
 
     setUploading(true);
-    setError(null);
 
     try {
       const url = await uploadToCloudinary(file, "ifeanyi-2027/gallery");
@@ -103,7 +102,7 @@ export default function AdminGalleryPage() {
       setDetailsOpen(true);
     } catch (err) {
       console.error("Failed to upload image:", err);
-      setError(err instanceof Error ? err.message : "Failed to upload image.");
+      toast.error(getErrorMessage(err, "We couldn't upload the image. Please try again."));
     } finally {
       setUploading(false);
       e.target.value = "";
@@ -114,7 +113,6 @@ export default function AdminGalleryPage() {
     if (!pendingUploadUrl) return;
 
     setSaving(true);
-    setError(null);
 
     try {
       await addGalleryImage(tenantId, {
@@ -125,10 +123,10 @@ export default function AdminGalleryPage() {
       setDetailsOpen(false);
       setPendingUploadUrl(null);
       await loadGallery();
-      setSuccess("Image uploaded successfully!");
+      toast.success("Image added to the gallery.");
     } catch (err) {
       console.error("Failed to save image details:", err);
-      setError("Failed to save image details. Please try again.");
+      toast.error(getErrorMessage(err, "We couldn't save the image details. Please try again."));
     } finally {
       setSaving(false);
     }
@@ -142,10 +140,10 @@ export default function AdminGalleryPage() {
     try {
       await removeGalleryImage(tenantId, imageId);
       await loadGallery();
-      setSuccess("Image removed.");
+      toast.success("Image removed from the gallery.");
     } catch (err) {
       console.error("Failed to remove image:", err);
-      setError("Failed to remove image. Please try again.");
+      toast.error(getErrorMessage(err, "We couldn't remove the image. Please try again."));
     }
   };
 
@@ -188,37 +186,6 @@ export default function AdminGalleryPage() {
           </label>
         </div>
       </div>
-
-      {/* ─── NOTIFICATIONS ─── */}
-      {error && (
-        <div className="flex items-center justify-between gap-4 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-          <div className="flex items-center gap-2">
-            <AlertCircle className="h-5 w-5 shrink-0" />
-            <span>{error}</span>
-          </div>
-          <button
-            onClick={() => setError(null)}
-            className="text-red-500 hover:text-red-700"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-      )}
-
-      {success && (
-        <div className="flex items-center justify-between gap-4 rounded-lg border border-green-200 bg-green-50 p-4 text-sm text-green-700">
-          <div className="flex items-center gap-2">
-            <CheckCircle className="h-5 w-5 shrink-0" />
-            <span>{success}</span>
-          </div>
-          <button
-            onClick={() => setSuccess(null)}
-            className="text-green-500 hover:text-green-700"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-      )}
 
       <Dialog open={detailsOpen} onOpenChange={setDetailsOpen}>
         <DialogContent>

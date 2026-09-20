@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Eye, EyeOff, LogIn } from "lucide-react";
+import { useToast } from "@/components/ui/toast";
 
 import { signIn } from "@/lib/firebase/auth";
 import Header from "@/components/layout/Header";
@@ -13,21 +14,20 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const toast = useToast();
 
   const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
-    setError("");
     setLoading(true);
 
     const { error: signInError } = await signIn(email, password);
 
     if (signInError) {
-      setError(getLoginErrorMessage(signInError));
+      toast.error(getLoginErrorMessage(signInError));
       setLoading(false);
       return;
     }
@@ -56,16 +56,6 @@ export default function LoginPage() {
                 Access your member portal
               </p>
             </div>
-
-            {/* Error */}
-            {error && (
-              <div
-                className="mb-6 rounded-lg border border-red-200
-                           bg-red-50 px-4 py-3 text-sm text-red-700"
-              >
-                {error}
-              </div>
-            )}
 
             {/* Form */}
             <form onSubmit={handleSubmit} className="space-y-5">

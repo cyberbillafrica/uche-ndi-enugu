@@ -25,6 +25,8 @@ import {
 } from "lucide-react";
 
 import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/components/ui/toast";
+import { getErrorMessage } from "@/lib/errors";
 import {
   getAllNewsArticles,
   createNewsArticle,
@@ -38,11 +40,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default function AdminNewsCMSPage() {
   const { profile, loading: authLoading } = useAuth();
+  const toast = useToast();
 
   const [articles, setArticles] = useState<NewsArticle[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
 
   // Filters & Search
   const [activeTab, setActiveTab] = useState<"all" | NewsStatus>("all");
@@ -85,12 +86,11 @@ export default function AdminNewsCMSPage() {
   async function loadArticles() {
     try {
       setLoading(true);
-      setError(null);
       const data = await getAllNewsArticles();
       setArticles(data);
     } catch (err: any) {
       console.error("Failed to load news articles:", err);
-      setError("Failed to load news articles. Please refresh the page.");
+      toast.error("We couldn't load the news articles. Please refresh the page.");
     } finally {
       setLoading(false);
     }
@@ -171,15 +171,14 @@ export default function AdminNewsCMSPage() {
 
     try {
       setUploadingImage(true);
-      setError(null);
       const downloadUrl = await uploadToCloudinary(file, "ifeanyi-2027/news");
       setFormFeaturedImage(downloadUrl);
-      setSuccess("Image uploaded successfully to Cloudinary.");
+      toast.success("Image uploaded successfully.");
     } catch (err: any) {
       console.error("Failed to upload image to Cloudinary:", err);
-      setError(
-        err.message ||
-          "Image upload failed. You can also paste an external image URL directly.",
+      toast.error(
+        getErrorMessage(err,
+          "Image upload failed. You can also paste an external image URL directly."),
       );
     } finally {
       setUploadingImage(false);
@@ -190,12 +189,12 @@ export default function AdminNewsCMSPage() {
     e.preventDefault();
 
     if (!formTitle.trim()) {
-      setError("Title is required.");
+      toast.warning("Please enter a title for the article.");
       return;
     }
 
     if (!formContent.trim()) {
-      setError("Article content is required.");
+      toast.warning("Please write the article content before saving.");
       return;
     }
 
@@ -212,7 +211,6 @@ export default function AdminNewsCMSPage() {
 
     try {
       setSaving(true);
-      setError(null);
 
       if (editingArticle) {
         await updateNewsArticle(editingArticle.id, {
@@ -227,7 +225,7 @@ export default function AdminNewsCMSPage() {
           featured_image: formFeaturedImage.trim() || null,
           updated_by: profile?.id || "admin",
         });
-        setSuccess(`Article "${formTitle}" updated successfully.`);
+        toast.success(`Article "${formTitle}" updated successfully.`);
       } else {
         await createNewsArticle({
           title: formTitle.trim(),
@@ -241,14 +239,14 @@ export default function AdminNewsCMSPage() {
           featured_image: formFeaturedImage.trim() || null,
           created_by: profile?.id || "admin",
         });
-        setSuccess(`Article "${formTitle}" created successfully.`);
+        toast.success(`Article "${formTitle}" created successfully.`);
       }
 
       setIsEditorOpen(false);
       await loadArticles();
     } catch (err: any) {
       console.error("Error saving article:", err);
-      setError("Failed to save article. " + (err.message || ""));
+      toast.error(getErrorMessage(err, "We couldn't save the article. Please try again."));
     } finally {
       setSaving(false);
     }
@@ -259,16 +257,21 @@ export default function AdminNewsCMSPage() {
     newStatus: NewsStatus,
   ) {
     try {
-      setError(null);
       await updateNewsArticle(article.id, {
         status: newStatus,
         updated_by: profile?.id || "admin",
       });
-      setSuccess(`Article status updated to ${newStatus}.`);
+      toast.success(
+        newStatus === "published"
+          ? `Article "${article.title}" is now published.`
+          : newStatus === "draft"
+            ? `Article "${article.title}" was unpublished and returned to draft.`
+            : `Article "${article.title}" was archived.`,
+      );
       await loadArticles();
     } catch (err: any) {
       console.error("Failed to update status:", err);
-      setError("Failed to update article status.");
+      toast.error(getErrorMessage(err, "We couldn't update the article status. Please try again."));
     }
   }
 
@@ -277,14 +280,13 @@ export default function AdminNewsCMSPage() {
 
     try {
       setSaving(true);
-      setError(null);
       await deleteNewsArticle(deletingArticle.id);
-      setSuccess(`Article "${deletingArticle.title}" deleted successfully.`);
+      toast.success(`Article "${deletingArticle.title}" deleted successfully.`);
       setDeletingArticle(null);
       await loadArticles();
     } catch (err: any) {
       console.error("Failed to delete article:", err);
-      setError("Failed to delete article.");
+      toast.error(getErrorMessage(err, "We couldn't delete the article. Please try again."));
     } finally {
       setSaving(false);
     }
@@ -373,39 +375,6 @@ export default function AdminNewsCMSPage() {
           <span>New Article</span>
         </button>
       </div>
-
-      {/* Notifications */}
-      {error && (
-        <div className="flex items-center justify-between rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-          <div className="flex items-center gap-2">
-            <AlertCircle className="h-5 w-5 shrink-0 text-red-500" />
-            <span>{error}</span>
-          </div>
-          <button
-            type="button"
-            onClick={() => setError(null)}
-            className="p-1 hover:bg-red-100 rounded"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-      )}
-
-      {success && (
-        <div className="flex items-center justify-between rounded-xl border border-green-200 bg-green-50 p-4 text-sm text-green-700">
-          <div className="flex items-center gap-2">
-            <CheckCircle className="h-5 w-5 shrink-0 text-green-600" />
-            <span>{success}</span>
-          </div>
-          <button
-            type="button"
-            onClick={() => setSuccess(null)}
-            className="p-1 hover:bg-green-100 rounded"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-      )}
 
       {/* Tabs & Search */}
       <Card>

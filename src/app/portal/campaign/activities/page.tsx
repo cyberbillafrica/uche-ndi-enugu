@@ -25,6 +25,8 @@ import {
 } from "@/lib/firebase/campaignActivities";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useToast } from "@/components/ui/toast";
+import { getErrorMessage } from "@/lib/errors";
 
 import type {
   CampaignActivity,
@@ -122,6 +124,7 @@ function formatStatus(status: CampaignActivityStatus): string {
 export default function CampaignActivitiesPage() {
   const { user, profile, assignments, accessLoading, hasPermission } =
     useAuth();
+  const toast = useToast();
 
   const isAdmin =
     profile?.access_role === "admin" ||
@@ -134,7 +137,7 @@ export default function CampaignActivitiesPage() {
 
   const [activities, setActivities] = useState<CampaignActivity[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+
 
   // Filters
   const [search, setSearch] = useState("");
@@ -143,8 +146,6 @@ export default function CampaignActivitiesPage() {
 
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [creating, setCreating] = useState(false);
-  const [createError, setCreateError] = useState("");
-  const [successMessage, setSuccessMessage] = useState("");
 
   /*
    * ----------------------------------------------------------
@@ -173,7 +174,6 @@ export default function CampaignActivitiesPage() {
     }
 
     setLoading(true);
-    setError("");
 
     try {
       const data = isAdmin
@@ -185,8 +185,8 @@ export default function CampaignActivitiesPage() {
       console.error("Failed to load campaign activities:", loadError);
 
       setActivities([]);
-      setError(
-        "Unable to load campaign activities right now. Please try again.",
+      toast.error(
+        "We couldn't load campaign activities right now. Please try again.",
       );
     } finally {
       setLoading(false);
@@ -274,10 +274,8 @@ export default function CampaignActivitiesPage() {
           <button
             type="button"
             onClick={() => {
-              setShowCreateForm(true);
-              setCreateError("");
-              setSuccessMessage("");
-            }}
+            setShowCreateForm(true);
+          }}
             className="inline-flex items-center justify-center gap-2 rounded-lg bg-apc-primary px-4 py-2.5 text-sm font-semibold text-white hover:bg-apc-dark transition-colors"
           >
             <Plus className="h-4 w-4" />
@@ -290,27 +288,10 @@ export default function CampaignActivitiesPage() {
           SUCCESS
           ====================================================== */}
 
-      {successMessage && (
-        <div className="flex items-center gap-3 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
-          <CheckCircle2 className="h-5 w-5 shrink-0" />
-          <span>{successMessage}</span>
-        </div>
-      )}
-
       {isAdmin && !hasPermission("view_activities") && (
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
           Your admin account is not currently registered as a campaign member,
           so campaign activity administration is restricted.
-        </div>
-      )}
-
-      {/* ======================================================
-          ERROR
-          ====================================================== */}
-
-      {error && (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          {error}
         </div>
       )}
 
@@ -385,24 +366,20 @@ export default function CampaignActivitiesPage() {
           profileName={profile.full_name ?? ""}
           isAdmin={isAdmin}
           creating={creating}
-          error={createError}
           onCancel={() => {
             if (!creating) {
               setShowCreateForm(false);
-              setCreateError("");
             }
           }}
           onSubmit={async (input) => {
             setCreating(true);
-            setCreateError("");
-            setSuccessMessage("");
 
             try {
               await createCampaignActivity(input);
 
               setShowCreateForm(false);
 
-              setSuccessMessage("Campaign activity created successfully.");
+              toast.success("Campaign activity created successfully.");
 
               await loadActivities();
             } catch (creationError) {
@@ -411,10 +388,11 @@ export default function CampaignActivitiesPage() {
                 creationError,
               );
 
-              setCreateError(
-                creationError instanceof Error
-                  ? creationError.message
-                  : "Unable to create campaign activity.",
+              toast.error(
+                getErrorMessage(
+                  creationError,
+                  "We couldn't create the campaign activity. Please try again.",
+                ),
               );
             } finally {
               setCreating(false);
@@ -531,43 +509,37 @@ export default function CampaignActivitiesPage() {
                     if (!activity.id) return;
 
                     try {
-                      setError("");
-                      setSuccessMessage("");
                       await updateCampaignActivity(activity.id, updated);
                       await loadActivities();
-                      setSuccessMessage(
-                        "Campaign activity updated successfully.",
-                      );
+                      toast.success("Campaign activity updated successfully.");
                     } catch (updateError) {
                       console.error(
                         "Failed to update campaign activity:",
                         updateError,
                       );
-                      setError(
-                        updateError instanceof Error
-                          ? updateError.message
-                          : "Unable to update campaign activity.",
+                      toast.error(
+                        getErrorMessage(
+                          updateError,
+                          "We couldn't update the campaign activity. Please try again.",
+                        ),
                       );
                     }
                   }}
                   onDelete={async () => {
                     try {
-                      setError("");
-                      setSuccessMessage("");
                       await deleteCampaignActivity(activity.id);
                       await loadActivities();
-                      setSuccessMessage(
-                        "Campaign activity deleted successfully.",
-                      );
+                      toast.success("Campaign activity deleted successfully.");
                     } catch (deleteError) {
                       console.error(
                         "Failed to delete campaign activity:",
                         deleteError,
                       );
-                      setError(
-                        deleteError instanceof Error
-                          ? deleteError.message
-                          : "Unable to delete campaign activity.",
+                      toast.error(
+                        getErrorMessage(
+                          deleteError,
+                          "We couldn't delete the campaign activity. Please try again.",
+                        ),
                       );
                     }
                   }}
@@ -593,7 +565,6 @@ function CreateActivityForm({
   profileName,
   isAdmin,
   creating,
-  error,
   onCancel,
   onSubmit,
 }: {
@@ -602,7 +573,6 @@ function CreateActivityForm({
   profileName: string;
   isAdmin: boolean;
   creating: boolean;
-  error: string;
   onCancel: () => void;
   onSubmit: (
     input: Parameters<typeof createCampaignActivity>[0],
@@ -722,12 +692,6 @@ function CreateActivityForm({
 
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-5">
-          {error && (
-            <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-              {error}
-            </div>
-          )}
-
           <div className="grid gap-5 md:grid-cols-2">
             {/* Title */}
             <div className="md:col-span-2">

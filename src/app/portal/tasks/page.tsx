@@ -10,6 +10,7 @@ import {
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/contexts/AuthContext";
+import { HelpLink } from "@/components/help/HelpLink";
 
 import {
   getActiveTasks,
@@ -194,7 +195,10 @@ export default function TasksPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Social Tasks</h1>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h1 className="text-2xl font-bold text-gray-900">Social Tasks</h1>
+            <HelpLink article="social-tasks" label="How tasks work" />
+          </div>
           <p className="mt-1 text-gray-600">
             Complete active social campaign tasks, submit proof where required, and earn points for your profile.
           </p>

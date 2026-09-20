@@ -32,6 +32,8 @@ import {
   updateEvent,
   deleteEvent,
 } from "@/lib/firebase/portal-content";
+import { useToast } from "@/components/ui/toast";
+import { getErrorMessage } from "@/lib/errors";
 import { getCurrentTenant } from "@/lib/firebase/tenants";
 import { getAllLGAs } from "@/lib/constants";
 import type { Announcement, AnnouncementScope, EventData, LGA } from "@/types";
@@ -78,6 +80,7 @@ const SCOPE_ICONS: Record<AnnouncementScope, React.ReactNode> = {
 
 export default function AdminAnnouncementsPage() {
   const { profile, loading: authLoading } = useAuth();
+  const toast = useToast();
   const router = useRouter();
 
   const [loading, setLoading] = useState(true);
@@ -85,8 +88,6 @@ export default function AdminAnnouncementsPage() {
   const [items, setItems] = useState<(Announcement | EventData)[]>([]);
   const [lgas, setLgas] = useState<LGA[]>([]);
   const [tenantId, setTenantId] = useState<string>("");
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>("announcements");
 
   // Form state
@@ -110,7 +111,6 @@ export default function AdminAnnouncementsPage() {
   const loadContent = useCallback(async () => {
     try {
       setLoading(true);
-      setError(null);
       const tenant = await getCurrentTenant();
       setTenantId(tenant.id);
       const [data, lgasData] = await Promise.all([
@@ -121,7 +121,7 @@ export default function AdminAnnouncementsPage() {
       setLgas(lgasData);
     } catch (err) {
       console.error("Failed to load content:", err);
-      setError("Unable to load content. Please refresh and try again.");
+      toast.error("We couldn't load the announcements and events. Please refresh and try again.");
     } finally {
       setLoading(false);
     }
@@ -176,35 +176,34 @@ export default function AdminAnnouncementsPage() {
   const handleSubmitAnnouncement = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!announcementForm.title.trim()) {
-      setError("Announcement title is required.");
+      toast.warning("Please enter a title for the announcement.");
       return;
     }
     if (!announcementForm.content.trim()) {
-      setError("Announcement content is required.");
+      toast.warning("Please write the announcement content.");
       return;
     }
 
     setSaving(true);
-    setError(null);
 
     try {
       if (isEditing && editingId) {
         await updateAnnouncement(tenantId, editingId, {
           ...announcementForm,
         });
-        setSuccess("Announcement updated successfully!");
+        toast.success("Announcement updated successfully.");
       } else {
         await addAnnouncement(tenantId, {
           type: "announcement",
           ...announcementForm,
         });
-        setSuccess("Announcement added successfully!");
+        toast.success("Announcement added successfully.");
       }
       resetForms();
       await loadContent();
     } catch (err) {
       console.error("Failed to save announcement:", err);
-      setError("Failed to save announcement.");
+      toast.error(getErrorMessage(err, "We couldn't save the announcement. Please try again."));
     } finally {
       setSaving(false);
     }
@@ -213,34 +212,33 @@ export default function AdminAnnouncementsPage() {
   const handleSubmitEvent = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!eventForm.title.trim()) {
-      setError("Event title is required.");
+      toast.warning("Please enter a title for the event.");
       return;
     }
     if (!eventForm.venue.trim()) {
-      setError("Venue is required.");
+      toast.warning("Please enter a venue for the event.");
       return;
     }
     if (!eventForm.ward) {
-      setError("Ward is required.");
+      toast.warning("Please select the ward where this event takes place.");
       return;
     }
 
     setSaving(true);
-    setError(null);
 
     try {
       if (isEditing && editingId) {
         await updateEvent(tenantId, editingId, eventForm);
-        setSuccess("Event updated successfully!");
+        toast.success("Event updated successfully.");
       } else {
         await addEvent(tenantId, eventForm);
-        setSuccess("Event added successfully!");
+        toast.success("Event added successfully.");
       }
       resetForms();
       await loadContent();
     } catch (err) {
       console.error("Failed to save event:", err);
-      setError("Failed to save event.");
+      toast.error(getErrorMessage(err, "We couldn't save the event. Please try again."));
     } finally {
       setSaving(false);
     }
@@ -259,10 +257,10 @@ export default function AdminAnnouncementsPage() {
         await deleteEvent(tenantId, id);
       }
       await loadContent();
-      setSuccess("Deleted successfully.");
+      toast.success("Deleted successfully.");
     } catch (err) {
       console.error("Failed to delete:", err);
-      setError("Failed to delete.");
+      toast.error(getErrorMessage(err, "We couldn't delete the item. Please try again."));
     }
   };
 
@@ -330,31 +328,6 @@ export default function AdminAnnouncementsPage() {
           </div>
         )}
       </div>
-
-      {/* ─── NOTIFICATIONS ─── */}
-      {error && (
-        <div className="flex items-center justify-between gap-4 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-          <div className="flex items-center gap-2">
-            <AlertCircle className="h-5 w-5 shrink-0" />
-            <span>{error}</span>
-          </div>
-          <button onClick={() => setError(null)} className="text-red-500 hover:text-red-700">
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-      )}
-
-      {success && (
-        <div className="flex items-center justify-between gap-4 rounded-lg border border-green-200 bg-green-50 p-4 text-sm text-green-700">
-          <div className="flex items-center gap-2">
-            <CheckCircle className="h-5 w-5 shrink-0" />
-            <span>{success}</span>
-          </div>
-          <button onClick={() => setSuccess(null)} className="text-green-500 hover:text-green-700">
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-      )}
 
       {/* ─── FORMS ─── */}
       {showAnnouncementForm && (

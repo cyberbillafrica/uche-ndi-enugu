@@ -35,6 +35,8 @@ import {
   type CampaignAssignment,
 } from "@/lib/firebase/campaignAssignments";
 import { getAllLGAs } from "@/lib/constants";
+import { useToast } from "@/components/ui/toast";
+import { getErrorMessage } from "@/lib/errors";
 
 import {
   getAllCampaignMembersForTenant,
@@ -56,6 +58,7 @@ import {
 export default function CampaignAssignmentsPage() {
   const { user, profile, assignments, accessLoading, hasPermission } =
     useAuth();
+  const toast = useToast();
 
   const [myAssignments, setMyAssignments] = useState<CampaignAssignment[]>([]);
   const [areaAssignments, setAreaAssignments] = useState<CampaignAssignment[]>(
@@ -90,7 +93,6 @@ export default function CampaignAssignmentsPage() {
   const [formDueDate, setFormDueDate] = useState("");
   const [formLocation, setFormLocation] = useState("");
 
-  const [error, setError] = useState<string | null>(null);
 
   const primaryScope = getPrimaryOrganizationalScope(assignments);
   const primaryAssignment = primaryScope.assignment;
@@ -157,14 +159,13 @@ export default function CampaignAssignmentsPage() {
     setFormDueDate(assignment.due_date ?? "");
     setFormLocation(assignment.location ?? "");
     setShowCreateForm(true);
-    setError(null);
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     if (!profile?.tenant_id) {
-      setError("Tenant context is unavailable.");
+      toast.error("Your account session is missing its campaign context. Please sign in again.");
       return;
     }
 
@@ -173,7 +174,7 @@ export default function CampaignAssignmentsPage() {
     const scopeId = formScopeId.trim();
 
     if (!title || !assignedTo || !scopeId) {
-      setError("Title, assignee and scope ID are required.");
+      toast.warning("Please provide a title, an assignee, and a scope for the assignment.");
       return;
     }
 
@@ -192,7 +193,6 @@ export default function CampaignAssignmentsPage() {
 
     try {
       setCreating(true);
-      setError(null);
 
       if (editingAssignmentId) {
         await updateCampaignAssignment(editingAssignmentId, {
@@ -206,12 +206,20 @@ export default function CampaignAssignmentsPage() {
       resetForm();
       setShowCreateForm(false);
       await loadAssignments();
+      toast.success(
+        editingAssignmentId
+          ? "Assignment updated successfully."
+          : "Assignment created successfully.",
+      );
     } catch (err) {
       console.error("Failed to save assignment:", err);
-      setError(
-        editingAssignmentId
-          ? "Unable to update assignment."
-          : "Unable to create assignment.",
+      toast.error(
+        getErrorMessage(
+          err,
+          editingAssignmentId
+            ? "We couldn't update the assignment. Please try again."
+            : "We couldn't create the assignment. Please try again.",
+        ),
       );
     } finally {
       setCreating(false);
@@ -220,12 +228,12 @@ export default function CampaignAssignmentsPage() {
 
   async function handleDeleteAssignment(assignmentId: string) {
     try {
-      setError(null);
       await deleteCampaignAssignment(assignmentId);
       await loadAssignments();
+      toast.success("Assignment deleted successfully.");
     } catch (err) {
       console.error("Failed to delete assignment:", err);
-      setError("Unable to delete assignment.");
+      toast.error(getErrorMessage(err, "We couldn't delete the assignment. Please try again."));
     }
   }
 
@@ -288,7 +296,6 @@ export default function CampaignAssignmentsPage() {
 
     try {
       setLoading(true);
-      setError(null);
 
       const mine = await getMyCampaignAssignments(
         user.uid,
@@ -339,7 +346,7 @@ export default function CampaignAssignmentsPage() {
       }
     } catch (err) {
       console.error("Failed to load campaign assignments:", err);
-      setError("Unable to load campaign assignments.");
+      toast.error("We couldn't load campaign assignments. Please refresh and try again.");
     } finally {
       setLoading(false);
     }
@@ -500,12 +507,6 @@ export default function CampaignAssignmentsPage() {
 
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
-              {error && (
-                <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-                  {error}
-                </div>
-              )}
-
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="md:col-span-2">
                   <label className="mb-2 block text-sm font-medium text-gray-700">
@@ -717,12 +718,6 @@ export default function CampaignAssignmentsPage() {
           value={counts.urgent}
         />
       </div>
-
-      {error && (
-        <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-          {error}
-        </div>
-      )}
 
       <Card>
         <CardHeader>

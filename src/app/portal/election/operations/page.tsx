@@ -2,6 +2,8 @@
 
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useToast } from "@/components/ui/toast";
+import { getErrorMessage } from "@/lib/errors";
 import {
   CheckCircle,
   XCircle,
@@ -40,6 +42,7 @@ import type {
 export default function ElectionOperationsPage() {
   const router = useRouter();
   const { profile, loading: authLoading } = useAuth();
+  const toast = useToast();
 
   const [electoralData, setElectoralData] = useState<EnuguStateElectoralData | null>(null);
   const [cycles, setCycles] = useState<ElectionCycle[]>([]);
@@ -53,7 +56,6 @@ export default function ElectionOperationsPage() {
   const [selectedResult, setSelectedResult] = useState<ElectionResultDoc | null>(null);
   const [reviewNotes, setReviewNotes] = useState("");
   const [submittingAction, setSubmittingAction] = useState(false);
-  const [feedbackMsg, setFeedbackMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   // Fetch electoral data taxonomy and contests
   useEffect(() => {
@@ -187,15 +189,13 @@ export default function ElectionOperationsPage() {
     if (!selectedResult || !profile) return;
 
     if ((action === "reject" || action === "clarify") && !reviewNotes.trim()) {
-      setFeedbackMsg({
-        type: "error",
-        text: `Please provide notes/reasoning when marking result as ${action}.`,
-      });
+      toast.warning(
+        `Please provide notes explaining why this result is marked ${action}.`,
+      );
       return;
     }
 
     setSubmittingAction(true);
-    setFeedbackMsg(null);
 
     try {
       await reviewElectionResult({
@@ -206,19 +206,16 @@ export default function ElectionOperationsPage() {
         existingDoc: selectedResult,
       });
 
-      setFeedbackMsg({
-        type: "success",
-        text: `Result successfully marked as ${action.toUpperCase()}!`,
-      });
+      toast.success(
+        `Result successfully marked as ${action.toUpperCase()}.`,
+      );
       setReviewNotes("");
       setSelectedResult(null);
     } catch (err: unknown) {
-      const errorObj = err as Error;
       console.error("Review action error:", err);
-      setFeedbackMsg({
-        type: "error",
-        text: errorObj.message || "Failed to process review action.",
-      });
+      toast.error(
+        getErrorMessage(err, "We couldn't process the review action. Please try again."),
+      );
     } finally {
       setSubmittingAction(false);
     }
@@ -300,18 +297,6 @@ export default function ElectionOperationsPage() {
           </div>
         </div>
       </div>
-
-      {feedbackMsg && (
-        <div
-          className={`p-4 rounded-xl text-sm font-medium border ${
-            feedbackMsg.type === "success"
-              ? "bg-emerald-50 text-emerald-800 border-emerald-200"
-              : "bg-red-50 text-red-800 border-red-200"
-          }`}
-        >
-          {feedbackMsg.text}
-        </div>
-      )}
 
       {/* Contest & Status Filter Toolbar */}
       <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex flex-wrap items-center justify-between gap-4">

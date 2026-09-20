@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/components/ui/toast";
+import { getErrorMessage } from "@/lib/errors";
 import {
   getElectionCycles,
   createElectionCycle,
@@ -48,6 +50,7 @@ import {
 export default function AdminElectionManagementPage() {
   const router = useRouter();
   const { profile, loading: authLoading } = useAuth();
+  const toast = useToast();
 
   const [cycles, setCycles] = useState<ElectionCycle[]>([]);
   const [selectedCycleId, setSelectedCycleId] = useState<string>("");
@@ -60,11 +63,6 @@ export default function AdminElectionManagementPage() {
   const [activeTab, setActiveTab] = useState<
     "contests" | "cycles" | "parties" | "candidates"
   >("contests");
-
-  const [feedback, setFeedback] = useState<{
-    type: "success" | "error";
-    text: string;
-  } | null>(null);
 
   // Form states
   const [showCycleModal, setShowCycleModal] = useState(false);
@@ -201,7 +199,6 @@ export default function AdminElectionManagementPage() {
   const handleToggleElectionMode = async (enabled: boolean) => {
     if (!profile) return;
     setSubmitting(true);
-    setFeedback(null);
     try {
       const { getCurrentTenant } = await import("@/lib/firebase/tenants");
       const { doc, setDoc, serverTimestamp } =
@@ -214,16 +211,14 @@ export default function AdminElectionManagementPage() {
         { merge: true },
       );
       setElectionMode(enabled);
-      setFeedback({
-        type: "success",
-        text: `Election Mode has been ${enabled ? "ENABLED" : "DISABLED"} system-wide.`,
-      });
+      toast.success(
+        `Election Mode has been ${enabled ? "ENABLED" : "DISABLED"} system-wide.`,
+      );
     } catch (err: unknown) {
-      const errorObj = err as Error;
-      setFeedback({
-        type: "error",
-        text: errorObj.message || "Failed to update Election Mode.",
-      });
+      console.error("Failed to update election mode:", err);
+      toast.error(
+        getErrorMessage(err, "We couldn't update Election Mode. Please try again."),
+      );
     } finally {
       setSubmitting(false);
     }
@@ -232,7 +227,6 @@ export default function AdminElectionManagementPage() {
   const handleSetActiveContest = async (contestId: string) => {
     if (!profile) return;
     setSubmitting(true);
-    setFeedback(null);
     try {
       await setActiveCollationContest({
         activeCycleId: selectedCycleId,
@@ -248,17 +242,15 @@ export default function AdminElectionManagementPage() {
               active_contest_id: contestId,
             },
       );
-      setFeedback({
-        type: "success",
-        text: `Active Collation Contest set to: ${
+      toast.success(
+        `Active collation contest set to: ${
           contests.find((c) => c.id === contestId)?.name
         }`,
-      });
+      );
     } catch (err: any) {
-      setFeedback({
-        type: "error",
-        text: err.message || "Failed to update active contest.",
-      });
+      toast.error(
+        getErrorMessage(err, "We couldn't update the active contest. Please try again."),
+      );
     } finally {
       setSubmitting(false);
     }
@@ -268,7 +260,6 @@ export default function AdminElectionManagementPage() {
     contest: ElectionContest,
     newStatus: ElectionContest["status"],
   ) => {
-    setFeedback(null);
     try {
       await updateContest(contest.id, { status: newStatus });
       setContests((prev) =>
@@ -276,15 +267,11 @@ export default function AdminElectionManagementPage() {
           c.id === contest.id ? { ...c, status: newStatus } : c,
         ),
       );
-      setFeedback({
-        type: "success",
-        text: `Contest '${contest.name}' status changed to ${newStatus}`,
-      });
+      toast.success(`Contest '${contest.name}' status changed to ${newStatus}`);
     } catch (err: any) {
-      setFeedback({
-        type: "error",
-        text: err.message || "Failed to update contest status.",
-      });
+      toast.error(
+        getErrorMessage(err, "We couldn't update the contest status. Please try again."),
+      );
     }
   };
 
@@ -292,7 +279,6 @@ export default function AdminElectionManagementPage() {
     e.preventDefault();
     if (!profile || !cycleForm.id || !cycleForm.name) return;
     setSubmitting(true);
-    setFeedback(null);
     try {
       await createElectionCycle({
         ...cycleForm,
@@ -301,15 +287,11 @@ export default function AdminElectionManagementPage() {
       const updated = await getElectionCycles();
       setCycles(updated);
       setShowCycleModal(false);
-      setFeedback({
-        type: "success",
-        text: "Election Cycle created successfully!",
-      });
+      toast.success("Election cycle created successfully.");
     } catch (err: any) {
-      setFeedback({
-        type: "error",
-        text: err.message || "Failed to create cycle.",
-      });
+      toast.error(
+        getErrorMessage(err, "We couldn't create the election cycle. Please try again."),
+      );
     } finally {
       setSubmitting(false);
     }
@@ -319,7 +301,6 @@ export default function AdminElectionManagementPage() {
     e.preventDefault();
     if (!profile || !contestForm.id || !contestForm.name) return;
     setSubmitting(true);
-    setFeedback(null);
     try {
       await createContest({
         id: contestForm.id,
@@ -338,15 +319,11 @@ export default function AdminElectionManagementPage() {
       const updated = await getContestsByCycle(selectedCycleId);
       setContests(updated);
       setShowContestModal(false);
-      setFeedback({
-        type: "success",
-        text: "Election Contest created & configured successfully!",
-      });
+      toast.success("Election contest created and configured successfully.");
     } catch (err: any) {
-      setFeedback({
-        type: "error",
-        text: err.message || "Failed to create contest.",
-      });
+      toast.error(
+        getErrorMessage(err, "We couldn't create the contest. Please try again."),
+      );
     } finally {
       setSubmitting(false);
     }
@@ -357,7 +334,6 @@ export default function AdminElectionManagementPage() {
     if (!partyForm.acronym || !partyForm.name) return;
     const pId = partyForm.acronym.toLowerCase();
     setSubmitting(true);
-    setFeedback(null);
     try {
       await createPoliticalParty({
         id: pId,
@@ -370,15 +346,13 @@ export default function AdminElectionManagementPage() {
       const updatedParties = await getPoliticalParties();
       setParties(updatedParties);
       setShowPartyModal(false);
-      setFeedback({
-        type: "success",
-        text: `Party ${partyForm.acronym.toUpperCase()} added to Master Registry!`,
-      });
+      toast.success(
+        `Party ${partyForm.acronym.toUpperCase()} added to the master registry.`,
+      );
     } catch (err: any) {
-      setFeedback({
-        type: "error",
-        text: err.message || "Failed to add party.",
-      });
+      toast.error(
+        getErrorMessage(err, "We couldn't add the party. Please try again."),
+      );
     } finally {
       setSubmitting(false);
     }
@@ -388,7 +362,6 @@ export default function AdminElectionManagementPage() {
     e.preventDefault();
     if (!selectedContestForCandidates || !candidateForm.candidate_name) return;
     setSubmitting(true);
-    setFeedback(null);
     try {
       await createCandidate({
         tenant_id: profile?.tenant_id || "default",
@@ -408,15 +381,11 @@ export default function AdminElectionManagementPage() {
         candidate_name: "",
         running_mate_name: "",
       });
-      setFeedback({
-        type: "success",
-        text: "Candidate added to contest configuration!",
-      });
+      toast.success("Candidate added to the contest configuration.");
     } catch (err: any) {
-      setFeedback({
-        type: "error",
-        text: err.message || "Failed to add candidate.",
-      });
+      toast.error(
+        getErrorMessage(err, "We couldn't add the candidate. Please try again."),
+      );
     } finally {
       setSubmitting(false);
     }
@@ -483,23 +452,6 @@ export default function AdminElectionManagementPage() {
           </div>
         </div>
       </div>
-
-      {feedback && (
-        <div
-          className={`p-4 rounded-xl text-sm font-medium border flex items-center gap-2 ${
-            feedback.type === "success"
-              ? "bg-green-50 text-green-800 border-green-200"
-              : "bg-red-50 text-red-800 border-red-200"
-          }`}
-        >
-          {feedback.type === "success" ? (
-            <CheckCircle2 className="w-5 h-5 text-green-600 shrink-0" />
-          ) : (
-            <AlertCircle className="w-5 h-5 text-red-600 shrink-0" />
-          )}
-          <span>{feedback.text}</span>
-        </div>
-      )}
 
       {/* Cycle Selector Bar */}
       <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex flex-wrap items-center justify-between gap-4">

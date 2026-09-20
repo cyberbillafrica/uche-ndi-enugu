@@ -11,6 +11,8 @@ import {
 import { doc, updateDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase/config";
 import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/components/ui/toast";
+import { getErrorMessage } from "@/lib/errors";
 import {
   Plus,
   CheckCircle2,
@@ -40,10 +42,9 @@ interface TaskItem {
 
 export default function AdminTasksPage() {
   const { profile } = useAuth();
+  const toast = useToast();
   const [tasks, setTasks] = useState<TaskItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
 
   // Create/Edit Task Modal State
   const [showModal, setShowModal] = useState(false);
@@ -78,9 +79,8 @@ export default function AdminTasksPage() {
       const data = await getAllTasks();
       setTasks(data as TaskItem[]);
     } catch (err: unknown) {
-      const errorObj = err as Error;
       console.error("Failed to load tasks:", err);
-      setError(errorObj.message || "Failed to load tasks.");
+      toast.error("We couldn't load the tasks. Please refresh the page.");
     } finally {
       setLoading(false);
     }
@@ -121,13 +121,11 @@ export default function AdminTasksPage() {
   const handleSaveTask = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.title.trim()) {
-      setError("Task title is required.");
+      toast.warning("Please enter a title for the task.");
       return;
     }
 
     setSaving(true);
-    setError("");
-    setSuccess("");
 
     try {
       if (editingTask) {
@@ -145,7 +143,7 @@ export default function AdminTasksPage() {
           expiration_date: form.expiration_date || null,
           updated_at: serverTimestamp(),
         });
-        setSuccess("Task updated successfully!");
+        toast.success("Task updated successfully.");
       } else {
         // Create
         await createTask({
@@ -159,15 +157,14 @@ export default function AdminTasksPage() {
           proof_required: form.proof_required,
           expiration_date: form.expiration_date || null,
         });
-        setSuccess("Task created successfully!");
+        toast.success("Task created successfully.");
       }
 
       setShowModal(false);
       await loadTasksList();
     } catch (err: unknown) {
-      const errorObj = err as Error;
       console.error("Failed to save task:", err);
-      setError(errorObj.message || "Failed to save task.");
+      toast.error(getErrorMessage(err, "We couldn't save the task. Please try again."));
     } finally {
       setSaving(false);
     }
@@ -184,10 +181,11 @@ export default function AdminTasksPage() {
       setTasks((prev) =>
         prev.map((t) => (t.id === task.id ? { ...t, status: newStatus } : t))
       );
-      setSuccess(`Task marked as ${newStatus}`);
+      toast.success(`Task marked as ${newStatus}`);
     } catch (err: unknown) {
-      const errorObj = err as Error;
-      setError(errorObj.message || "Failed to update task status.");
+      toast.error(
+        getErrorMessage(err, "We couldn't update the task status. Please try again."),
+      );
     }
   };
 
@@ -218,14 +216,15 @@ export default function AdminTasksPage() {
       setSubmissions((prev) =>
         prev.map((s) => (s.id === submissionId ? { ...s, status: newStatus } : s))
       );
-      setSuccess(
+      toast.success(
         newStatus === "verified"
-          ? "Submission verified and points awarded!"
-          : "Submission unverified successfully."
+          ? "Submission verified and points awarded."
+          : "Submission marked as unverified."
       );
     } catch (err: unknown) {
-      const errorObj = err as Error;
-      alert(errorObj.message || "Failed to update submission status.");
+      toast.error(
+        getErrorMessage(err, "We couldn't update the submission status. Please try again."),
+      );
     } finally {
       setVerifyingId(null);
     }
@@ -258,20 +257,6 @@ export default function AdminTasksPage() {
           <span>Create New Task</span>
         </button>
       </div>
-
-      {success && (
-        <div className="flex items-center gap-2 p-4 bg-green-50 text-green-700 rounded-xl border border-green-200 text-sm">
-          <CheckCircle2 className="h-5 w-5 shrink-0" />
-          <span>{success}</span>
-        </div>
-      )}
-
-      {error && (
-        <div className="flex items-center gap-2 p-4 bg-red-50 text-red-700 rounded-xl border border-red-200 text-sm">
-          <AlertCircle className="h-5 w-5 shrink-0" />
-          <span>{error}</span>
-        </div>
-      )}
 
       {/* Task Listing */}
       <Card>

@@ -91,6 +91,17 @@ service cloud.firestore {
         ]);
     }
 
+    // Social-only membership carries zero Election module access.
+    // Dual membership (social + campaign) is NOT social-only:
+    // campaign/election authorization applies as usual.
+    // Mirrors the social-only gate enforced by the election portal pages.
+    function isSocialOnly() {
+      return isSocialMember()
+        && !isCampaignMember()
+        && !isAdmin()
+        && !isElectionOfficer();
+    }
+
 
     // ============================================================
     // TENANT ISOLATION
@@ -569,9 +580,10 @@ service cloud.firestore {
 
     match /users/{userId} {
 
-      // Admins can inspect users.
+      // Admins can inspect users within their own tenant.
       // A user can inspect only their own profile.
-      allow read: if isAdmin()
+      allow read: if (isAdmin()
+          && resource.data.tenant_id == callerTenantId())
         || isOwner(userId);
 
       // Self-registration.
@@ -1066,8 +1078,10 @@ service cloud.firestore {
 
     match /election_cycles/{cycleId} {
 
+      // Social-only members have zero Election module access.
       allow read: if isSignedIn()
-        && sameTenant(resource.data);
+        && sameTenant(resource.data)
+        && !isSocialOnly();
 
       allow create: if isAdmin()
         && newDataSameTenant();
@@ -1087,8 +1101,10 @@ service cloud.firestore {
 
     match /election_contests/{contestId} {
 
+      // Social-only members have zero Election module access.
       allow read: if isSignedIn()
-        && sameTenant(resource.data);
+        && sameTenant(resource.data)
+        && !isSocialOnly();
 
       allow create: if isAdmin()
         && newDataSameTenant();
@@ -1124,8 +1140,10 @@ service cloud.firestore {
 
     match /election_candidates/{candidateId} {
 
+      // Social-only members have zero Election module access.
       allow read: if isSignedIn()
-        && sameTenant(resource.data);
+        && sameTenant(resource.data)
+        && !isSocialOnly();
 
       allow create: if isAdmin()
         && newDataSameTenant();
@@ -1145,9 +1163,11 @@ service cloud.firestore {
 
     match /election_settings/{tenantId} {
 
+      // Social-only members have zero Election module access.
       allow read: if isSignedIn()
         && tenantId == callerTenantId()
-        && resource.data.tenant_id == callerTenantId();
+        && resource.data.tenant_id == callerTenantId()
+        && !isSocialOnly();
 
       allow create: if isAdmin()
         && tenantId == callerTenantId()
@@ -1207,9 +1227,10 @@ service cloud.firestore {
     // ============================================================
     // POLLING UNIT REPORTS
     //
-    // All authenticated campaign/election users in the tenant
-    // may read operational reports because the current application
-    // uses a tenant-wide listener.
+    // Reads require a legitimate authorization path:
+    // Admin / Election Officer (tenant-wide), the caller's
+    // registered Ward + Polling Unit, or an explicit
+    // view_pu_reports grant (global or scoped).
     //
     // Creation is geographically restricted.
     // ============================================================
@@ -1221,7 +1242,10 @@ service cloud.firestore {
         && (
           isAdmin()
           || isElectionOfficer()
-          || isCampaignMember()
+          || registeredAt(
+            resource.data.ward_id,
+            resource.data.polling_unit_id
+          )
           || hasGlobalAccess("view_pu_reports")
           || hasScopedAccess(
             "view_pu_reports",
@@ -1287,7 +1311,13 @@ service cloud.firestore {
         && (
           isAdmin()
           || isElectionOfficer()
-          || isCampaignMember()
+          || (
+            resource.data.polling_unit_id is string
+            && registeredAt(
+              resource.data.ward_id,
+              resource.data.polling_unit_id
+            )
+          )
           || hasGlobalAccess("view_election_incidents")
           || hasScopedAccess(
             "view_election_incidents",

@@ -3,6 +3,9 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/components/ui/toast";
+import { getErrorMessage } from "@/lib/errors";
+import { HelpLink } from "@/components/help/HelpLink";
 import {
   submitElectionResultWithEvidence,
   getElectionCycles,
@@ -31,6 +34,7 @@ import {
 export default function ElectionUploadPage() {
   const router = useRouter();
   const { profile, loading: authLoading } = useAuth();
+  const toast = useToast();
 
   useEffect(() => {
     if (authLoading) return;
@@ -81,8 +85,6 @@ export default function ElectionUploadPage() {
   const [evidenceFile, setEvidenceFile] = useState<File | null>(null);
   const [evidencePreview, setEvidencePreview] = useState<string | null>(null);
 
-  const [message, setMessage] = useState("");
-  const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [loadingConfig, setLoadingConfig] = useState(true);
 
@@ -188,21 +190,21 @@ export default function ElectionUploadPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError("");
-    setMessage("");
 
     if (!selectedContestId || !currentContest) {
-      setError("Active Election Contest is required.");
+      toast.warning("Please select the active election contest first.");
       return;
     }
 
     if (!form.ward_id || !form.polling_unit_id) {
-      setError("Ward and polling unit are required.");
+      toast.warning("Please select your ward and polling unit.");
       return;
     }
 
     if (!evidenceFile) {
-      setError("Form EC8 / official result sheet photo evidence is required.");
+      toast.warning(
+        "Please attach a clear photo of the Form EC8 / official result sheet — this evidence is required.",
+      );
       return;
     }
 
@@ -212,7 +214,7 @@ export default function ElectionUploadPage() {
         form.ward_id !== profile?.ward_id ||
         form.polling_unit_id !== profile?.polling_unit_id
       ) {
-        setError(
+        toast.error(
           "You can only submit results for your registered ward and polling unit.",
         );
         return;
@@ -227,7 +229,9 @@ export default function ElectionUploadPage() {
         currentContest.scope_id &&
         parentLgaId.toLowerCase() !== currentContest.scope_id.toLowerCase()
       ) {
-        setError("This polling unit is not within the scope of the selected contest.");
+        toast.warning(
+          "This polling unit is not within the scope of the selected contest.",
+        );
         return;
       }
     } else if (
@@ -242,7 +246,9 @@ export default function ElectionUploadPage() {
           (id) => id.toLowerCase() === parentLgaId.toLowerCase()
         )
       ) {
-        setError("This polling unit is not within the scope of the selected contest.");
+        toast.warning(
+          "This polling unit is not within the scope of the selected contest.",
+        );
         return;
       }
     }
@@ -253,7 +259,7 @@ export default function ElectionUploadPage() {
       .filter((r) => r.votes > 0);
 
     if (formattedResults.length === 0) {
-      setError("Please enter at least one valid non-zero party vote count.");
+      toast.warning("Please enter at least one valid non-zero party vote count.");
       return;
     }
 
@@ -295,15 +301,16 @@ export default function ElectionUploadPage() {
         cloudinaryUrl,
       });
 
-      setMessage(
-        `Results for ${currentContest.name} & Form EC8 evidence submitted successfully! They enter the Election Officer review queue.`
+      toast.success(
+        `Results for ${currentContest.name} submitted with Form EC8 evidence. They now await Election Officer verification.`,
       );
       setEvidenceFile(null);
       setEvidencePreview(null);
     } catch (err: unknown) {
-      const errorObj = err as Error;
       console.error("Submission failed:", err);
-      setError(errorObj.message || "Submission failed. Please try again.");
+      toast.error(
+        getErrorMessage(err, "We couldn't submit the result. Please try again."),
+      );
     } finally {
       setSubmitting(false);
     }
@@ -339,9 +346,12 @@ export default function ElectionUploadPage() {
           <Vote className="w-4 h-4" />
           <span>ELECTION OPERATIONS DESK</span>
         </div>
-        <h1 className="text-2xl font-bold text-gray-900">
-          Upload Polling Unit Result & Form EC8 Evidence
-        </h1>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h1 className="text-2xl font-bold text-gray-900">
+            Upload Polling Unit Result & Form EC8 Evidence
+          </h1>
+          <HelpLink article="result-upload" label="How to submit" />
+        </div>
         <p className="text-sm text-gray-500 mt-1">
           Submit official polling-unit result sheets for active election contests.
         </p>
@@ -614,20 +624,6 @@ export default function ElectionUploadPage() {
             </div>
           )}
         </div>
-
-        {error && (
-          <div className="flex items-center gap-2 p-4 bg-red-50 text-red-700 rounded-lg border border-red-200 text-xs font-medium">
-            <AlertCircle className="h-4 w-4 shrink-0" />
-            <span>{error}</span>
-          </div>
-        )}
-
-        {message && (
-          <div className="flex items-center gap-2 p-4 bg-green-50 text-green-700 rounded-lg border border-green-200 text-xs font-medium">
-            <CheckCircle2 className="h-4 w-4 shrink-0" />
-            <span>{message}</span>
-          </div>
-        )}
 
         <button
           type="submit"

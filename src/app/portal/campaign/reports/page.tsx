@@ -31,6 +31,7 @@ import {
 } from "@/lib/firebase/campaignReports";
 import { getAllLGAs } from "@/lib/constants";
 import { isAdminUser } from "@/lib/permissions";
+import { useToast } from "@/components/ui/toast";
 
 import {
   formatScopeType,
@@ -75,6 +76,7 @@ const REPORT_TYPES: {
 export default function CampaignReportsPage() {
   const { user, profile, assignments, accessLoading, hasPermission } =
     useAuth();
+  const toast = useToast();
 
   const [myReports, setMyReports] = useState<CampaignFieldReport[]>([]);
 
@@ -83,7 +85,6 @@ export default function CampaignReportsPage() {
   const [loading, setLoading] = useState(true);
   const [scopeLoading, setScopeLoading] = useState(false);
 
-  const [error, setError] = useState<string | null>(null);
 
   const [showForm, setShowForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -139,7 +140,6 @@ export default function CampaignReportsPage() {
 
     try {
       setLoading(true);
-      setError(null);
 
       const mine = await getMyCampaignReports(user.uid);
       setMyReports(mine);
@@ -171,7 +171,7 @@ export default function CampaignReportsPage() {
       }
     } catch (err) {
       console.error("Failed to load campaign reports:", err);
-      setError("Unable to load campaign field reports.");
+      toast.error("We couldn't load your campaign field reports. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -430,12 +430,6 @@ export default function CampaignReportsPage() {
 
         <ReportStat label="Returned" value={counts.returned} />
       </div>
-
-      {error && (
-        <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-          {error}
-        </div>
-      )}
 
       {/* ======================================================
           FORM

@@ -13,12 +13,13 @@ import { assignmentCoversScope, isAdminUser } from "@/lib/permissions";
 import type { LGA } from "@/types";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useToast } from "@/components/ui/toast";
+import { getErrorMessage } from "@/lib/errors";
+import { HelpLink } from "@/components/help/HelpLink";
 import {
   FileText,
   Plus,
   Loader2,
-  CheckCircle2,
-  AlertCircle,
   Upload,
   X,
   MapPin,
@@ -28,6 +29,7 @@ import {
 export default function PUReportsPage() {
   const { profile, assignments, accessLoading } = useAuth();
   const isAdmin = isAdminUser(profile);
+  const toast = useToast();
 
   const [lgas, setLgas] = useState<LGA[]>([]);
   const [reports, setReports] = useState<PUReportDoc[]>([]);
@@ -37,8 +39,6 @@ export default function PUReportsPage() {
   // Form State
   const [showForm, setShowForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [formError, setFormError] = useState("");
-  const [successMsg, setSuccessMessage] = useState("");
 
   const [form, setForm] = useState({
     lga_id: profile?.lga_id ?? "nkanu-west",
@@ -121,16 +121,14 @@ export default function PUReportsPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setFormError("");
-    setSuccessMessage("");
 
     if (!form.ward_id || !form.polling_unit_id) {
-      setFormError("Ward and polling unit are required.");
+      toast.warning("Please select both a ward and a polling unit.");
       return;
     }
 
     if (!form.title.trim() || !form.content.trim()) {
-      setFormError("Title and description content are required.");
+      toast.warning("Please add a title and describe what you observed.");
       return;
     }
 
@@ -140,7 +138,7 @@ export default function PUReportsPage() {
         form.ward_id !== profile?.ward_id ||
         form.polling_unit_id !== profile?.polling_unit_id
       ) {
-        setFormError(
+        toast.error(
           "You can only submit PU reports for your registered Ward and Polling Unit.",
         );
         return;
@@ -171,7 +169,7 @@ export default function PUReportsPage() {
         cloudinary_url: cloudinaryUrl,
       });
 
-      setSuccessMessage("Polling unit report submitted successfully!");
+      toast.success("Polling unit report submitted.");
       setShowForm(false);
       setForm({
         lga_id: profile?.lga_id ?? "nkanu-west",
@@ -185,7 +183,9 @@ export default function PUReportsPage() {
       setEvidencePreview(null);
     } catch (err: any) {
       console.error("Failed to create PU report:", err);
-      setFormError(err.message || "Failed to submit report. Please try again.");
+      toast.error(
+        getErrorMessage(err, "We couldn't submit the report. Please try again."),
+      );
     } finally {
       setSubmitting(false);
     }
@@ -205,9 +205,12 @@ export default function PUReportsPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">
-            Polling Unit Reports
-          </h1>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h1 className="text-2xl font-bold text-gray-900">
+              Polling Unit Reports
+            </h1>
+            <HelpLink article="pu-reports" label="PU reports guide" />
+          </div>
           <p className="text-sm text-gray-500">
             Submit and inspect polling unit conduct, opening, turnout, and
             closing reports.
@@ -215,24 +218,13 @@ export default function PUReportsPage() {
         </div>
 
         <button
-          onClick={() => {
-            setShowForm((prev) => !prev);
-            setFormError("");
-            setSuccessMessage("");
-          }}
+          onClick={() => setShowForm((prev) => !prev)}
           className="inline-flex items-center gap-2 rounded-lg bg-apc-primary px-4 py-2.5 text-sm font-semibold text-white hover:bg-apc-dark transition-colors"
         >
           <Plus className="h-4 w-4" />
           {showForm ? "Cancel" : "Submit PU Report"}
         </button>
       </div>
-
-      {successMsg && (
-        <div className="flex items-center gap-2 p-4 bg-green-50 text-green-700 rounded-lg border border-green-200 text-sm">
-          <CheckCircle2 className="h-5 w-5 shrink-0" />
-          <span>{successMsg}</span>
-        </div>
-      )}
 
       {/* Form */}
       {showForm && (
@@ -252,13 +244,6 @@ export default function PUReportsPage() {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
-              {formError && (
-                <div className="flex items-center gap-2 p-3 bg-red-50 text-red-700 rounded-lg border border-red-200 text-sm">
-                  <AlertCircle className="h-4 w-4 shrink-0" />
-                  <span>{formError}</span>
-                </div>
-              )}
-
               {/* Location Selectors */}
               <div className="grid md:grid-cols-3 gap-4">
                 <div>

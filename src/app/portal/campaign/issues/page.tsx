@@ -28,6 +28,8 @@ import {
   type CampaignIssueType,
 } from "@/lib/firebase/campaignIssues";
 import { isAdminUser } from "@/lib/permissions";
+import { useToast } from "@/components/ui/toast";
+import { getErrorMessage } from "@/lib/errors";
 import { CURRENT_TENANT_ID } from "@/lib/firebase/tenants";
 
 import {
@@ -44,6 +46,7 @@ export default function CampaignIssuesPage() {
     hasPermission,
     accessLoading,
   } = useAuth();
+  const toast = useToast();
 
   const assignments: OrganizationalAssignment[] = Array.isArray(authAssignments)
     ? authAssignments
@@ -67,8 +70,6 @@ export default function CampaignIssuesPage() {
 
   const [refreshing, setRefreshing] = useState(false);
 
-  const [error, setError] = useState<string | null>(null);
-
   const [showForm, setShowForm] = useState(false);
 
   /*
@@ -83,8 +84,6 @@ export default function CampaignIssuesPage() {
     if (!profile) return;
 
     try {
-      setError(null);
-
       if (isAdmin) {
         const data = await getAllCampaignIssues();
         setIssues(data);
@@ -96,7 +95,7 @@ export default function CampaignIssuesPage() {
       }
     } catch (err) {
       console.error("Failed to load campaign issues:", err);
-      setError("Unable to load issues for your organizational scope.");
+      toast.error("We couldn't load the issues for your organizational scope. Please try again.");
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -302,20 +301,6 @@ export default function CampaignIssuesPage() {
         />
       )}
 
-      {/* ERROR */}
-
-      {error && (
-        <Card className="border-red-200">
-          <CardContent className="p-5">
-            <div className="flex gap-3">
-              <AlertTriangle className="h-5 w-5 shrink-0 text-red-600" />
-
-              <p className="text-sm text-red-700">{error}</p>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
       {/* ISSUES */}
 
       <Card>
@@ -390,19 +375,18 @@ function IssueForm({
 
   const [saving, setSaving] = useState(false);
 
-  const [error, setError] = useState<string | null>(null);
+  const toast = useToast();
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
 
     if (!title.trim() || !description.trim()) {
-      setError("Title and description are required.");
+      toast.warning("Please provide a title and a description for the issue.");
       return;
     }
 
     try {
       setSaving(true);
-      setError(null);
 
       await createCampaignIssue({
         title,
@@ -430,7 +414,7 @@ function IssueForm({
     } catch (err) {
       console.error("Failed to create issue:", err);
 
-      setError("Unable to submit this issue.");
+      toast.error(getErrorMessage(err, "We couldn't submit this issue. Please try again."));
     } finally {
       setSaving(false);
     }
@@ -530,8 +514,6 @@ function IssueForm({
             onChange={setEvidenceUrl}
             placeholder="https://..."
           />
-
-          {error && <p className="text-sm text-red-600">{error}</p>}
 
           <div className="flex justify-end">
             <button

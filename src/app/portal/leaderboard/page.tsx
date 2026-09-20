@@ -5,6 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn, formatNumber } from "@/lib/utils";
 import { Medal, Loader2 } from "lucide-react";
 import { getLeaderboard } from "@/lib/firebase/firestore";
+import { useToast } from "@/components/ui/toast";
+import { HelpLink } from "@/components/help/HelpLink";
 import { getWardById } from "@/lib/constants";
 
 interface LeaderboardUser {
@@ -18,21 +20,21 @@ interface LeaderboardUser {
 export default function LeaderboardPage() {
   const [leaders, setLeaders] = useState<LeaderboardUser[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+
+  const toast = useToast();
 
   useEffect(() => {
     let cancelled = false;
 
     const load = async () => {
       setLoading(true);
-      setError("");
       try {
         const data = await getLeaderboard(50);
         if (!cancelled) setLeaders(data as LeaderboardUser[]);
       } catch (err) {
         console.error("Failed to load leaderboard:", err);
         if (!cancelled) {
-          setError("Unable to load the leaderboard right now.");
+          toast.error("We couldn't load the leaderboard right now. Please try again.");
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -48,7 +50,10 @@ export default function LeaderboardPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-gray-900">Leaderboard</h1>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-2xl font-bold text-gray-900">Leaderboard</h1>
+        <HelpLink article="leaderboard" label="How the leaderboard works" />
+      </div>
       <Card>
         <CardHeader>
           <CardTitle>Top Social Media Volunteers</CardTitle>
@@ -58,10 +63,6 @@ export default function LeaderboardPage() {
             <div className="flex items-center justify-center py-12 text-gray-500 gap-2">
               <Loader2 className="h-5 w-5 animate-spin" />
               Loading leaderboard…
-            </div>
-          ) : error ? (
-            <div className="p-4 bg-red-50 text-red-700 rounded-lg text-sm">
-              {error}
             </div>
           ) : leaders.length === 0 ? (
             <p className="text-center text-gray-500 py-12">

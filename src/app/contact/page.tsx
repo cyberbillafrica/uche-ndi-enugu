@@ -3,10 +3,13 @@
 import { useState } from "react";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
-import { Mail, Phone, MapPin, Send, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
+import { Mail, Phone, MapPin, Send, CheckCircle2, Loader2 } from "lucide-react";
 import { submitContactMessage } from "@/lib/firebase/firestore";
+import { useToast } from "@/components/ui/toast";
+import { getErrorMessage } from "@/lib/errors";
 
 export default function ContactPage() {
+  const toast = useToast();
   const [form, setForm] = useState({
     name: "",
     email: "",
@@ -16,24 +19,22 @@ export default function ContactPage() {
 
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
-  const [error, setError] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError("");
 
     if (!form.name.trim()) {
-      setError("Please enter your name.");
+      toast.warning("Please enter your name.");
       return;
     }
 
     if (!form.email.trim() || !form.email.includes("@")) {
-      setError("Please enter a valid email address.");
+      toast.warning("Please enter a valid email address.");
       return;
     }
 
     if (!form.message.trim()) {
-      setError("Please enter a message.");
+      toast.warning("Please enter a message.");
       return;
     }
 
@@ -51,7 +52,9 @@ export default function ContactPage() {
       setForm({ name: "", email: "", phone: "", message: "" });
     } catch (err: any) {
       console.error("Failed to submit contact message:", err);
-      setError(err.message || "Failed to send message. Please try again later.");
+      toast.error(
+        getErrorMessage(err, "We couldn't send your message. Please try again later."),
+      );
     } finally {
       setSubmitting(false);
     }
@@ -115,13 +118,6 @@ export default function ContactPage() {
                   <h2 className="text-xl font-semibold text-apc-primary mb-2">
                     Send a Message
                   </h2>
-
-                  {error && (
-                    <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-                      <AlertCircle className="h-4 w-4 shrink-0" />
-                      <span>{error}</span>
-                    </div>
-                  )}
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">

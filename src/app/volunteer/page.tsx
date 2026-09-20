@@ -5,6 +5,7 @@ import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { UserPlus, ArrowRight, CheckCircle2, ExternalLink } from "lucide-react";
+import { useToast } from "@/components/ui/toast";
 import Link from "next/link";
 
 import Header from "@/components/layout/Header";
@@ -195,8 +196,8 @@ function isValidUrl(value?: string) {
 
 export default function VolunteerPage() {
   const [submitted, setSubmitted] = useState(false);
-  const [error, setError] = useState("");
   const [lgas, setLgas] = useState<LGA[]>([]);
+  const toast = useToast();
 
   useEffect(() => {
     async function loadLgas() {
@@ -307,8 +308,6 @@ export default function VolunteerPage() {
   // ─────────────────────────────────────────────
 
   const onSubmit = async (data: VolunteerFormData) => {
-    setError("");
-
     const { email, password, ...userData } = data;
 
     const { user, error: signUpError } = await signUpVolunteer(
@@ -318,7 +317,7 @@ export default function VolunteerPage() {
     );
 
     if (signUpError) {
-      setError(signUpError);
+      toast.error(signUpError);
       return;
     }
 
@@ -402,14 +401,6 @@ export default function VolunteerPage() {
             </Link>
           </div>
         </div>
-
-        {/* Error */}
-
-        {error && (
-          <div className="mb-6 rounded-lg border border-red-200 bg-red-50 p-4 text-red-700">
-            {error}
-          </div>
-        )}
 
         <div className="rounded-2xl bg-white p-6 shadow-lg sm:p-8">
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">

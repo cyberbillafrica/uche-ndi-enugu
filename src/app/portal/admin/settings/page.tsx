@@ -2,16 +2,17 @@
 
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Settings, Bell, Shield, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
+import { useToast } from "@/components/ui/toast";
+import { getErrorMessage } from "@/lib/errors";
+import { Settings, Bell, Shield, Loader2 } from "lucide-react";
 import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase/config";
 import { getCurrentTenant } from "@/lib/firebase/tenants";
 
 export default function AdminSettingsPage() {
+  const toast = useToast();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState("");
-  const [error, setError] = useState("");
 
   const [settings, setSettings] = useState({
     election_mode_enabled: true,
@@ -48,8 +49,6 @@ export default function AdminSettingsPage() {
   const handleSave = async (updatedSettings: typeof settings) => {
     setSettings(updatedSettings);
     setSaving(true);
-    setMessage("");
-    setError("");
 
     try {
       const tenant = await getCurrentTenant();
@@ -62,11 +61,10 @@ export default function AdminSettingsPage() {
         },
         { merge: true }
       );
-      setMessage("Tenant settings saved and updated in real-time.");
+      toast.success("Settings saved and applied in real-time.");
     } catch (err: unknown) {
-      const errorObj = err as Error;
       console.error("Failed to save tenant settings:", err);
-      setError(errorObj.message || "Failed to save settings. Please try again.");
+      toast.error(getErrorMessage(err, "We couldn't save the settings. Please try again."));
     } finally {
       setSaving(false);
     }
@@ -96,20 +94,6 @@ export default function AdminSettingsPage() {
           </div>
         )}
       </div>
-
-      {message && (
-        <div className="flex items-center gap-2 p-4 bg-green-50 text-green-700 rounded-lg border border-green-200 text-sm">
-          <CheckCircle2 className="h-5 w-5 shrink-0" />
-          <span>{message}</span>
-        </div>
-      )}
-
-      {error && (
-        <div className="flex items-center gap-2 p-4 bg-red-50 text-red-700 rounded-lg border border-red-200 text-sm">
-          <AlertCircle className="h-5 w-5 shrink-0" />
-          <span>{error}</span>
-        </div>
-      )}
 
       <div className="grid md:grid-cols-2 gap-6">
         <Card>

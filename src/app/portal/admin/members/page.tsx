@@ -6,6 +6,8 @@ import { getAllUsers } from '@/lib/firebase/firestore';
 import { getAllLGAs } from '@/lib/constants';
 import { updateUserLifecycleStatus } from '@/lib/firebase/auth';
 import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/components/ui/toast';
+import { getErrorMessage } from '@/lib/errors';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { exportToCSV, exportToExcel, exportToPDFPrint } from '@/lib/export';
 import {
@@ -28,6 +30,7 @@ import type { LGA, UserLifecycleStatus } from '@/types';
 
 export default function AdminMembersPage() {
   const { profile } = useAuth();
+  const toast = useToast();
   const [members, setMembers] = useState<any[]>([]);
   const [lgas, setLgas] = useState<LGA[]>([]);
   const [loading, setLoading] = useState(true);
@@ -126,7 +129,9 @@ export default function AdminMembersPage() {
       await fetchMembers();
     } catch (err) {
       console.error("Failed to update user status:", err);
-      alert("Failed to update lifecycle status.");
+      toast.error(
+        getErrorMessage(err, "We couldn't update the member's status. Please try again."),
+      );
     } finally {
       setUpdatingId(null);
     }

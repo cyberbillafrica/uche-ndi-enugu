@@ -7,23 +7,23 @@ import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import { Calendar, Tag, ArrowRight, Loader2, AlertCircle } from "lucide-react";
 import { getPublishedNews } from "@/lib/firebase/firestore";
+import { useToast } from "@/components/ui/toast";
 import type { NewsArticle } from "@/types";
 
 export default function NewsPage() {
   const [articles, setArticles] = useState<NewsArticle[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const toast = useToast();
 
   useEffect(() => {
     async function loadNews() {
       try {
         setLoading(true);
-        setError(null);
         const data = await getPublishedNews(50);
         setArticles(data);
       } catch (err: any) {
         console.error("Error loading news articles:", err);
-        setError("Unable to load news updates. Please check your connection and try again.");
+        toast.error("Unable to load news updates. Please check your connection and try again.");
       } finally {
         setLoading(false);
       }
@@ -70,14 +70,7 @@ export default function NewsPage() {
           </div>
         )}
 
-        {error && (
-          <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-center text-red-700 my-8">
-            <AlertCircle className="mx-auto h-8 w-8 text-red-500 mb-2" />
-            <p className="font-semibold">{error}</p>
-          </div>
-        )}
-
-        {!loading && !error && articles.length === 0 && (
+        {!loading && articles.length === 0 && (
           <div className="rounded-2xl bg-white p-12 text-center shadow-sm my-8 border">
             <p className="text-lg font-medium text-gray-700">No news updates published yet.</p>
             <p className="mt-2 text-sm text-gray-500">
@@ -86,7 +79,7 @@ export default function NewsPage() {
           </div>
         )}
 
-        {!loading && !error && articles.length > 0 && (
+        {!loading && articles.length > 0 && (
           <div className="grid gap-8 md:grid-cols-3">
             {articles.map((article) => (
               <article
