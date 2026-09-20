@@ -159,10 +159,21 @@ export async function getElectionSettings(
 ): Promise<ElectionSettings | null> {
   const currentTenantId = tenantId || (await getCurrentTenant()).id;
   const docRef = doc(db, "election_settings", currentTenantId);
-  const snap = await getDoc(docRef);
 
-  if (snap.exists()) {
-    return { id: snap.id, ...snap.data() } as ElectionSettings;
+  try {
+    const snap = await getDoc(docRef);
+
+    if (snap.exists()) {
+      return { id: snap.id, ...snap.data() } as ElectionSettings;
+    }
+  } catch (err) {
+    /*
+     * A missing or not-yet-provisioned settings document is denied
+     * by security rules (resource.data checks fail on missing docs),
+     * which surfaces as permission-denied rather than "not found".
+     * Fall back to defaults instead of failing the whole page.
+     */
+    console.error("Failed to load election settings:", err);
   }
 
   // Return fallback read-only settings without attempting admin writes
@@ -691,15 +702,38 @@ export async function createPUReport(data: {
   return ref.id;
 }
 
+/**
+ * Optional read-scope for member-facing listeners.
+ *
+ * Firestore security rules authorize PU report / incident reads
+ * per document (Admin and Election Officer tenant-wide, everyone
+ * else only via their registered ward + polling unit or explicit
+ * grants). A listener must therefore constrain its query to the
+ * caller's authorized scope, otherwise Firestore denies the whole
+ * query. Admin/Officer callers omit the scope for tenant-wide reads.
+ */
+export interface ElectionListenerScope {
+  ward_id: string;
+  polling_unit_id: string;
+}
+
 export function subscribeToPUReports(
   tenantId: string,
   onData: (reports: PUReportDoc[]) => void,
   onError?: (err: Error) => void,
+  scope?: ElectionListenerScope,
 ): Unsubscribe {
-  const q = query(
-    collection(db, "pu_reports"),
-    where("tenant_id", "==", tenantId),
-  );
+  const q = scope
+    ? query(
+        collection(db, "pu_reports"),
+        where("tenant_id", "==", tenantId),
+        where("ward_id", "==", scope.ward_id),
+        where("polling_unit_id", "==", scope.polling_unit_id),
+      )
+    : query(
+        collection(db, "pu_reports"),
+        where("tenant_id", "==", tenantId),
+      );
 
   return onSnapshot(
     q,
@@ -752,11 +786,19 @@ export function subscribeToElectionIncidents(
   tenantId: string,
   onData: (incidents: ElectionIncidentDoc[]) => void,
   onError?: (err: Error) => void,
+  scope?: ElectionListenerScope,
 ): Unsubscribe {
-  const q = query(
-    collection(db, "election_incidents"),
-    where("tenant_id", "==", tenantId),
-  );
+  const q = scope
+    ? query(
+        collection(db, "election_incidents"),
+        where("tenant_id", "==", tenantId),
+        where("ward_id", "==", scope.ward_id),
+        where("polling_unit_id", "==", scope.polling_unit_id),
+      )
+    : query(
+        collection(db, "election_incidents"),
+        where("tenant_id", "==", tenantId),
+      );
 
   return onSnapshot(
     q,

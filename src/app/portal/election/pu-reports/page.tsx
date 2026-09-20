@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   createPUReport,
   subscribeToPUReports,
+  type ElectionListenerScope,
   type PUReportDoc,
 } from "@/lib/firebase/election";
 import { uploadToCloudinary } from "@/lib/cloudinary";
@@ -28,6 +30,7 @@ import {
 
 export default function PUReportsPage() {
   const { profile, assignments, accessLoading } = useAuth();
+  const router = useRouter();
   const isAdmin = isAdminUser(profile);
   const toast = useToast();
 
@@ -65,6 +68,30 @@ export default function PUReportsPage() {
   useEffect(() => {
     if (!profile?.tenant_id) return;
 
+    /*
+     * Security rules authorize PU report reads per document:
+     * Admins/Election Officers tenant-wide, everyone else only
+     * via their registered ward + polling unit (or explicit
+     * grants). The listener query must mirror that scope or the
+     * whole query is denied.
+     */
+    const isPrivileged =
+      isAdmin || profile.access_role === "election_officer";
+
+    const memberScope: ElectionListenerScope | undefined =
+      !isPrivileged && profile.ward_id && profile.polling_unit_id
+        ? {
+            ward_id: profile.ward_id,
+            polling_unit_id: profile.polling_unit_id,
+          }
+        : undefined;
+
+    // Not privileged and no registered location: nothing can be read.
+    if (!isPrivileged && !memberScope) {
+      setLoading(false);
+      return;
+    }
+
     const unsubscribe = subscribeToPUReports(
       profile.tenant_id,
       (docs) => {
@@ -76,10 +103,32 @@ export default function PUReportsPage() {
         setLoadError("PU reports could not be loaded. Please try again.");
         setLoading(false);
       },
+      memberScope,
     );
 
     return () => unsubscribe();
-  }, [profile?.tenant_id]);
+  }, [
+    profile?.tenant_id,
+    profile?.access_role,
+    profile?.ward_id,
+    profile?.polling_unit_id,
+    isAdmin,
+  ]);
+
+  // Social-only members have zero Election module access.
+  useEffect(() => {
+    if (accessLoading || !profile) return;
+
+    const isSocialOnly =
+      profile.membership_types?.includes("social_member") &&
+      !profile.membership_types?.includes("campaign_member") &&
+      profile.access_role !== "election_officer" &&
+      !isAdmin;
+
+    if (isSocialOnly) {
+      router.replace("/portal/dashboard");
+    }
+  }, [profile, accessLoading, isAdmin, router]);
 
   const selectedLga = lgas.find((l) => l.id === form.lga_id);
   const wards = selectedLga?.wards ?? [];

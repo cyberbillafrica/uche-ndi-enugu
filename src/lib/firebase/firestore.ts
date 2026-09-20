@@ -54,14 +54,46 @@ export async function getUserOrganizationalAssignments(
 // ─────────────────────────────────────────────
 
 export async function getAllUsers() {
-  const q = query(collection(db, "users"), orderBy("created_at", "desc"));
+  /*
+   * Tenant-constrained: the security rules only allow admins to
+   * read user profiles within their own tenant, so the query must
+   * prove that constraint. Sorting is done client-side to avoid
+   * requiring a (tenant_id, created_at) composite index.
+   */
+  const q = query(
+    collection(db, "users"),
+    where("tenant_id", "==", CURRENT_TENANT_ID),
+  );
 
   const snap = await getDocs(q);
 
-  return snap.docs.map((d) => ({
-    id: d.id,
-    ...d.data(),
-  }));
+  return snap.docs
+    .map((d) => ({
+      id: d.id,
+      ...d.data(),
+    }))
+    .sort((first, second) => {
+      const toMillis = (value: unknown): number => {
+        if (
+          value &&
+          typeof value === "object" &&
+          "toMillis" in value
+        ) {
+          return (value as { toMillis: () => number }).toMillis();
+        }
+        if (typeof value === "string" || typeof value === "number") {
+          return new Date(value).getTime();
+        }
+        return 0;
+      };
+
+      const firstDoc = first as { created_at?: unknown };
+      const secondDoc = second as { created_at?: unknown };
+
+      return (
+        toMillis(secondDoc.created_at) - toMillis(firstDoc.created_at)
+      );
+    });
 }
 
 export async function getUserProfile(userId: string) {

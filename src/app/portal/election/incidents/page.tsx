@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   createElectionIncident,
   subscribeToElectionIncidents,
   type ElectionIncidentDoc,
+  type ElectionListenerScope,
 } from "@/lib/firebase/election";
 import { uploadToCloudinary } from "@/lib/cloudinary";
 import { getAllLGAs } from "@/lib/constants";
@@ -28,6 +30,7 @@ import {
 
 export default function IncidentsPage() {
   const { profile, assignments, accessLoading } = useAuth();
+  const router = useRouter();
   const isAdmin = isAdminUser(profile);
   const toast = useToast();
 
@@ -65,6 +68,27 @@ export default function IncidentsPage() {
   useEffect(() => {
     if (!profile?.tenant_id) return;
 
+    /*
+     * Mirror the security-rule read scope: Admins/Election
+     * Officers tenant-wide, everyone else only their registered
+     * ward + polling unit. An unconstrained query is denied.
+     */
+    const isPrivileged =
+      isAdmin || profile.access_role === "election_officer";
+
+    const memberScope: ElectionListenerScope | undefined =
+      !isPrivileged && profile.ward_id && profile.polling_unit_id
+        ? {
+            ward_id: profile.ward_id,
+            polling_unit_id: profile.polling_unit_id,
+          }
+        : undefined;
+
+    if (!isPrivileged && !memberScope) {
+      setLoading(false);
+      return;
+    }
+
     const unsubscribe = subscribeToElectionIncidents(
       profile.tenant_id,
       (docs) => {
@@ -78,10 +102,32 @@ export default function IncidentsPage() {
         );
         setLoading(false);
       },
+      memberScope,
     );
 
     return () => unsubscribe();
-  }, [profile?.tenant_id]);
+  }, [
+    profile?.tenant_id,
+    profile?.access_role,
+    profile?.ward_id,
+    profile?.polling_unit_id,
+    isAdmin,
+  ]);
+
+  // Social-only members have zero Election module access.
+  useEffect(() => {
+    if (accessLoading || !profile) return;
+
+    const isSocialOnly =
+      profile.membership_types?.includes("social_member") &&
+      !profile.membership_types?.includes("campaign_member") &&
+      profile.access_role !== "election_officer" &&
+      !isAdmin;
+
+    if (isSocialOnly) {
+      router.replace("/portal/dashboard");
+    }
+  }, [profile, accessLoading, isAdmin, router]);
 
   const selectedLga = lgas.find((l) => l.id === form.lga_id);
   const wards = selectedLga?.wards ?? [];

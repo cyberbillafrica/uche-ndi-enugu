@@ -27,6 +27,7 @@ import {
   type ElectionResultDoc,
 } from "@/lib/firebase/election";
 import { CURRENT_TENANT_ID } from "@/lib/firebase/tenants";
+import { isAdminUser } from "@/lib/permissions";
 
 interface SearchResultItem {
   id: string;
@@ -87,12 +88,34 @@ export default function GlobalSearchModal() {
     }
     loadSearchData();
 
-    const unsubscribe = subscribeToElectionResults(
-      CURRENT_TENANT_ID,
-      (docs) => setResults(docs),
-      (err) => console.error(err),
-    );
-    return () => unsubscribe();
+    /*
+     * Mirror the security-rule read scope for results: privileged
+     * roles tenant-wide, members only their registered ward + PU,
+     * and no listener at all when nothing is readable.
+     */
+    const isPrivileged =
+      profile.access_role === "election_officer" ||
+      isAdminUser(profile);
+
+    const memberScope =
+      !isPrivileged && profile.ward_id && profile.polling_unit_id
+        ? {
+            ward_id: profile.ward_id,
+            polling_unit_id: profile.polling_unit_id,
+          }
+        : undefined;
+
+    if (isPrivileged || memberScope) {
+      const unsubscribe = subscribeToElectionResults(
+        CURRENT_TENANT_ID,
+        (docs) => setResults(docs),
+        (err) => console.error(err),
+        memberScope,
+      );
+      return () => unsubscribe();
+    }
+
+    return undefined;
   }, [open, profile]);
 
   const searchResults = useMemo(() => {

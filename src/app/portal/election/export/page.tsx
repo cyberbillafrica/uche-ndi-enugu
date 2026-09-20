@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   getElectionCycles,
@@ -11,6 +12,7 @@ import {
 import { generateElectionExportPackage } from "@/lib/electionExport";
 import { CURRENT_TENANT_ID } from "@/lib/firebase/tenants";
 import { useAuth } from "@/contexts/AuthContext";
+import { isAdminUser } from "@/lib/permissions";
 import type { ElectionCycle, ElectionContest } from "@/types";
 import {
   FileSpreadsheet,
@@ -24,12 +26,29 @@ import {
 
 export default function ElectionExportPage() {
   const { profile } = useAuth();
+  const router = useRouter();
   const [cycles, setCycles] = useState<ElectionCycle[]>([]);
   const [contests, setContests] = useState<ElectionContest[]>([]);
   const [selectedCycleId, setSelectedCycleId] = useState<string>("");
   const [selectedContestId, setSelectedContestId] = useState<string>("");
   const [results, setResults] = useState<ElectionResultDoc[]>([]);
   const [loading, setLoading] = useState(true);
+
+  /*
+   * The export package aggregates results across a whole contest,
+   * which only Admins and Election Officers can read under the
+   * security rules. Everyone else is redirected.
+   */
+  const isPrivileged =
+    isAdminUser(profile) || profile?.access_role === "election_officer";
+
+  useEffect(() => {
+    if (!profile) return;
+
+    if (!isPrivileged) {
+      router.replace("/portal/election");
+    }
+  }, [profile, isPrivileged, router]);
 
   useEffect(() => {
     async function init() {

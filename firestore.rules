@@ -621,6 +621,20 @@ service cloud.firestore {
 
 
     // ============================================================
+    // TENANTS
+    //
+    // The client reads its own tenant record (display name and
+    // election-mode metadata). Same-tenant reads only; writes
+    // remain default-denied.
+    // ============================================================
+
+    match /tenants/{tenantId} {
+      allow read: if isSignedIn()
+        && tenantId == callerTenantId();
+    }
+
+
+    // ============================================================
     // LEADERBOARD PUBLIC PROJECTION
     //
     // Non-sensitive public leaderboard projections for social members.

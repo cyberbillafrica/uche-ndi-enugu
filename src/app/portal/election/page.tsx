@@ -122,6 +122,7 @@ export default function ElectionDashboard() {
   const [results, setResults] = useState<ElectionResultDoc[]>([]);
   const [loading, setLoading] = useState(true);
   const [listenerError, setListenerError] = useState<string | null>(null);
+  const [needsRegistration, setNeedsRegistration] = useState(false);
   const [tenantId, setTenantId] = useState(CURRENT_TENANT_ID);
 
   // Selection states
@@ -215,6 +216,27 @@ export default function ElectionDashboard() {
   // Real-time Firestore Listener
   useEffect(() => {
     if (!tenantId) return;
+
+    /*
+     * Security rules authorize result reads per document:
+     * Admins/Election Officers tenant-wide, other members only
+     * via their registered ward + polling unit. A member with no
+     * registered location cannot read anything, so skip the
+     * listener rather than sending a query the rules must deny.
+     */
+    const isPrivileged =
+      isAdmin || profile?.access_role === "election_officer";
+
+    if (
+      !isPrivileged &&
+      !(scopeConstraint?.ward_id && scopeConstraint?.polling_unit_id)
+    ) {
+      setNeedsRegistration(true);
+      setLoading(false);
+      return;
+    }
+
+    setNeedsRegistration(false);
 
     const unsubscribe = subscribeToElectionResults(
       tenantId,
@@ -635,6 +657,14 @@ export default function ElectionDashboard() {
           >
             Refresh Page
           </button>
+        </div>
+      )}
+
+      {needsRegistration && !listenerError && (
+        <div className="p-4 bg-sky-50 text-sky-900 border border-sky-200 rounded-xl text-xs font-semibold">
+          Your profile has no registered polling unit yet. Ask an administrator
+          to set your ward and polling unit so you can follow results for your
+          area.
         </div>
       )}
 
