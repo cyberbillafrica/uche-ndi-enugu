@@ -1,4 +1,4 @@
-# IFEANYI 2027 — NEWS MODULE DOCUMENTATION Users
+# IFEANYI 2027 — NEWS MODULE DOCUMENTATION User
 
 ## Overview
 The News module provides an end-to-end CMS and public news portal for the Ifeanyi 2027 campaign application. It operates entirely on Google Cloud Firestore and Firebase Storage while respecting existing authentication, security, and administrative role boundaries.
