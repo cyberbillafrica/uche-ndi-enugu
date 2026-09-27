@@ -28,14 +28,15 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/components/ui/toast";
 import { getErrorMessage } from "@/lib/errors";
 import {
-  getAllNewsArticles,
-  createNewsArticle,
-  updateNewsArticle,
-  deleteNewsArticle,
-  generateSlug,
-} from "@/lib/firebase/firestore";
+  listNews,
+  createNews,
+  updateNews,
+  deleteNews,
+  generateNewsSlug,
+  type NewsArticle,
+  type NewsStatus,
+} from "@/lib/supabase";
 import { uploadToCloudinary } from "@/lib/cloudinary";
-import type { NewsArticle, NewsStatus } from "@/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default function AdminNewsCMSPage() {
@@ -86,7 +87,7 @@ export default function AdminNewsCMSPage() {
   async function loadArticles() {
     try {
       setLoading(true);
-      const data = await getAllNewsArticles();
+      const data = await listNews();
       setArticles(data);
     } catch (err: any) {
       console.error("Failed to load news articles:", err);
@@ -161,7 +162,7 @@ export default function AdminNewsCMSPage() {
   function handleTitleChange(val: string) {
     setFormTitle(val);
     if (!isCustomSlug) {
-      setFormSlug(generateSlug(val));
+      setFormSlug(generateNewsSlug(val));
     }
   }
 
@@ -198,7 +199,7 @@ export default function AdminNewsCMSPage() {
       return;
     }
 
-    const slugToUse = formSlug.trim() || generateSlug(formTitle);
+    const slugToUse = formSlug.trim() || generateNewsSlug(formTitle);
 
     // Check for duplicate slug
     const isDuplicateSlug = articles.some(
@@ -213,32 +214,37 @@ export default function AdminNewsCMSPage() {
       setSaving(true);
 
       if (editingArticle) {
-        await updateNewsArticle(editingArticle.id, {
-          title: formTitle.trim(),
-          slug: finalSlug,
-          excerpt: formExcerpt.trim(),
-          content: formContent.trim(),
-          category: formCategory.trim() || null,
-          author: formAuthor.trim() || null,
-          status: formStatus,
-          scheduled_at: formScheduledAt.trim() || null,
-          featured_image: formFeaturedImage.trim() || null,
-          updated_by: profile?.id || "admin",
-        });
+        await updateNews(
+          editingArticle.id,
+          {
+            title: formTitle.trim(),
+            slug: finalSlug,
+            excerpt: formExcerpt.trim(),
+            content: formContent.trim(),
+            category: formCategory.trim() || null,
+            author: formAuthor.trim() || null,
+            status: formStatus,
+            scheduledAt: formScheduledAt.trim() || null,
+            featuredImage: formFeaturedImage.trim() || null,
+          },
+          profile?.id || "admin",
+        );
         toast.success(`Article "${formTitle}" updated successfully.`);
       } else {
-        await createNewsArticle({
-          title: formTitle.trim(),
-          slug: finalSlug,
-          excerpt: formExcerpt.trim(),
-          content: formContent.trim(),
-          category: formCategory.trim() || null,
-          author: formAuthor.trim() || null,
-          status: formStatus,
-          scheduled_at: formScheduledAt.trim() || null,
-          featured_image: formFeaturedImage.trim() || null,
-          created_by: profile?.id || "admin",
-        });
+        await createNews(
+          {
+            title: formTitle.trim(),
+            slug: finalSlug,
+            excerpt: formExcerpt.trim(),
+            content: formContent.trim(),
+            category: formCategory.trim() || null,
+            author: formAuthor.trim() || null,
+            status: formStatus,
+            scheduledAt: formScheduledAt.trim() || null,
+            featuredImage: formFeaturedImage.trim() || null,
+          },
+          profile?.id || "admin",
+        );
         toast.success(`Article "${formTitle}" created successfully.`);
       }
 
@@ -257,10 +263,7 @@ export default function AdminNewsCMSPage() {
     newStatus: NewsStatus,
   ) {
     try {
-      await updateNewsArticle(article.id, {
-        status: newStatus,
-        updated_by: profile?.id || "admin",
-      });
+      await updateNews(article.id, { status: newStatus }, profile?.id || "admin");
       toast.success(
         newStatus === "published"
           ? `Article "${article.title}" is now published.`
@@ -280,7 +283,7 @@ export default function AdminNewsCMSPage() {
 
     try {
       setSaving(true);
-      await deleteNewsArticle(deletingArticle.id);
+      await deleteNews(deletingArticle.id);
       toast.success(`Article "${deletingArticle.title}" deleted successfully.`);
       setDeletingArticle(null);
       await loadArticles();

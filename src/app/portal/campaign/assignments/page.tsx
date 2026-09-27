@@ -1,7 +1,28 @@
 "use client";
 
-import Link from "next/link";
+/**
+ * POLITICORE — Campaign Assignments (Phase C cutover: PostgreSQL/Supabase).
+ *
+ * A client of the Campaign foundation through src/lib/supabase/campaign.ts:
+ *   * listing is ONE RLS-scoped query — the legacy client-side
+ *     expandAssignmentToScopes()/getAssignmentsForAssignmentScope fan-out
+ *     is gone (D1); the database decides what this user sees;
+ *   * creation flows the create_campaign_assignment RPC — tenant, creator
+ *     and initial status are server-resolved (never payload fields);
+ *   * the assignee picker flows campaign_assignable_members (0024) —
+ *     server-side eligibility/scope resolution replaces the legacy
+ *     tenant-wide member-directory download (D2);
+ *   * edits and reassignment flow update_campaign_assignment_details
+ *     (0024); status transitions flow campaign_assignment_transition —
+ *     the legacy client-writable status dropdown is gone (§13/§15);
+ *   * deletion is supervisor-only and blocked on completed work (0024).
+ *
+ * The route gate is resolveCampaignAccess (database-resolved, fail-closed);
+ * the RPCs, view RLS, and policies remain the authoritative boundary.
+ */
 
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import {
   ArrowLeft,
   CalendarDays,
@@ -10,44 +31,73 @@ import {
   Flag,
   Loader2,
   Pencil,
+  Play,
   Plus,
   RefreshCw,
   Search,
+  Send,
   ShieldCheck,
   Trash2,
   TriangleAlert,
+  Undo2,
   X,
 } from "lucide-react";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-
 import { useAuth } from "@/contexts/AuthContext";
-
-import {
-  createCampaignAssignment,
-  deleteCampaignAssignment,
-  getAllCampaignAssignments,
-  getMyCampaignAssignments,
-  getAssignmentsForAssignmentScope,
-  updateCampaignAssignment,
-  type CampaignAssignment,
-} from "@/lib/firebase/campaignAssignments";
-import { getAllLGAs } from "@/lib/constants";
 import { useToast } from "@/components/ui/toast";
-import { getErrorMessage } from "@/lib/errors";
 
 import {
-  getAllCampaignMembersForTenant,
-  getScopedCampaignMembers,
-} from "@/lib/firebase/campaignMembers";
+  CampaignError,
+  createAssignment,
+  deleteAssignment,
+  getAssignableMembers,
+  getAssignments,
+  resubmitAssignment,
+  reviewAssignment,
+  startAssignment,
+  submitAssignment,
+  updateAssignmentDetails,
+  resolveCampaignAccess,
+  ensureSupabaseSession,
+  getSupabaseClient,
+  type CampaignAssignment as SupabaseAssignment,
+  type CampaignAssignmentPriority,
+  type CampaignAssignmentStatus,
+  type CampaignAuthority,
+  type CampaignScopeType,
+} from "@/lib/supabase";
 
-import {
-  formatScopeType,
-  getPrimaryOrganizationalScope,
-  formatOrganizationalPosition,
-} from "@/lib/organization";
+/*
+ * ============================================================
+ * HELPERS
+ * ============================================================
+ */
+
+const PRIORITIES: Array<{ value: CampaignAssignmentPriority; label: string }> = [
+  { value: "low", label: "Low" },
+  { value: "medium", label: "Medium" },
+  { value: "high", label: "High" },
+  { value: "urgent", label: "Urgent" },
+];
+
+const SCOPE_TYPES: Array<{ value: CampaignScopeType; label: string }> = [
+  { value: "campaign", label: "Campaign" },
+  { value: "state", label: "State" },
+  { value: "senatorial_zone", label: "Zone" },
+  { value: "lga", label: "LGA" },
+  { value: "ward", label: "Ward" },
+  { value: "polling_unit", label: "Polling Unit" },
+];
+
+function formatScopeType(scopeType: CampaignScopeType): string {
+  return SCOPE_TYPES.find((s) => s.value === scopeType)?.label ?? scopeType;
+}
+
+function campaignErrorMessage(err: unknown, fallback: string): string {
+  if (err instanceof CampaignError) return err.message;
+  return fallback;
+}
 
 /*
  * ============================================================
@@ -55,353 +105,350 @@ import {
  * ============================================================
  */
 
+type Gate = "loading" | "no_session" | "denied" | "ready";
+
 export default function CampaignAssignmentsPage() {
-  const { user, profile, assignments, accessLoading, hasPermission } =
-    useAuth();
+  const { user, profile, assignments: orgAssignments } = useAuth();
   const toast = useToast();
 
-  const [myAssignments, setMyAssignments] = useState<CampaignAssignment[]>([]);
-  const [areaAssignments, setAreaAssignments] = useState<CampaignAssignment[]>(
-    [],
-  );
-  const [allAssignments, setAllAssignments] = useState<CampaignAssignment[]>(
-    [],
-  );
-  const [memberOptions, setMemberOptions] = useState<
-    Array<{ id: string; full_name: string; email?: string }>
-  >([]);
+  const [gate, setGate] = useState<Gate>("loading");
+  const [denyReason, setDenyReason] = useState<string | null>(null);
+  const [authority, setAuthority] = useState<CampaignAuthority>("member");
 
+  const [mine, setMine] = useState<SupabaseAssignment[]>([]);
+  const [visible, setVisible] = useState<SupabaseAssignment[]>([]);
   const [loading, setLoading] = useState(true);
-  const [areaLoading, setAreaLoading] = useState(false);
-  const [memberOptionsLoading, setMemberOptionsLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
 
-  const [showCreateForm, setShowCreateForm] = useState(false);
-  const [creating, setCreating] = useState(false);
-  const [editingAssignmentId, setEditingAssignmentId] = useState<string | null>(
-    null,
-  );
+  const [showForm, setShowForm] = useState(false);
+  const [editing, setEditing] = useState<SupabaseAssignment | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  const [memberOptions, setMemberOptions] = useState<
+    Array<{ id: string; full_name: string; email: string }>
+  >([]);
+  const [membersLoading, setMembersLoading] = useState(false);
+
+  /** One RLS-scoped query per refresh; the database decides visibility. */
+  const loadAssignments = useCallback(async () => {
+    setLoading(true);
+    setLoadError(null);
+    try {
+      const supabase = getSupabaseClient();
+      const [mineRows, visibleRows] = await Promise.all([
+        getAssignments(supabase, { mine: true }),
+        getAssignments(supabase),
+      ]);
+      setMine(mineRows);
+      setVisible(visibleRows);
+    } catch (err) {
+      console.error("Failed to load campaign assignments:", err);
+      setLoadError(
+        campaignErrorMessage(err, "We couldn't load campaign assignments right now."),
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // ── gate: bridged session + database-resolved campaign access ────────
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const bridge = await ensureSupabaseSession();
+      if (cancelled) return;
+      if (!bridge.sessionReady) {
+        setGate(bridge.reason === "no_session" ? "no_session" : "denied");
+        return;
+      }
+      const supabase = bridge.supabase;
+      const access = await resolveCampaignAccess(supabase);
+      if (cancelled) return;
+      if (!access.allowed) {
+        setDenyReason(access.reason);
+        setGate("denied");
+        return;
+      }
+      setAuthority(access.authority);
+      setGate("ready");
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Initial load: cancelled-flag async pattern (same as Phase B).
+  useEffect(() => {
+    if (gate !== "ready") return;
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      try {
+        const supabase = getSupabaseClient();
+        const [mineRows, visibleRows] = await Promise.all([
+          getAssignments(supabase, { mine: true }),
+          getAssignments(supabase),
+        ]);
+        if (cancelled) return;
+        setMine(mineRows);
+        setVisible(visibleRows);
+      } catch (err) {
+        console.error("Failed to load campaign assignments:", err);
+        if (cancelled) return;
+        setLoadError(
+          campaignErrorMessage(err, "We couldn't load campaign assignments right now."),
+        );
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [gate]);
+
+  // ── form state (ordinary fields only — status is never a form field) ─
   const [formTitle, setFormTitle] = useState("");
   const [formDescription, setFormDescription] = useState("");
   const [formAssignedTo, setFormAssignedTo] = useState("");
-  const [formScopeType, setFormScopeType] = useState("ward");
+  const [formScopeType, setFormScopeType] = useState<CampaignScopeType>("ward");
   const [formScopeId, setFormScopeId] = useState("");
-  const [formPriority, setFormPriority] =
-    useState<CampaignAssignment["priority"]>("medium");
-  const [formStatus, setFormStatus] =
-    useState<CampaignAssignment["status"]>("not_started");
+  const [formPriority, setFormPriority] = useState<CampaignAssignmentPriority>("medium");
   const [formDueDate, setFormDueDate] = useState("");
   const [formLocation, setFormLocation] = useState("");
 
+  const isAdmin = authority === "admin";
+  const canCreate = authority === "admin" || authority === "scoped";
 
-  const primaryScope = getPrimaryOrganizationalScope(assignments);
-  const primaryAssignment = primaryScope.assignment;
+  /** Default create-scope: the coordinator's primary organizational
+   * assignment (display context only — the server re-authorizes). */
+  const primaryScope = useMemo(() => {
+    const active = orgAssignments.filter((a) => a.status === "active");
+    const first = active[0];
+    return first
+      ? { scopeType: first.scope_type as CampaignScopeType, scopeId: first.scope_id }
+      : { scopeType: "ward" as CampaignScopeType, scopeId: "" };
+  }, [orgAssignments]);
 
-  const isAdmin =
-    profile?.access_role === "admin" ||
-    profile?.access_role === "tenant_super_admin" ||
-    profile?.access_role === "platform_super_admin";
+  const loadMemberOptions = useCallback(
+    async (scopeType: CampaignScopeType, scopeId: string) => {
+      if (!scopeId) {
+        setMemberOptions([]);
+        return;
+      }
+      setMembersLoading(true);
+      try {
+        const members = await getAssignableMembers(
+          getSupabaseClient(),
+          scopeType,
+          scopeId,
+        );
+        setMemberOptions(members);
+      } catch (err) {
+        console.error("Failed to load eligible assignees:", err);
+        setMemberOptions([]);
+      } finally {
+        setMembersLoading(false);
+      }
+    },
+    [],
+  );
 
-  const canViewAssignments = hasPermission("view_assignments");
-  const canCreateAssignments = hasPermission("create_assignment");
-  const canAssignTask = hasPermission("assign_task");
-  const canReviewAssignments = hasPermission("review_assignment");
-  const canManageAssignments =
-    canCreateAssignments || canAssignTask || canReviewAssignments;
-
-  const allAssignmentsForDisplay = useMemo(() => {
-    const source =
-      isAdmin && canManageAssignments ? allAssignments : areaAssignments;
-    const term = search.trim().toLowerCase();
-
-    if (!term) {
-      return source;
-    }
-
-    return source.filter((assignment) => {
-      const haystack = [
-        assignment.title,
-        assignment.description ?? "",
-        assignment.assigned_to,
-        assignment.scope_id,
-        assignment.status,
-        assignment.priority,
-      ]
-        .join(" ")
-        .toLowerCase();
-
-      return haystack.includes(term);
-    });
-  }, [allAssignments, areaAssignments, canManageAssignments, isAdmin, search]);
-
-  function resetForm() {
+  function openCreateForm() {
+    setEditing(null);
     setFormTitle("");
     setFormDescription("");
     setFormAssignedTo("");
-    setFormScopeType(primaryAssignment?.scope_type ?? "ward");
-    setFormScopeId(primaryAssignment?.scope_id ?? "");
+    setFormScopeType(primaryScope.scopeType);
+    setFormScopeId(primaryScope.scopeId);
     setFormPriority("medium");
-    setFormStatus("not_started");
     setFormDueDate("");
     setFormLocation("");
-    setEditingAssignmentId(null);
+    setShowForm(true);
+    void loadMemberOptions(primaryScope.scopeType, primaryScope.scopeId);
   }
 
-  function startEditAssignment(assignment: CampaignAssignment) {
-    setEditingAssignmentId(assignment.id);
+  function openEditForm(assignment: SupabaseAssignment) {
+    setEditing(assignment);
     setFormTitle(assignment.title);
     setFormDescription(assignment.description ?? "");
     setFormAssignedTo(assignment.assigned_to);
-    setFormScopeType(assignment.scope_type || "ward");
-    setFormScopeId(assignment.scope_id || "");
+    setFormScopeType(assignment.scope_type);
+    setFormScopeId(assignment.scope_id);
     setFormPriority(assignment.priority);
-    setFormStatus(assignment.status);
     setFormDueDate(assignment.due_date ?? "");
     setFormLocation(assignment.location ?? "");
-    setShowCreateForm(true);
+    setShowForm(true);
+    void loadMemberOptions(assignment.scope_type, assignment.scope_id);
   }
 
-  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+  function closeForm() {
+    setShowForm(false);
+    setEditing(null);
+  }
+
+  const handleScopeChange = (scopeType: CampaignScopeType, scopeId: string) => {
+    setFormScopeType(scopeType);
+    setFormScopeId(scopeId);
+    setMemberOptions([]);
+    setFormAssignedTo("");
+    void loadMemberOptions(scopeType, scopeId);
+  };
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-
-    if (!profile?.tenant_id) {
-      toast.error("Your account session is missing its campaign context. Please sign in again.");
-      return;
-    }
-
-    const title = formTitle.trim();
-    const assignedTo = formAssignedTo.trim();
-    const scopeId = formScopeId.trim();
-
-    if (!title || !assignedTo || !scopeId) {
-      toast.warning("Please provide a title, an assignee, and a scope for the assignment.");
-      return;
-    }
-
-    const payload = {
-      tenant_id: profile.tenant_id,
-      title,
-      description: formDescription.trim() || undefined,
-      assigned_to: assignedTo,
-      assigned_by: user?.uid ?? profile.id ?? profile.email,
-      scope_type: formScopeType,
-      scope_id: scopeId,
-      priority: formPriority,
-      due_date: formDueDate || null,
-      location: formLocation.trim() || null,
-    };
-
+    const supabase = getSupabaseClient();
+    setSaving(true);
     try {
-      setCreating(true);
-
-      if (editingAssignmentId) {
-        await updateCampaignAssignment(editingAssignmentId, {
-          ...payload,
-          status: formStatus,
+      if (editing) {
+        await updateAssignmentDetails(supabase, editing.id, {
+          title: formTitle.trim(),
+          description: formDescription.trim() || undefined,
+          priority: formPriority,
+          due_date: formDueDate || undefined,
+          location: formLocation.trim() || undefined,
+          reassign_to: formAssignedTo !== editing.assigned_to ? formAssignedTo : undefined,
         });
+        toast.success("Assignment updated successfully.");
       } else {
-        await createCampaignAssignment(payload);
+        await createAssignment(supabase, {
+          title: formTitle.trim(),
+          description: formDescription.trim() || undefined,
+          assigned_to: formAssignedTo,
+          scope_type: formScopeType,
+          scope_id: formScopeId.trim(),
+          priority: formPriority,
+          due_date: formDueDate || undefined,
+          location: formLocation.trim() || undefined,
+        });
+        toast.success("Assignment created successfully.");
       }
-
-      resetForm();
-      setShowCreateForm(false);
+      closeForm();
       await loadAssignments();
-      toast.success(
-        editingAssignmentId
-          ? "Assignment updated successfully."
-          : "Assignment created successfully.",
-      );
     } catch (err) {
       console.error("Failed to save assignment:", err);
-      toast.error(
-        getErrorMessage(
-          err,
-          editingAssignmentId
-            ? "We couldn't update the assignment. Please try again."
-            : "We couldn't create the assignment. Please try again.",
-        ),
-      );
+      toast.error(campaignErrorMessage(err, "We couldn't save the assignment. Please try again."));
     } finally {
-      setCreating(false);
+      setSaving(false);
     }
-  }
+  };
 
-  async function handleDeleteAssignment(assignmentId: string) {
+  const handleTransition = async (
+    assignment: SupabaseAssignment,
+    action: "start" | "submit" | "resubmit" | "accept" | "return",
+  ) => {
+    const supabase = getSupabaseClient();
+    const labels: Record<typeof action, string> = {
+      start: "started",
+      submit: "submitted",
+      resubmit: "resubmitted",
+      accept: "accepted",
+      return: "returned for rework",
+    };
     try {
-      await deleteCampaignAssignment(assignmentId);
+      if (action === "start") await startAssignment(supabase, assignment.id);
+      else if (action === "submit") await submitAssignment(supabase, assignment.id);
+      else if (action === "resubmit") await resubmitAssignment(supabase, assignment.id);
+      else await reviewAssignment(supabase, assignment.id, action);
+      toast.success(`Assignment ${labels[action]}.`);
+    } catch (err) {
+      console.error("Assignment transition failed:", err);
+      toast.error(campaignErrorMessage(err, "The assignment update was not permitted."));
+    }
+  };
+
+  const handleDelete = async (assignment: SupabaseAssignment) => {
+    const supabase = getSupabaseClient();
+    try {
+      await deleteAssignment(supabase, assignment.id);
+      toast.success("Assignment deleted.");
       await loadAssignments();
-      toast.success("Assignment deleted successfully.");
     } catch (err) {
       console.error("Failed to delete assignment:", err);
-      toast.error(getErrorMessage(err, "We couldn't delete the assignment. Please try again."));
+      toast.error(campaignErrorMessage(err, "We couldn't delete the assignment."));
     }
-  }
+  };
 
-  const loadAssigneeOptions = useCallback(async () => {
-    if (!profile?.tenant_id) {
-      setMemberOptions([]);
-      return;
-    }
-
-    try {
-      setMemberOptionsLoading(true);
-
-      if (isAdmin && canManageAssignments) {
-        const allMembers = await getAllCampaignMembersForTenant(
-          profile.tenant_id,
-        );
-        setMemberOptions(
-          allMembers.map((member) => ({
-            id: member.id,
-            full_name: member.full_name || "Unknown member",
-            email: member.email,
-          })),
-        );
-        return;
-      }
-
-      if (
-        primaryAssignment &&
-        primaryAssignment.scope_type &&
-        primaryAssignment.scope_id
-      ) {
-        const scopedMembers = await getScopedCampaignMembers(primaryAssignment);
-        setMemberOptions(
-          scopedMembers.members.map((member) => ({
-            id: member.id,
-            full_name: member.full_name || "Unknown member",
-            email: member.email,
-          })),
-        );
-        return;
-      }
-
-      setMemberOptions([]);
-    } catch (err) {
-      console.error("Failed to load campaign member options:", err);
-      setMemberOptions([]);
-    } finally {
-      setMemberOptionsLoading(false);
-    }
-  }, [canManageAssignments, isAdmin, primaryAssignment, profile?.tenant_id]);
-
-  const loadAssignments = useCallback(async () => {
-    if (!user?.uid || !profile) {
-      setMyAssignments([]);
-      setAreaAssignments([]);
-      setAllAssignments([]);
-      setLoading(false);
-      return;
-    }
-
-    try {
-      setLoading(true);
-
-      const mine = await getMyCampaignAssignments(
-        user.uid,
-        user.email ?? undefined,
-      );
-      setMyAssignments(mine);
-
-      if (!canViewAssignments || !profile.tenant_id) {
-        setAreaAssignments([]);
-        setAllAssignments([]);
-        return;
-      }
-
-      if (isAdmin && canManageAssignments) {
-        setAreaLoading(true);
-        try {
-          const all = await getAllCampaignAssignments(profile.tenant_id);
-          setAllAssignments(all);
-          setAreaAssignments([]);
-        } finally {
-          setAreaLoading(false);
-        }
-        return;
-      }
-
-      if (
-        primaryAssignment &&
-        primaryAssignment.scope_type &&
-        primaryAssignment.scope_id
-      ) {
-        setAreaLoading(true);
-
-        try {
-          const lgas = await getAllLGAs();
-          const scoped = await getAssignmentsForAssignmentScope(
-            primaryAssignment,
-            lgas,
-          );
-
-          setAreaAssignments(scoped);
-          setAllAssignments([]);
-        } finally {
-          setAreaLoading(false);
-        }
-      } else {
-        setAreaAssignments([]);
-        setAllAssignments([]);
-      }
-    } catch (err) {
-      console.error("Failed to load campaign assignments:", err);
-      toast.error("We couldn't load campaign assignments. Please refresh and try again.");
-    } finally {
-      setLoading(false);
-    }
-  }, [
-    canViewAssignments,
-    canManageAssignments,
-    isAdmin,
-    primaryAssignment,
-    profile,
-    user?.email,
-    user?.uid,
-  ]);
-
-  useEffect(() => {
-    if (!accessLoading) {
-      void loadAssignments();
-    }
-  }, [accessLoading, loadAssignments]);
-
-  useEffect(() => {
-    if (!accessLoading && profile?.tenant_id) {
-      void loadAssigneeOptions();
-    }
-  }, [accessLoading, loadAssigneeOptions]);
-
-  const counts = useMemo(() => {
-    return {
-      total: myAssignments.length,
-      pending: myAssignments.filter(
-        (item) =>
-          item.status === "not_started" || item.status === "in_progress",
+  const counts = useMemo(
+    () => ({
+      total: mine.length,
+      pending: mine.filter(
+        (a) => a.status === "not_started" || a.status === "in_progress",
       ).length,
-      submitted: myAssignments.filter(
-        (item) => item.status === "submitted" || item.status === "under_review",
+      submitted: mine.filter(
+        (a) => a.status === "submitted" || a.status === "under_review",
       ).length,
-      completed: myAssignments.filter((item) => item.status === "completed")
+      completed: mine.filter((a) => a.status === "completed").length,
+      urgent: mine.filter((a) => a.priority === "urgent" && a.status !== "completed")
         .length,
-      urgent: myAssignments.filter(
-        (item) => item.priority === "urgent" && item.status !== "completed",
-      ).length,
-    };
-  }, [myAssignments]);
+    }),
+    [mine],
+  );
 
-  if (!profile) {
-    return null;
+  const filteredVisible = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    if (!term) return visible;
+    return visible.filter((a) =>
+      [a.title, a.description ?? "", a.scope_id, a.status, a.priority]
+        .join(" ")
+        .toLowerCase()
+        .includes(term),
+    );
+  }, [visible, search]);
+
+  /*
+   * ----------------------------------------------------------
+   * GATE STATES
+   * ----------------------------------------------------------
+   */
+
+  if (gate === "loading" || (!profile && gate !== "denied")) {
+    return (
+      <div className="min-h-[50vh] flex items-center justify-center">
+        <div className="flex items-center gap-3 text-gray-500">
+          <Loader2 className="h-5 w-5 animate-spin" />
+          <span>Loading campaign assignments...</span>
+        </div>
+      </div>
+    );
   }
 
-  if (accessLoading || loading) {
-    return <AssignmentsLoading />;
+  if (gate === "no_session" || !user) {
+    return (
+      <div className="max-w-xl mx-auto py-16 text-center">
+        <h1 className="text-xl font-bold text-gray-900">Sign in required</h1>
+        <p className="mt-2 text-sm text-gray-500">
+          Sign in to view your campaign assignments.
+        </p>
+      </div>
+    );
   }
 
-  const visibleAssignments =
-    isAdmin && canManageAssignments
-      ? allAssignmentsForDisplay
-      : areaAssignments;
+  if (gate === "denied") {
+    const message =
+      denyReason === "module_disabled"
+        ? "The Campaign module is not enabled for your organization."
+        : denyReason === "social_only"
+          ? "Social accounts do not have access to Campaign."
+          : denyReason === "not_a_member"
+            ? "Your account is not linked to an organization."
+            : "You do not have access to Campaign assignments.";
+    return (
+      <div className="max-w-xl mx-auto py-16 text-center">
+        <h1 className="text-xl font-bold text-gray-900">Access restricted</h1>
+        <p className="mt-2 text-sm text-gray-500">{message}</p>
+        <Link
+          href="/portal"
+          className="mt-6 inline-flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+        >
+          Back to portal
+        </Link>
+      </div>
+    );
+  }
+
+  const uid = profile?.id ?? user.id;
 
   return (
     <div className="space-y-6 pb-10">
@@ -415,17 +462,15 @@ export default function CampaignAssignmentsPage() {
             Campaign Dashboard
           </Link>
 
-          <p className="text-sm font-semibold text-apc-primary">
-            Campaign Council
-          </p>
+          <p className="text-sm font-semibold text-apc-primary">Campaign Council</p>
 
           <h1 className="mt-1 text-2xl font-bold text-gray-900 sm:text-3xl">
             Campaign Assignments
           </h1>
 
           <p className="mt-2 max-w-2xl text-sm leading-6 text-gray-500">
-            Manage and track campaign responsibilities within your
-            organizational authority.
+            Manage and track campaign responsibilities within your organizational
+            authority.
           </p>
         </div>
 
@@ -449,54 +494,50 @@ export default function CampaignAssignmentsPage() {
 
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
-                  Organizational Scope
+                  Access Level
                 </p>
 
                 <p className="mt-1 font-semibold text-gray-900">
-                  {primaryAssignment
-                    ? formatOrganizationalPosition(primaryAssignment.position)
-                    : "Campaign Member"}
+                  {isAdmin
+                    ? "Tenant-wide administration"
+                    : authority === "scoped"
+                      ? "Scoped coordinator authority"
+                      : "Campaign member"}
                 </p>
 
                 <p className="mt-1 text-sm text-gray-500">
-                  {primaryAssignment
-                    ? `${formatScopeType(primaryAssignment.scope_type)} · ${primaryAssignment.scope_id}`
-                    : "No organizational assignment"}
+                  {primaryScope.scopeId
+                    ? `${formatScopeType(primaryScope.scopeType)} · ${primaryScope.scopeId}`
+                    : "Visibility is determined by your organizational authority."}
                 </p>
               </div>
             </div>
 
-            {canManageAssignments && (
+            {canCreate && (
               <button
                 type="button"
-                onClick={() => {
-                  resetForm();
-                  setShowCreateForm((current) => !current);
-                }}
+                onClick={openCreateForm}
                 className="inline-flex items-center justify-center gap-2 rounded-lg bg-apc-primary px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-apc-dark"
               >
                 <Plus className="h-4 w-4" />
-                {showCreateForm ? "Close" : "Create Assignment"}
+                Create Assignment
               </button>
             )}
           </div>
         </CardContent>
       </Card>
 
-      {showCreateForm && canManageAssignments && (
+      {showForm && canCreate && (
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between gap-3">
               <CardTitle className="text-lg">
-                {editingAssignmentId ? "Edit Assignment" : "Create Assignment"}
+                {editing ? "Edit Assignment" : "Create Assignment"}
               </CardTitle>
 
               <button
                 type="button"
-                onClick={() => {
-                  setShowCreateForm(false);
-                  resetForm();
-                }}
+                onClick={closeForm}
                 className="rounded-lg p-2 text-gray-500 hover:bg-gray-100"
                 aria-label="Close assignment form"
               >
@@ -539,21 +580,19 @@ export default function CampaignAssignmentsPage() {
                     Assignee
                   </label>
 
-                  {memberOptionsLoading ? (
+                  {membersLoading ? (
                     <div className="flex items-center gap-2 rounded-lg border border-gray-300 bg-gray-50 px-3 py-2.5 text-sm text-gray-500">
                       <Loader2 className="h-4 w-4 animate-spin" />
-                      Loading members...
+                      Loading eligible members...
                     </div>
                   ) : (
                     <select
                       value={formAssignedTo}
-                      onChange={(event) =>
-                        setFormAssignedTo(event.target.value)
-                      }
+                      onChange={(event) => setFormAssignedTo(event.target.value)}
                       className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-apc-primary"
                       required
                     >
-                      <option value="">Select a campaign member</option>
+                      <option value="">Select an eligible campaign member</option>
                       {memberOptions.map((member) => (
                         <option key={member.id} value={member.id}>
                           {member.full_name}
@@ -571,16 +610,15 @@ export default function CampaignAssignmentsPage() {
                   <select
                     value={formPriority}
                     onChange={(event) =>
-                      setFormPriority(
-                        event.target.value as CampaignAssignment["priority"],
-                      )
+                      setFormPriority(event.target.value as CampaignAssignmentPriority)
                     }
                     className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-apc-primary"
                   >
-                    <option value="low">Low</option>
-                    <option value="medium">Medium</option>
-                    <option value="high">High</option>
-                    <option value="urgent">Urgent</option>
+                    {PRIORITIES.map((p) => (
+                      <option key={p.value} value={p.value}>
+                        {p.label}
+                      </option>
+                    ))}
                   </select>
                 </div>
 
@@ -590,15 +628,19 @@ export default function CampaignAssignmentsPage() {
                   </label>
                   <select
                     value={formScopeType}
-                    onChange={(event) => setFormScopeType(event.target.value)}
+                    onChange={(event) =>
+                      handleScopeChange(
+                        event.target.value as CampaignScopeType,
+                        formScopeId,
+                      )
+                    }
                     className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-apc-primary"
                   >
-                    <option value="campaign">Campaign</option>
-                    <option value="state">State</option>
-                    <option value="senatorial_zone">Zone</option>
-                    <option value="lga">LGA</option>
-                    <option value="ward">Ward</option>
-                    <option value="polling_unit">Polling Unit</option>
+                    {SCOPE_TYPES.map((s) => (
+                      <option key={s.value} value={s.value}>
+                        {s.label}
+                      </option>
+                    ))}
                   </select>
                 </div>
 
@@ -608,7 +650,9 @@ export default function CampaignAssignmentsPage() {
                   </label>
                   <input
                     value={formScopeId}
-                    onChange={(event) => setFormScopeId(event.target.value)}
+                    onChange={(event) =>
+                      handleScopeChange(formScopeType, event.target.value)
+                    }
                     className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-apc-primary"
                     placeholder="ward-01"
                     required
@@ -627,28 +671,6 @@ export default function CampaignAssignmentsPage() {
                   />
                 </div>
 
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-gray-700">
-                    Status
-                  </label>
-                  <select
-                    value={formStatus}
-                    onChange={(event) =>
-                      setFormStatus(
-                        event.target.value as CampaignAssignment["status"],
-                      )
-                    }
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-apc-primary"
-                  >
-                    <option value="not_started">Not Started</option>
-                    <option value="in_progress">In Progress</option>
-                    <option value="submitted">Submitted</option>
-                    <option value="under_review">Under Review</option>
-                    <option value="completed">Completed</option>
-                    <option value="overdue">Overdue</option>
-                  </select>
-                </div>
-
                 <div className="md:col-span-2">
                   <label className="mb-2 block text-sm font-medium text-gray-700">
                     Location
@@ -662,13 +684,16 @@ export default function CampaignAssignmentsPage() {
                 </div>
               </div>
 
+              <p className="text-xs text-gray-400">
+                {editing
+                  ? "Scope changes are made by creating a new assignment; reassignment and edits are audited."
+                  : "Assignees are limited to eligible campaign members within the selected scope."}
+              </p>
+
               <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
                 <button
                   type="button"
-                  onClick={() => {
-                    setShowCreateForm(false);
-                    resetForm();
-                  }}
+                  onClick={closeForm}
                   className="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
                 >
                   Cancel
@@ -676,12 +701,12 @@ export default function CampaignAssignmentsPage() {
 
                 <button
                   type="submit"
-                  disabled={creating}
+                  disabled={saving}
                   className="rounded-lg bg-apc-primary px-4 py-2.5 text-sm font-semibold text-white hover:bg-apc-dark disabled:opacity-50"
                 >
-                  {creating
+                  {saving
                     ? "Saving..."
-                    : editingAssignmentId
+                    : editing
                       ? "Update Assignment"
                       : "Save Assignment"}
                 </button>
@@ -692,46 +717,29 @@ export default function CampaignAssignmentsPage() {
       )}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-        <SummaryCard
-          icon={<Flag className="h-5 w-5" />}
-          label="Total"
-          value={counts.total}
-        />
-        <SummaryCard
-          icon={<Clock3 className="h-5 w-5" />}
-          label="Pending"
-          value={counts.pending}
-        />
-        <SummaryCard
-          icon={<CalendarDays className="h-5 w-5" />}
-          label="Submitted"
-          value={counts.submitted}
-        />
-        <SummaryCard
-          icon={<CheckCircle2 className="h-5 w-5" />}
-          label="Completed"
-          value={counts.completed}
-        />
-        <SummaryCard
-          icon={<TriangleAlert className="h-5 w-5" />}
-          label="Urgent"
-          value={counts.urgent}
-        />
+        <SummaryCard icon={<Flag className="h-5 w-5" />} label="Total" value={counts.total} />
+        <SummaryCard icon={<Clock3 className="h-5 w-5" />} label="Pending" value={counts.pending} />
+        <SummaryCard icon={<CalendarDays className="h-5 w-5" />} label="Submitted" value={counts.submitted} />
+        <SummaryCard icon={<CheckCircle2 className="h-5 w-5" />} label="Completed" value={counts.completed} />
+        <SummaryCard icon={<TriangleAlert className="h-5 w-5" />} label="Urgent" value={counts.urgent} />
       </div>
+
+      {loadError && (
+        <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+          {loadError}
+        </div>
+      )}
 
       <Card>
         <CardHeader>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <CardTitle className="text-lg">
-                {isAdmin && canManageAssignments
-                  ? "All Assignments"
-                  : "Assignments Within My Area"}
+                {isAdmin ? "All Assignments" : "Assignments Within My Area"}
               </CardTitle>
               <p className="text-sm text-gray-500">
-                {isAdmin && canManageAssignments
-                  ? "Campaign-member admins can manage every assignment in the tenant."
-                  : "Operational assignments associated with your organization scope."}
+                Visibility is determined by the database — no client-side scope
+                expansion.
               </p>
             </div>
 
@@ -748,38 +756,32 @@ export default function CampaignAssignmentsPage() {
         </CardHeader>
 
         <CardContent>
-          {areaLoading && (
+          {loading ? (
             <div className="flex items-center justify-center gap-2 py-8 text-sm text-gray-500">
               <Loader2 className="h-4 w-4 animate-spin" />
               Loading assignments...
             </div>
-          )}
-
-          {!areaLoading && visibleAssignments.length === 0 ? (
+          ) : filteredVisible.length === 0 ? (
             <EmptyState
               title="No assignments found"
               description="There are no assignments in this view or the current filter has no matches."
             />
           ) : (
             <div className="space-y-3">
-              {visibleAssignments.map((assignment) => {
-                const assigneeName =
-                  memberOptions.find(
-                    (member) => member.id === assignment.assigned_to,
-                  )?.full_name ?? assignment.assigned_to;
-
-                return (
-                  <AssignmentRow
-                    key={assignment.id}
-                    assignment={assignment}
-                    showAssignee={isAdmin || canManageAssignments}
-                    canManage={canManageAssignments}
-                    assigneeName={assigneeName}
-                    onEdit={() => startEditAssignment(assignment)}
-                    onDelete={() => void handleDeleteAssignment(assignment.id)}
-                  />
-                );
-              })}
+              {filteredVisible.map((assignment) => (
+                <AssignmentRow
+                  key={assignment.id}
+                  assignment={assignment}
+                  showAssignee={canCreate}
+                  canManage={canCreate}
+                  isReviewer={canCreate}
+                  currentUserId={uid}
+                  onEdit={() => openEditForm(assignment)}
+                  onDelete={() => void handleDelete(assignment)}
+                  onTransition={(action) => void handleTransition(assignment, action)}
+                  memberName={memberOptions.find((m) => m.id === assignment.assigned_to)?.full_name}
+                />
+              ))}
             </div>
           )}
         </CardContent>
@@ -794,15 +796,25 @@ export default function CampaignAssignmentsPage() {
         </CardHeader>
 
         <CardContent>
-          {myAssignments.length === 0 ? (
+          {loading ? (
+            <div className="flex items-center justify-center gap-2 py-8 text-sm text-gray-500">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Loading...
+            </div>
+          ) : mine.length === 0 ? (
             <EmptyState
               title="No assignments yet"
               description="You currently have no campaign responsibilities assigned to you."
             />
           ) : (
             <div className="space-y-3">
-              {myAssignments.map((assignment) => (
-                <AssignmentRow key={assignment.id} assignment={assignment} />
+              {mine.map((assignment) => (
+                <AssignmentRow
+                  key={assignment.id}
+                  assignment={assignment}
+                  currentUserId={uid}
+                  onTransition={(action) => void handleTransition(assignment, action)}
+                />
               ))}
             </div>
           )}
@@ -822,17 +834,72 @@ function AssignmentRow({
   assignment,
   showAssignee = false,
   canManage = false,
-  assigneeName,
+  isReviewer = false,
+  currentUserId,
   onEdit,
   onDelete,
+  onTransition,
+  memberName,
 }: {
-  assignment: CampaignAssignment;
+  assignment: SupabaseAssignment;
   showAssignee?: boolean;
   canManage?: boolean;
-  assigneeName?: string;
+  isReviewer?: boolean;
+  currentUserId: string;
   onEdit?: () => void;
   onDelete?: () => void;
+  onTransition: (action: "start" | "submit" | "resubmit" | "accept" | "return") => void;
+  memberName?: string;
 }) {
+  const isAssignee = assignment.assigned_to === currentUserId;
+  const actions: Array<{
+    label: string;
+    action: "start" | "submit" | "resubmit" | "accept" | "return";
+    style: string;
+    icon: React.ReactNode;
+  }> = [];
+
+  if (isAssignee && assignment.status === "not_started") {
+    actions.push({
+      label: "Start",
+      action: "start",
+      style: "border-apc-primary/30 text-apc-primary hover:bg-apc-primary/5",
+      icon: <Play className="h-3 w-3" />,
+    });
+  }
+  if (isAssignee && (assignment.status === "not_started" || assignment.status === "in_progress")) {
+    actions.push({
+      label: "Submit",
+      action: "submit",
+      style: "border-apc-primary bg-apc-primary text-white hover:bg-apc-dark",
+      icon: <Send className="h-3 w-3" />,
+    });
+  }
+  if (isAssignee && assignment.status === "under_review") {
+    actions.push({
+      label: "Resubmit",
+      action: "resubmit",
+      style: "border-apc-primary bg-apc-primary text-white hover:bg-apc-dark",
+      icon: <Undo2 className="h-3 w-3" />,
+    });
+  }
+  if (isReviewer && (assignment.status === "submitted" || assignment.status === "under_review")) {
+    actions.push({
+      label: "Accept",
+      action: "accept",
+      style: "border-green-200 bg-green-50 text-green-700 hover:bg-green-100",
+      icon: <CheckCircle2 className="h-3 w-3" />,
+    });
+    if (assignment.status === "submitted") {
+      actions.push({
+        label: "Return",
+        action: "return",
+        style: "border-orange-200 bg-orange-50 text-orange-700 hover:bg-orange-100",
+        icon: <Undo2 className="h-3 w-3" />,
+      });
+    }
+  }
+
   return (
     <div className="rounded-xl border bg-white p-4 transition hover:shadow-sm">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -853,8 +920,7 @@ function AssignmentRow({
 
           <div className="mt-3 flex flex-wrap gap-2 text-xs text-gray-500">
             <span className="rounded-lg bg-gray-100 px-2.5 py-1">
-              {formatScopeType(assignment.scope_type as never)}:{" "}
-              {assignment.scope_id}
+              {formatScopeType(assignment.scope_type)}: {assignment.scope_id}
             </span>
 
             {assignment.due_date && (
@@ -865,7 +931,7 @@ function AssignmentRow({
 
             {showAssignee && (
               <span className="rounded-lg bg-gray-100 px-2.5 py-1">
-                Assigned to: {assigneeName ?? assignment.assigned_to}
+                Assigned to: {memberName ?? assignment.assigned_to.slice(0, 8)}
               </span>
             )}
           </div>
@@ -876,6 +942,22 @@ function AssignmentRow({
             <ShieldCheck className="h-3.5 w-3.5" />
             Campaign
           </span>
+
+          {actions.length > 0 && (
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              {actions.map((a) => (
+                <button
+                  key={a.action}
+                  type="button"
+                  onClick={() => onTransition(a.action)}
+                  className={`inline-flex items-center gap-1 rounded-md border px-2 py-1.5 text-xs font-medium ${a.style}`}
+                >
+                  {a.icon}
+                  {a.label}
+                </button>
+              ))}
+            </div>
+          )}
 
           {canManage && (
             <div className="flex items-center gap-2">
@@ -888,14 +970,16 @@ function AssignmentRow({
                 Edit
               </button>
 
-              <button
-                type="button"
-                onClick={onDelete}
-                className="inline-flex items-center gap-1 rounded-md border border-red-200 bg-red-50 px-2 py-1.5 text-xs font-medium text-red-600 hover:bg-red-100"
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-                Delete
-              </button>
+              {assignment.status !== "completed" && (
+                <button
+                  type="button"
+                  onClick={onDelete}
+                  className="inline-flex items-center gap-1 rounded-md border border-red-200 bg-red-50 px-2 py-1.5 text-xs font-medium text-red-600 hover:bg-red-100"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  Delete
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -942,16 +1026,12 @@ function SummaryCard({
 
 /*
  * ============================================================
- * PRIORITY
+ * PRIORITY / STATUS
  * ============================================================
  */
 
-function PriorityBadge({
-  priority,
-}: {
-  priority: CampaignAssignment["priority"];
-}) {
-  const classes = {
+function PriorityBadge({ priority }: { priority: CampaignAssignmentPriority }) {
+  const classes: Record<CampaignAssignmentPriority, string> = {
     low: "bg-gray-100 text-gray-600",
     medium: "bg-blue-100 text-blue-700",
     high: "bg-orange-100 text-orange-700",
@@ -967,14 +1047,8 @@ function PriorityBadge({
   );
 }
 
-/*
- * ============================================================
- * STATUS
- * ============================================================
- */
-
-function StatusBadge({ status }: { status: CampaignAssignment["status"] }) {
-  const labels = {
+function StatusBadge({ status }: { status: CampaignAssignmentStatus }) {
+  const labels: Record<CampaignAssignmentStatus, string> = {
     not_started: "Not Started",
     in_progress: "In Progress",
     submitted: "Submitted",
@@ -992,35 +1066,21 @@ function StatusBadge({ status }: { status: CampaignAssignment["status"] }) {
 
 /*
  * ============================================================
- * EMPTY STATE
+ * EMPTY STATE / DATE / LOADING
  * ============================================================
  */
 
-function EmptyState({
-  title,
-  description,
-}: {
-  title: string;
-  description: string;
-}) {
+function EmptyState({ title, description }: { title: string; description: string }) {
   return (
     <div className="rounded-xl border border-dashed p-8 text-center">
       <CheckCircle2 className="mx-auto h-8 w-8 text-gray-300" />
 
       <p className="mt-3 font-semibold text-gray-900">{title}</p>
 
-      <p className="mx-auto mt-1 max-w-md text-sm text-gray-500">
-        {description}
-      </p>
+      <p className="mx-auto mt-1 max-w-md text-sm text-gray-500">{description}</p>
     </div>
   );
 }
-
-/*
- * ============================================================
- * DATE
- * ============================================================
- */
 
 function formatDate(value: string) {
   const date = new Date(value);
@@ -1034,29 +1094,4 @@ function formatDate(value: string) {
     month: "short",
     year: "numeric",
   });
-}
-
-/*
- * ============================================================
- * LOADING
- * ============================================================
- */
-
-function AssignmentsLoading() {
-  return (
-    <div className="space-y-6 pb-10">
-      <div className="h-28 animate-pulse rounded-2xl bg-gray-100" />
-
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-        {Array.from({ length: 5 }).map((_, index) => (
-          <div
-            key={index}
-            className="h-20 animate-pulse rounded-xl bg-gray-100"
-          />
-        ))}
-      </div>
-
-      <div className="h-64 animate-pulse rounded-xl bg-gray-100" />
-    </div>
-  );
 }

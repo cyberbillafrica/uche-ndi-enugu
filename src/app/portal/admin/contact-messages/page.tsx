@@ -18,19 +18,19 @@ import {
 
 import { useAuth } from "@/contexts/AuthContext";
 import {
-  getContactMessages,
-  markContactMessageAsRead,
-  type ContactMessageDoc,
-} from "@/lib/firebase/firestore";
+  listContactMessages,
+  markContactMessageRead,
+  type ContactMessage,
+} from "@/lib/supabase";
 
 export default function AdminContactMessagesPage() {
   const { profile, loading: authLoading } = useAuth();
   const router = useRouter();
 
-  const [messages, setMessages] = useState<ContactMessageDoc[]>([]);
+  const [messages, setMessages] = useState<ContactMessage[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"all" | "unread" | "read">("all");
-  const [selectedMessage, setSelectedMessage] = useState<ContactMessageDoc | null>(null);
+  const [selectedMessage, setSelectedMessage] = useState<ContactMessage | null>(null);
 
   // Auth guard
   useEffect(() => {
@@ -43,7 +43,7 @@ export default function AdminContactMessagesPage() {
   const loadMessages = useCallback(async () => {
     try {
       setLoading(true);
-      const data = await getContactMessages();
+      const data = await listContactMessages();
       setMessages(data);
     } catch (err) {
       console.error("Failed to load contact messages:", err);
@@ -58,11 +58,11 @@ export default function AdminContactMessagesPage() {
     }
   }, [authLoading, profile, loadMessages]);
 
-  const handleOpenModal = async (msg: ContactMessageDoc) => {
+  const handleOpenModal = async (msg: ContactMessage) => {
     setSelectedMessage(msg);
     if (msg.status === "unread") {
       try {
-        await markContactMessageAsRead(msg.id);
+        await markContactMessageRead(msg.id);
         setMessages((prev) =>
           prev.map((m) => (m.id === msg.id ? { ...m, status: "read" } : m))
         );

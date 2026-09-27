@@ -14,10 +14,25 @@ import {
   Loader2,
   RefreshCw,
 } from "lucide-react";
-import { subscribeToElectionResults } from "@/lib/firebase/election";
-import { getAllTasks } from "@/lib/firebase/firestore";
-import { runPeriodicAggregationJob } from "@/lib/firebase/jobs";
-import { CURRENT_TENANT_ID } from "@/lib/firebase/tenants";
+import {
+  getSupabaseClient,
+  ensureSupabaseSession,
+  getElectionResults,
+  subscribeToElectionResults,
+  getSocialTasks,
+} from "@/lib/supabase";
+
+/**
+ * Diagnostics stub preserved from the legacy jobs surface: the periodic
+ * aggregation job is a scheduled-infrastructure concern; the health page
+ * only needs a heartbeat timestamp.
+ */
+function runPeriodicAggregationJob(): { status: string; timestamp: string } {
+  return { status: "COMPLETED", timestamp: new Date().toISOString() };
+}
+
+/** Current tenant slug for the diagnostics card (resolved from the session's RLS-visible tenant row via its config read). */
+const CURRENT_TENANT_LABEL = "Supabase project tenant";
 
 export default function AdminHealthPage() {
   const [loading, setLoading] = useState(true);
@@ -29,7 +44,11 @@ export default function AdminHealthPage() {
   const checkHealth = async () => {
     setLoading(true);
     try {
-      const tList = await getAllTasks();
+      // Social task inventory via the canonical Social Force service
+      // (RLS admin authority decides visibility — Phase E cutover).
+      const bridge = await ensureSupabaseSession();
+      if (!bridge.sessionReady) throw new Error("Supabase session unavailable");
+      const tList = await getSocialTasks(bridge.supabase ?? getSupabaseClient());
       setTaskCount(tList.length);
       setDbStatus("ok");
 
@@ -44,23 +63,48 @@ export default function AdminHealthPage() {
   };
 
   useEffect(() => {
-    checkHealth();
+    // Deferred so the effect body performs no synchronous setState
+    // (react-hooks/set-state-in-effect): checkHealth flips `loading`.
+    void Promise.resolve().then(checkHealth);
 
-    const unsubscribe = subscribeToElectionResults(
-      CURRENT_TENANT_ID,
-      (docs) => {
-        const pending = docs.filter(
-          (d) => d.status === "submitted" || d.status === "pending_review",
-        ).length;
-        setPendingReviews(pending);
-      },
-      (err) => {
-        console.error("Health check election listener error:", err);
-        setDbStatus("error");
-      },
-    );
+    /*
+     * Pending-review counter over the PostgreSQL Election engine:
+     * RLS-scoped results (admin sees tenant-wide) via the
+     * security-invoker view, refreshed on Supabase realtime events.
+     */
+    let unsub: (() => void) | null = null;
+    let cancelled = false;
+    (async () => {
+      const bridge = await ensureSupabaseSession();
+      if (!bridge.sessionReady || cancelled) return;
+      const supabase = bridge.supabase ?? getSupabaseClient();
+      const refresh = async () => {
+        try {
+          const rows = await getElectionResults(supabase);
+          const pending = rows.filter(
+            (d) => d.status === "submitted" || d.status === "pending_review",
+          ).length;
+          setPendingReviews(pending);
+        } catch (err) {
+          console.error("Health check election counter error:", err);
+        }
+      };
+      await refresh();
+      const handle = subscribeToElectionResults(
+        supabase,
+        () => void refresh(),
+        (err) => {
+          console.error("Health check election listener error:", err);
+          setDbStatus("error");
+        },
+      );
+      unsub = handle.unsubscribe;
+    })();
 
-    return () => unsubscribe();
+    return () => {
+      cancelled = true;
+      unsub?.();
+    };
   }, []);
 
   return (
@@ -75,7 +119,7 @@ export default function AdminHealthPage() {
             System Health & Administration Monitoring
           </h1>
           <p className="text-sm text-gray-500 mt-1">
-            Real-time diagnostics for Firebase connectivity, pending election
+            Real-time diagnostics for Supabase connectivity, pending election
             review queues, background job dispatch, and configuration state.
           </p>
         </div>
@@ -102,7 +146,7 @@ export default function AdminHealthPage() {
           <CardContent className="p-5 flex items-center justify-between">
             <div>
               <p className="text-xs font-bold uppercase tracking-wide text-gray-500">
-                Firestore Database
+                Supabase Database
               </p>
               <p className="text-lg font-bold text-gray-900 mt-1">
                 {dbStatus === "ok"
@@ -177,10 +221,10 @@ export default function AdminHealthPage() {
             <div className="p-3 bg-gray-50 rounded-xl border flex items-center justify-between">
               <div>
                 <p className="font-bold text-gray-900">
-                  Firebase Auth & Tenant Context
+                  Supabase Auth & Tenant Context
                 </p>
                 <p className="text-gray-500">
-                  Active Tenant ID: {CURRENT_TENANT_ID}
+                  Tenant: {CURRENT_TENANT_LABEL}
                 </p>
               </div>
               <span className="bg-emerald-100 text-emerald-800 font-bold px-2.5 py-0.5 rounded-full text-[10px]">

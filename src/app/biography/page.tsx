@@ -7,13 +7,12 @@ import { User, Users, MapPin, Heart, ArrowRight } from "lucide-react";
 
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
-import { getBiography } from "@/lib/firebase/biography";
-import { getCurrentTenant } from "@/lib/firebase/tenants";
+import { getBiography } from "@/lib/supabase";
 import ShareButtons from "@/components/ShareButtons";
 
 export async function generateMetadata(): Promise<Metadata> {
-  const tenant = await getCurrentTenant();
-  const bio = await getBiography(tenant.id);
+  // Canonical Supabase read; RLS shows anonymous visitors the published row only.
+  const bio = await getBiography();
 
   if (!bio || bio.status !== "published") {
     return {
@@ -29,8 +28,7 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function BiographyPage() {
-  const tenant = await getCurrentTenant();
-  const bio = await getBiography(tenant.id);
+  const bio = await getBiography();
 
   if (!bio || bio.status !== "published") {
     return <BiographyComingSoon />;

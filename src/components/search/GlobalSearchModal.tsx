@@ -7,27 +7,26 @@ import {
   X,
   Users,
   Calendar,
-  FileText,
-  AlertTriangle,
   CheckSquare,
   Newspaper,
   Vote,
   Loader2,
   ArrowRight,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import {
-  getAllUsers,
-  getAllTasks,
-  getPublishedNews,
-} from "@/lib/firebase/firestore";
-import { getAllCampaignActivities } from "@/lib/firebase/campaignActivities";
-import {
+  getSupabaseClient,
+  ensureSupabaseSession,
+  getElectionResults,
   subscribeToElectionResults,
-  type ElectionResultDoc,
-} from "@/lib/firebase/election";
-import { CURRENT_TENANT_ID } from "@/lib/firebase/tenants";
-import { isAdminUser } from "@/lib/permissions";
+  getActivities,
+  getSocialTasks,
+  listMembers,
+  listPublishedNews,
+  type DirectoryMember,
+} from "@/lib/supabase";
+import type { ElectionResult } from "@/types";
 
 interface SearchResultItem {
   id: string;
@@ -35,7 +34,30 @@ interface SearchResultItem {
   title: string;
   subtitle: string;
   url: string;
-  icon: any;
+  icon: LucideIcon;
+}
+
+// Structural shapes for the legacy Firestore search sources (they return
+// untyped document spreads; these captures keep the search index type-safe).
+// Members now come from the canonical Supabase directory (DirectoryMember).
+interface SearchActivity {
+  id: string;
+  title: string;
+  venue?: string;
+  description?: string;
+  date: string;
+}
+interface SearchTask {
+  id: string;
+  title: string;
+  platform: string;
+  action: string;
+  points: number;
+}
+interface SearchNews {
+  id: string;
+  title: string;
+  excerpt?: string;
 }
 
 export default function GlobalSearchModal() {
@@ -46,11 +68,11 @@ export default function GlobalSearchModal() {
   const [loading, setLoading] = useState(false);
 
   // Entities state
-  const [users, setUsers] = useState<any[]>([]);
-  const [activities, setActivities] = useState<any[]>([]);
-  const [tasks, setTasks] = useState<any[]>([]);
-  const [news, setNews] = useState<any[]>([]);
-  const [results, setResults] = useState<ElectionResultDoc[]>([]);
+  const [users, setUsers] = useState<DirectoryMember[]>([]);
+  const [activities, setActivities] = useState<SearchActivity[]>([]);
+  const [tasks, setTasks] = useState<SearchTask[]>([]);
+  const [news, setNews] = useState<SearchNews[]>([]);
+  const [results, setResults] = useState<ElectionResult[]>([]);
 
   // Keyboard shortcut listener (Cmd/Ctrl + K)
   useEffect(() => {
@@ -70,11 +92,56 @@ export default function GlobalSearchModal() {
     async function loadSearchData() {
       setLoading(true);
       try {
+        /*
+         * Campaign Activities search over the PostgreSQL engine:
+         * rows are RLS-scoped and module-gated server-side — the
+         * legacy Firebase tenant-wide activities read is gone
+         * (Final Campaign Lock Gate §5.1/§6).
+         */
+        const bridge = await ensureSupabaseSession();
+        const supabase = bridge.supabase ?? getSupabaseClient();
         const [uList, actList, tList, newsList] = await Promise.all([
-          getAllUsers().catch(() => []),
-          getAllCampaignActivities().catch(() => []),
-          getAllTasks().catch(() => []),
-          getPublishedNews().catch(() => []),
+          // Member search over the canonical Supabase directory:
+          // rows are RLS-scoped (0002 profiles_read — self + same-tenant
+          // members), matching the directory's server-side visibility.
+          listMembers(supabase).catch(() => [] as DirectoryMember[]),
+          getActivities(supabase)
+            .then((rows) =>
+              rows.map(
+                (a): SearchActivity => ({
+                  id: a.id,
+                  title: a.title,
+                  venue: a.venue ?? undefined,
+                  description: a.description ?? undefined,
+                  date: a.scheduled_start,
+                }),
+              ),
+            )
+            .catch(() => [] as SearchActivity[]),
+          getSocialTasks(supabase)
+            .then((rows) =>
+              rows.map(
+                (t): SearchTask => ({
+                  id: t.id,
+                  title: t.title,
+                  platform: t.platform,
+                  action: t.action,
+                  points: t.points,
+                }),
+              ),
+            )
+            .catch(() => [] as SearchTask[]),
+          // News search over the canonical Supabase service — published
+          // rows only (RLS public read branch).
+          listPublishedNews(50, supabase)
+            .then((rows) =>
+              rows.map((n): SearchNews => ({
+                id: n.id,
+                title: n.title,
+                excerpt: n.excerpt ?? undefined,
+              })),
+            )
+            .catch(() => [] as SearchNews[]),
         ]);
         setUsers(uList);
         setActivities(actList);
@@ -89,33 +156,32 @@ export default function GlobalSearchModal() {
     loadSearchData();
 
     /*
-     * Mirror the security-rule read scope for results: privileged
-     * roles tenant-wide, members only their registered ward + PU,
-     * and no listener at all when nothing is readable.
+     * Election results search over the PostgreSQL engine: rows are
+     * RLS-scoped (privileged roles tenant-wide, members their
+     * registered PU/ward) — the client never widens the scope.
      */
-    const isPrivileged =
-      profile.access_role === "election_officer" ||
-      isAdminUser(profile);
+    let unsub: (() => void) | null = null;
+    let cancelled = false;
+    (async () => {
+      const bridge = await ensureSupabaseSession();
+      if (!bridge.sessionReady || cancelled) return;
+      const supabase = bridge.supabase ?? getSupabaseClient();
+      const refresh = async () => {
+        try {
+          setResults(await getElectionResults(supabase));
+        } catch (err) {
+          console.error(err);
+        }
+      };
+      await refresh();
+      const handle = subscribeToElectionResults(supabase, () => void refresh());
+      unsub = handle.unsubscribe;
+    })();
 
-    const memberScope =
-      !isPrivileged && profile.ward_id && profile.polling_unit_id
-        ? {
-            ward_id: profile.ward_id,
-            polling_unit_id: profile.polling_unit_id,
-          }
-        : undefined;
-
-    if (isPrivileged || memberScope) {
-      const unsubscribe = subscribeToElectionResults(
-        CURRENT_TENANT_ID,
-        (docs) => setResults(docs),
-        (err) => console.error(err),
-        memberScope,
-      );
-      return () => unsubscribe();
-    }
-
-    return undefined;
+    return () => {
+      cancelled = true;
+      unsub?.();
+    };
   }, [open, profile]);
 
   const searchResults = useMemo(() => {
@@ -131,11 +197,11 @@ export default function GlobalSearchModal() {
         (u.phone && u.phone.includes(term))
       ) {
         list.push({
-          id: u.id || u.email,
+          id: u.id || u.email || "",
           category: "Members",
           title: u.full_name || "Member Profile",
           subtitle: `${u.email || ""} · ${u.access_role || "member"}`,
-          url: `/portal/campaign/members/${u.id}`,
+          url: "/portal/admin/members",
           icon: Users,
         });
       }
@@ -164,13 +230,13 @@ export default function GlobalSearchModal() {
       if (
         (t.title && t.title.toLowerCase().includes(term)) ||
         (t.platform && t.platform.toLowerCase().includes(term)) ||
-        (t.action_type && t.action_type.toLowerCase().includes(term))
+        (t.action && t.action.toLowerCase().includes(term))
       ) {
         list.push({
           id: t.id,
           category: "Tasks",
           title: t.title,
-          subtitle: `${t.platform} · ${t.action_type} (${t.points} pts)`,
+          subtitle: `${t.platform} · ${t.action} (${t.points} pts)`,
           url: "/portal/tasks",
           icon: CheckSquare,
         });
@@ -194,14 +260,14 @@ export default function GlobalSearchModal() {
       }
     });
 
-    // Search Election Results
+    // Search Election Results (relational rows; RLS-scoped)
     results.forEach((r) => {
       if (
         r.polling_unit_id.toLowerCase().includes(term) ||
         r.ward_id.toLowerCase().includes(term)
       ) {
         list.push({
-          id: r.id,
+          id: r.result_id,
           category: "Election",
           title: `PU: ${r.polling_unit_id}`,
           subtitle: `Ward: ${r.ward_id} · Status: ${r.status}`,

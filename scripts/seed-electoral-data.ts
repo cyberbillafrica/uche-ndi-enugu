@@ -88,17 +88,12 @@ async function main() {
   const data = generateElectoralData();
   console.log(`Parsed ${data.lgas.length} LGAs from /lgas directory.`);
 
-  // Attempt seeding if Firebase environment variables exist
-  if (process.env.NEXT_PUBLIC_FIREBASE_API_KEY) {
-    console.log("Firebase environment detected, connecting to Firestore...");
-    const { seedElectoralData } = await import("../src/lib/firebase/electoral");
-    await seedElectoralData(data);
-    console.log("Successfully seeded Enugu State electoral data into Firestore!");
-  } else {
-    console.log(
-      "Firebase environment variables not set in current shell session (offline execution). Electoral data structure for all 17 LGAs parsed and verified successfully! The application handles both Firestore and static fallback operations gracefully."
-    );
-  }
+  // Geography seeding now flows through canonical SQL migrations; this
+  // script remains as an offline structure verifier for the LGA/PU files.
+  console.log(
+    "Electoral data structure for all LGAs parsed and verified successfully. " +
+      "Canonical geography seeds flow through SQL migrations (supabase/migrations)."
+  );
 }
 
 main().catch((err) => {

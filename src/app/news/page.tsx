@@ -6,9 +6,8 @@ import Image from "next/image";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import { Calendar, Tag, ArrowRight, Loader2, AlertCircle } from "lucide-react";
-import { getPublishedNews } from "@/lib/firebase/firestore";
+import { listPublishedNews, type NewsArticle } from "@/lib/supabase";
 import { useToast } from "@/components/ui/toast";
-import type { NewsArticle } from "@/types";
 
 export default function NewsPage() {
   const [articles, setArticles] = useState<NewsArticle[]>([]);
@@ -19,7 +18,7 @@ export default function NewsPage() {
     async function loadNews() {
       try {
         setLoading(true);
-        const data = await getPublishedNews(50);
+        const data = await listPublishedNews(50);
         setArticles(data);
       } catch (err: any) {
         console.error("Error loading news articles:", err);

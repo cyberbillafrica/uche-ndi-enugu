@@ -2,21 +2,29 @@
 
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  getAllTasks,
-  createTask,
-  getSubmissionsForTaskWithUsers,
-  verifyTaskSubmission,
-} from "@/lib/firebase/firestore";
-import { doc, updateDoc, serverTimestamp } from "firebase/firestore";
-import { db } from "@/lib/firebase/config";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/components/ui/toast";
 import { getErrorMessage } from "@/lib/errors";
 import {
+  getSupabaseClient,
+  ensureSupabaseSession,
+  resolveSocialAccess,
+  SocialForceError,
+  getSocialTasks,
+  createSocialTask,
+  updateSocialTask,
+  setSocialTaskStatus,
+  getSubmissionsForTask,
+  getSubmissionsCount,
+  verifySocialSubmission,
+  type SocialTask,
+  type SocialSubmissionWithSubmitter,
+  type SocialTaskPlatform,
+  type SocialTaskAction,
+  type SocialTaskStatus,
+} from "@/lib/supabase";
+import {
   Plus,
-  CheckCircle2,
-  AlertCircle,
   Loader2,
   X,
   ExternalLink,
@@ -31,13 +39,12 @@ interface TaskItem {
   title: string;
   description?: string;
   platform: string;
-  action_type: string;
+  action: string;
   points: number;
-  status: "active" | "inactive" | "expired";
+  status: SocialTaskStatus;
   target_url?: string;
   proof_required?: boolean;
   expiration_date?: string;
-  created_at?: any;
 }
 
 export default function AdminTasksPage() {
@@ -45,6 +52,7 @@ export default function AdminTasksPage() {
   const toast = useToast();
   const [tasks, setTasks] = useState<TaskItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [denied, setDenied] = useState<string | null>(null);
 
   // Create/Edit Task Modal State
   const [showModal, setShowModal] = useState(false);
@@ -55,9 +63,9 @@ export default function AdminTasksPage() {
     title: "",
     description: "",
     platform: "facebook",
-    action_type: "share",
+    action: "share",
     points: 50,
-    status: "active" as TaskItem["status"],
+    status: "active" as SocialTaskStatus,
     target_url: "",
     proof_required: true,
     expiration_date: "",
@@ -65,25 +73,74 @@ export default function AdminTasksPage() {
 
   // Review Submissions Modal State
   const [reviewTask, setReviewTask] = useState<TaskItem | null>(null);
-  const [submissions, setSubmissions] = useState<any[]>([]);
+  const [submissions, setSubmissions] = useState<SocialSubmissionWithSubmitter[]>([]);
   const [loadingSubmissions, setLoadingSubmissions] = useState(false);
   const [verifyingId, setVerifyingId] = useState<string | null>(null);
+  // §15: per-task pending/verified counts for the listing badges — ONE
+  // grouped query over the RLS-scoped view (never a per-task fanout).
+  const [submissionCounts, setSubmissionCounts] = useState<Map<string, { pending: number; verified: number }>>(new Map());
 
   useEffect(() => {
-    loadTasksList();
-  }, []);
+    let cancelled = false;
 
-  async function loadTasksList() {
-    setLoading(true);
-    try {
-      const data = await getAllTasks();
-      setTasks(data as TaskItem[]);
-    } catch (err: unknown) {
-      console.error("Failed to load tasks:", err);
-      toast.error("We couldn't load the tasks. Please refresh the page.");
-    } finally {
-      setLoading(false);
+    async function bootstrap() {
+      setLoading(true);
+      try {
+        const bridge = await ensureSupabaseSession();
+        if (!bridge.sessionReady || !profile) {
+          setDenied("Your session has expired. Please sign in again.");
+          return;
+        }
+        const supabase = getSupabaseClient();
+
+        const access = await resolveSocialAccess(supabase);
+        if (cancelled) return;
+        if (!access.allowed) {
+          setDenied(
+            access.reason === "module_disabled"
+              ? "The Social Force module is not enabled for your organization."
+              : "You do not have permission to manage Social Tasks.",
+          );
+          return;
+        }
+
+        await loadTasksList(supabase);
+      } catch (err: unknown) {
+        console.error("Failed to load tasks:", err);
+        if (!cancelled) {
+          toast.error("We couldn't load the tasks. Please refresh the page.");
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     }
+
+    void bootstrap();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile?.id]);
+
+  async function loadTasksList(supabase = getSupabaseClient()) {
+    const data = await getSocialTasks(supabase);
+    setTasks(
+      data.map((t: SocialTask) => ({
+        id: t.id,
+        title: t.title,
+        description: t.description ?? undefined,
+        platform: t.platform,
+        action: t.action,
+        points: t.points,
+        status: t.status,
+        target_url: t.target_url ?? undefined,
+        proof_required: t.proof_required,
+        expiration_date: t.expiration_date
+          ? t.expiration_date.slice(0, 10)
+          : undefined,
+      })),
+    );
+    setSubmissionCounts(await getSubmissionsCount(supabase, data.map((t) => t.id)));
   }
 
   const handleOpenCreateModal = () => {
@@ -92,7 +149,7 @@ export default function AdminTasksPage() {
       title: "",
       description: "",
       platform: "facebook",
-      action_type: "share",
+      action: "share",
       points: 50,
       status: "active",
       target_url: "",
@@ -108,7 +165,7 @@ export default function AdminTasksPage() {
       title: task.title,
       description: task.description || "",
       platform: task.platform || "facebook",
-      action_type: task.action_type || "share",
+      action: task.action || "share",
       points: task.points || 50,
       status: task.status || "active",
       target_url: task.target_url || "",
@@ -128,29 +185,26 @@ export default function AdminTasksPage() {
     setSaving(true);
 
     try {
+      const supabase = getSupabaseClient();
       if (editingTask) {
-        // Update
-        const taskRef = doc(db, "tasks", editingTask.id);
-        await updateDoc(taskRef, {
+        await updateSocialTask(supabase, editingTask.id, {
           title: form.title.trim(),
           description: form.description.trim() || null,
-          platform: form.platform,
-          action_type: form.action_type,
+          platform: form.platform as SocialTaskPlatform,
+          action: form.action as SocialTaskAction,
           points: Number(form.points) || 0,
           status: form.status,
           target_url: form.target_url.trim() || null,
           proof_required: form.proof_required,
           expiration_date: form.expiration_date || null,
-          updated_at: serverTimestamp(),
         });
         toast.success("Task updated successfully.");
       } else {
-        // Create
-        await createTask({
+        await createSocialTask(supabase, {
           title: form.title.trim(),
           description: form.description.trim() || null,
-          platform: form.platform,
-          action_type: form.action_type,
+          platform: form.platform as SocialTaskPlatform,
+          action: form.action as SocialTaskAction,
           points: Number(form.points) || 0,
           status: form.status,
           target_url: form.target_url.trim() || null,
@@ -164,28 +218,35 @@ export default function AdminTasksPage() {
       await loadTasksList();
     } catch (err: unknown) {
       console.error("Failed to save task:", err);
-      toast.error(getErrorMessage(err, "We couldn't save the task. Please try again."));
+      const message =
+        err instanceof SocialForceError
+          ? err.message
+          : getErrorMessage(err, "We couldn't save the task. Please try again.");
+      toast.error(message);
     } finally {
       setSaving(false);
     }
   };
 
   const handleToggleStatus = async (task: TaskItem) => {
-    const newStatus = task.status === "active" ? "inactive" : "active";
+    const newStatus: SocialTaskStatus =
+      task.status === "active" ? "inactive" : "active";
     try {
-      const taskRef = doc(db, "tasks", task.id);
-      await updateDoc(taskRef, {
-        status: newStatus,
-        updated_at: serverTimestamp(),
-      });
+      await setSocialTaskStatus(getSupabaseClient(), task.id, newStatus);
       setTasks((prev) =>
-        prev.map((t) => (t.id === task.id ? { ...t, status: newStatus } : t))
+        prev.map((t) => (t.id === task.id ? { ...t, status: newStatus } : t)),
       );
       toast.success(`Task marked as ${newStatus}`);
     } catch (err: unknown) {
-      toast.error(
-        getErrorMessage(err, "We couldn't update the task status. Please try again."),
-      );
+      console.error("Failed to toggle task status:", err);
+      const message =
+        err instanceof SocialForceError
+          ? err.message
+          : getErrorMessage(
+              err,
+              "We couldn't update the task status. Please try again.",
+            );
+      toast.error(message);
     }
   };
 
@@ -193,38 +254,47 @@ export default function AdminTasksPage() {
     setReviewTask(task);
     setLoadingSubmissions(true);
     try {
-      const subs = await getSubmissionsForTaskWithUsers(task.id);
+      const subs = await getSubmissionsForTask(getSupabaseClient(), task.id);
       setSubmissions(subs);
     } catch (err: unknown) {
       console.error("Failed to load submissions:", err);
+      setSubmissions([]);
     } finally {
       setLoadingSubmissions(false);
     }
   };
 
-  const handleVerifySubmission = async (submissionId: string, currentStatus: string) => {
-    if (!profile?.id) return;
+  const handleVerifySubmission = async (submissionId: string) => {
     setVerifyingId(submissionId);
     try {
-      const newStatus = currentStatus === "verified" ? "pending" : "verified";
-      const subRef = doc(db, "task_submissions", submissionId);
-      await updateDoc(subRef, {
-        status: newStatus,
-        verified_by: newStatus === "verified" ? profile.id : null,
-        verified_at: newStatus === "verified" ? serverTimestamp() : null,
-      });
+      await verifySocialSubmission(getSupabaseClient(), submissionId);
       setSubmissions((prev) =>
-        prev.map((s) => (s.id === submissionId ? { ...s, status: newStatus } : s))
+        prev.map((s) =>
+          s.id === submissionId ? { ...s, status: "verified" as const } : s,
+        ),
       );
-      toast.success(
-        newStatus === "verified"
-          ? "Submission verified and points awarded."
-          : "Submission marked as unverified."
-      );
+      if (reviewTask) {
+        setSubmissionCounts((prev) => {
+          const next = new Map(prev);
+          const c = next.get(reviewTask.id) ?? { pending: 0, verified: 0 };
+          next.set(reviewTask.id, {
+            pending: Math.max(0, c.pending - 1),
+            verified: c.verified + 1,
+          });
+          return next;
+        });
+      }
+      toast.success("Submission verified and points awarded.");
     } catch (err: unknown) {
-      toast.error(
-        getErrorMessage(err, "We couldn't update the submission status. Please try again."),
-      );
+      console.error("Failed to verify submission:", err);
+      const message =
+        err instanceof SocialForceError
+          ? err.message
+          : getErrorMessage(
+              err,
+              "We couldn't update the submission status. Please try again.",
+            );
+      toast.error(message);
     } finally {
       setVerifyingId(null);
     }
@@ -234,7 +304,17 @@ export default function AdminTasksPage() {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
         <Loader2 className="h-8 w-8 animate-spin text-apc-primary" />
-        <span className="ml-3 text-gray-500">Loading campaign tasks...</span>
+        <span className="ml-3 text-gray-500">Loading tasks...</span>
+      </div>
+    );
+  }
+
+  if (denied) {
+    return (
+      <div className="pb-12 max-w-6xl mx-auto">
+        <div className="rounded-lg border border-red-200 bg-red-50 p-6 text-sm text-red-700">
+          {denied}
+        </div>
       </div>
     );
   }
@@ -261,12 +341,12 @@ export default function AdminTasksPage() {
       {/* Task Listing */}
       <Card>
         <CardHeader>
-          <CardTitle>All Campaign Tasks ({tasks.length})</CardTitle>
+          <CardTitle>All Social Tasks ({tasks.length})</CardTitle>
         </CardHeader>
         <CardContent>
           {tasks.length === 0 ? (
             <p className="text-center py-8 text-sm text-gray-500">
-              No campaign tasks created yet. Click &quot;Create New Task&quot; above.
+              No social tasks created yet. Click &quot;Create New Task&quot; above.
             </p>
           ) : (
             <div className="divide-y">
@@ -294,7 +374,7 @@ export default function AdminTasksPage() {
                       </div>
 
                       <p className="text-xs text-gray-500">
-                        Platform: <span className="font-semibold uppercase text-gray-700">{task.platform}</span> · Action: <span className="font-semibold uppercase text-gray-700">{task.action_type}</span> · Award: <span className="font-bold text-apc-primary">{task.points} pts</span>
+                        Platform: <span className="font-semibold uppercase text-gray-700">{task.platform}</span> · Action: <span className="font-semibold uppercase text-gray-700">{task.action}</span> · Award: <span className="font-bold text-apc-primary">{task.points} pts</span>
                         {task.expiration_date ? (
                           <span className={isPastDeadline ? "text-red-600 font-bold ml-1" : "ml-1"}>
                             · Deadline: {task.expiration_date} {isPastDeadline ? "(Expired)" : ""}
@@ -333,6 +413,24 @@ export default function AdminTasksPage() {
                         className="px-3 py-1.5 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-lg text-xs font-bold flex items-center gap-1"
                       >
                         <Eye className="h-3.5 w-3.5" /> Submissions
+                        {(() => {
+                          const c = submissionCounts.get(task.id);
+                          if (!c) return null;
+                          return (
+                            <span className="flex items-center gap-1">
+                              {c.pending > 0 && (
+                                <span className="rounded-full bg-amber-100 px-1.5 text-[10px] font-bold text-amber-800">
+                                  {c.pending} pending
+                                </span>
+                              )}
+                              {c.verified > 0 && (
+                                <span className="rounded-full bg-emerald-100 px-1.5 text-[10px] font-bold text-emerald-800">
+                                  {c.verified} verified
+                                </span>
+                              )}
+                            </span>
+                          );
+                        })()}
                       </button>
 
                       <button
@@ -412,22 +510,20 @@ export default function AdminTasksPage() {
                     <option value="x">X (Twitter)</option>
                     <option value="instagram">Instagram</option>
                     <option value="tiktok">TikTok</option>
-                    <option value="other">Other</option>
                   </select>
                 </div>
 
                 <div>
                   <label className="block font-semibold text-gray-700 mb-1">Action Type</label>
                   <select
-                    value={form.action_type}
-                    onChange={(e) => setForm({ ...form, action_type: e.target.value })}
+                    value={form.action}
+                    onChange={(e) => setForm({ ...form, action: e.target.value })}
                     className="w-full px-3 py-2 border rounded-lg text-xs"
                   >
                     <option value="like">Like</option>
                     <option value="comment">Comment</option>
                     <option value="share">Share</option>
-                    <option value="post">Create Post</option>
-                    <option value="follow">Follow</option>
+                    <option value="make_post">Create Post</option>
                   </select>
                 </div>
               </div>
@@ -437,7 +533,7 @@ export default function AdminTasksPage() {
                   <label className="block font-semibold text-gray-700 mb-1">Award Points *</label>
                   <input
                     type="number"
-                    min="5"
+                    min="1"
                     value={form.points}
                     onChange={(e) => setForm({ ...form, points: parseInt(e.target.value) || 0 })}
                     className="w-full px-3 py-2 border rounded-lg text-xs font-bold"
@@ -448,12 +544,11 @@ export default function AdminTasksPage() {
                   <label className="block font-semibold text-gray-700 mb-1">Status</label>
                   <select
                     value={form.status}
-                    onChange={(e) => setForm({ ...form, status: e.target.value as any })}
+                    onChange={(e) => setForm({ ...form, status: e.target.value as SocialTaskStatus })}
                     className="w-full px-3 py-2 border rounded-lg text-xs"
                   >
                     <option value="active">Active</option>
                     <option value="inactive">Inactive</option>
-                    <option value="expired">Expired</option>
                   </select>
                 </div>
               </div>
@@ -541,8 +636,14 @@ export default function AdminTasksPage() {
                 submissions.map((sub) => (
                   <div key={sub.id} className="p-3 border rounded-xl bg-gray-50 flex items-center justify-between text-xs gap-3">
                     <div className="min-w-0 space-y-0.5">
-                      <p className="font-bold text-gray-900">{sub.user?.full_name || sub.user_id}</p>
-                      <p className="text-gray-500">{sub.user?.email || ""}</p>
+                      <p className="font-bold text-gray-900">{sub.submitter?.full_name || sub.submitter_id}</p>
+                      <p className="text-gray-500">{sub.submitter?.email || ""}</p>
+                      {sub.status === "verified" && sub.verified_at && (
+                        <p className="text-[10px] font-semibold text-emerald-700">
+                          Verified {new Date(sub.verified_at).toLocaleDateString("en-NG", { month: "short", day: "numeric", year: "numeric" })}
+                          {sub.verified_by && sub.verified_by === profile?.id ? " by you" : ""}
+                        </p>
+                      )}
                       {sub.proof_url && (
                         <a
                           href={sub.proof_url}
@@ -575,22 +676,20 @@ export default function AdminTasksPage() {
                         {sub.status}
                       </span>
 
-                      <button
-                        onClick={() => handleVerifySubmission(sub.id, sub.status)}
-                        disabled={verifyingId === sub.id}
-                        className={`px-3 py-1.5 rounded-lg font-bold disabled:opacity-50 flex items-center gap-1 text-xs ${
-                          sub.status === "verified"
-                            ? "bg-amber-100 text-amber-800 hover:bg-amber-200"
-                            : "bg-emerald-600 text-white hover:bg-emerald-700"
-                        }`}
-                      >
-                        {verifyingId === sub.id ? (
-                          <Loader2 className="h-3 w-3 animate-spin" />
-                        ) : (
-                          <ShieldCheck className="h-3 w-3" />
-                        )}
-                        {sub.status === "verified" ? "Unverify Submission" : `Approve & Award ${reviewTask.points} pts`}
-                      </button>
+                      {sub.status === "pending" && (
+                        <button
+                          onClick={() => handleVerifySubmission(sub.id)}
+                          disabled={verifyingId === sub.id}
+                          className="px-3 py-1.5 rounded-lg font-bold disabled:opacity-50 flex items-center gap-1 text-xs bg-emerald-600 text-white hover:bg-emerald-700"
+                        >
+                          {verifyingId === sub.id ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            <ShieldCheck className="h-3 w-3" />
+                          )}
+                          {`Approve & Award ${reviewTask.points} pts`}
+                        </button>
+                      )}
                     </div>
                   </div>
                 ))

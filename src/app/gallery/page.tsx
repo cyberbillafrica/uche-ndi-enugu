@@ -7,8 +7,7 @@ import { Camera } from "lucide-react";
 
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
-import { getGallery } from "@/lib/firebase/gallery";
-import { getCurrentTenant } from "@/lib/firebase/tenants";
+import { getGallery } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
 
@@ -21,8 +20,8 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function GalleryPage() {
-  const tenant = await getCurrentTenant();
-  const gallery = await getGallery(tenant.id);
+  // Canonical Supabase read; RLS shows anonymous visitors the published row only.
+  const gallery = await getGallery();
   const images = gallery?.images || [];
 
   return (

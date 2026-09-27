@@ -525,6 +525,7 @@ export type ElectionCycleStatus =
 
 export type ContestStatus = "DRAFT" | "OPEN" | "PAUSED" | "CLOSED";
 
+/** @deprecated legacy Firestore shape — use ContestStatus (DRAFT/OPEN/PAUSED/CLOSED) */
 export type CollationStatus =
   | "NOT_STARTED"
   | "IN_PROGRESS"
@@ -598,6 +599,191 @@ export interface ElectionSettings {
   active_contest_id: string | null;
   updated_by?: string;
   updated_at?: unknown;
+}
+
+// ============================================================
+// POSTGRESQL ELECTION DOMAIN TYPES (Phase 2 cutover)
+//
+// Source of truth for migrated Election application code. These mirror
+// the politicore.* rows served through the Supabase data API (views +
+// RPCs) — the legacy Firestore document shapes were removed with the
+// final Firebase retirement (Phase 5); 0016 retains the seed lineage.
+// ============================================================
+
+/** politicore.result_status — the DB-enforced result state machine. */
+export type ElectionResultStatus =
+  | "submitted"
+  | "pending_review"
+  | "approved"
+  | "rejected"
+  | "clarification_required"
+  | "reopened";
+
+/** History actions written exclusively by the database workflow RPCs. */
+export type ElectionResultHistoryAction =
+  | "create"
+  | "correct"
+  | "review_approve"
+  | "review_reject"
+  | "review_clarify"
+  | "reopen"
+  | "resubmit";
+
+/** One row of politicore.election_result_votes — the relational ballot. */
+export interface ElectionResultVote {
+  id?: number;
+  result_id: string;
+  contest_id: string;
+  party_id: string;
+  votes: number;
+}
+
+/**
+ * A composed application result: the election_results row plus the
+ * relational ballot expanded into vote rows (and labels where the query
+ * joined parties). Application representation only — persistence is the
+ * election_result_votes table.
+ */
+export interface ElectionResult {
+  result_id: string;
+  tenant_id: string;
+  election_cycle_id: string;
+  contest_id: string;
+  contest_type: ContestType;
+  contest_scope_type?: ContestScopeType;
+  contest_scope_id?: string;
+  contest_name?: string;
+  polling_unit_id: string;
+  ward_id: string;
+  lga_id: string;
+  status: ElectionResultStatus;
+  verified: boolean;
+  reviewed_by?: string | null;
+  review_notes?: string | null;
+  reviewed_at?: string | null;
+  evidence_asset_id: string | null;
+  submitted_by: string;
+  created_at?: string | null;
+  updated_at?: string | null;
+  votes: ElectionResultVote[];
+}
+
+/** politicore.election_result_history row (append-only, DB-written). */
+export interface ElectionResultHistory {
+  id: number;
+  result_id: string;
+  action: ElectionResultHistoryAction;
+  actor_id: string;
+  old_status: ElectionResultStatus | null;
+  new_status: ElectionResultStatus | null;
+  /** Forensic ballots (JSONB snapshots of election_result_votes rows). */
+  old_votes: Array<{ party_id: string; votes: number }> | null;
+  new_votes: Array<{ party_id: string; votes: number }> | null;
+  old_evidence_asset_id: string | null;
+  new_evidence_asset_id: string | null;
+  notes?: string | null;
+  reason?: string | null;
+  created_at?: string | null;
+}
+
+/** politicore.pu_reports row (POST schema — tenant_id is resolved server-side). */
+export interface PUReport {
+  id: string;
+  tenant_id: string;
+  ward_id: string;
+  polling_unit_id: string;
+  submitted_by: string;
+  report_type: "opening" | "turnout" | "conduct" | "closing" | "general";
+  title: string;
+  content: string;
+  evidence_asset_id?: string | null;
+  status: "submitted" | "under_review" | "acknowledged";
+  created_at?: string | null;
+}
+
+/** politicore.election_incidents row. */
+export interface ElectionIncident {
+  id: string;
+  tenant_id: string;
+  ward_id: string;
+  polling_unit_id?: string | null;
+  incident_type:
+    | "ballot_snatching"
+    | "violence"
+    | "bvas_malfunction"
+    | "late_arrival"
+    | "vote_buying"
+    | "other";
+  severity: "low" | "medium" | "high" | "critical";
+  description: string;
+  evidence_asset_id?: string | null;
+  status: "reported" | "investigating" | "resolved" | "dismissed";
+  reported_by: string;
+  created_at?: string | null;
+}
+
+/** One party total from get_results_aggregate (relational SQL aggregation). */
+export interface ElectionPartyTotal {
+  party_id: string;
+  acronym: string;
+  name: string;
+  total_votes: number;
+}
+
+/** Return shape of get_results_aggregate (§31 contract). */
+export interface ElectionAggregate {
+  cycle_id: string;
+  contest_id: string;
+  scope_type: string;
+  party_totals: ElectionPartyTotal[];
+  approved_pus: number;
+  pending_pus: number;
+  total_pus_in_scope: number;
+  reporting_pct: number;
+}
+
+/** Vote-label pair used by the current-results view / UI composition. */
+export interface ElectionVoteDetail {
+  party_id: string;
+  acronym: string;
+  name: string;
+  color?: string | null;
+  votes: number;
+}
+
+/** A row of the election_results_current security-invoker view. */
+export interface ElectionResultCurrentRow {
+  result_id: string;
+  tenant_id: string;
+  election_cycle_id: string;
+  contest_id: string;
+  contest_name: string;
+  contest_type: ContestType;
+  contest_scope_type: ContestScopeType;
+  contest_scope_id: string;
+  polling_unit_id: string;
+  ward_id: string;
+  lga_id: string;
+  status: ElectionResultStatus;
+  verified: boolean;
+  reviewed_by?: string | null;
+  review_notes?: string | null;
+  reviewed_at?: string | null;
+  evidence_asset_id: string | null;
+  submitted_by: string;
+  created_at?: string | null;
+  updated_at?: string | null;
+  vote_details: ElectionVoteDetail[];
+}
+
+/** Vote payload accepted by submit_election_result / correct_election_result. */
+export type BallotInput = Array<{ party_id: string; votes: number }>;
+
+/** Result of submit/review/correct RPCs: (result_id, status, verified). */
+export interface ElectionWorkflowResult {
+  result_id: string;
+  status: ElectionResultStatus;
+  verified: boolean;
 }
 
 // ============================================================

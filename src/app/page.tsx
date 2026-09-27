@@ -19,15 +19,16 @@ import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import ElectionCountdown from "@/components/home/ElectionCountdown";
 
-import { getPublishedNews } from "@/lib/firebase/firestore";
-import { getCurrentTenant } from "@/lib/firebase/tenants";
-import { getPublishedEvents } from "@/lib/firebase/portal-content";
-
-import type { NewsArticle, EventData } from "@/types";
+import {
+  listPublishedNews,
+  listPublishedEvents,
+  type NewsArticle,
+  type SiteEvent,
+} from "@/lib/supabase";
 
 export default function HomePage() {
   const [latestNews, setLatestNews] = useState<NewsArticle[]>([]);
-  const [events, setEvents] = useState<EventData[]>([]);
+  const [events, setEvents] = useState<SiteEvent[]>([]);
   const [newsLoading, setNewsLoading] = useState(true);
 
   useEffect(() => {
@@ -35,9 +36,11 @@ export default function HomePage() {
       setNewsLoading(true);
 
       // Load news and events independently so a failure in one data source
-      // cannot blank out the other section of the homepage.
+      // cannot blank out the other section of the homepage. Both flow from
+      // the canonical Supabase content services: published rows only (RLS
+      // enforces visibility for anonymous visitors).
       try {
-        const newsData = await getPublishedNews(3);
+        const newsData = await listPublishedNews(3);
         setLatestNews(newsData);
       } catch (err) {
         console.error("Failed to load homepage news:", err);
@@ -46,8 +49,7 @@ export default function HomePage() {
       }
 
       try {
-        const tenant = await getCurrentTenant();
-        const eventsData = await getPublishedEvents(tenant.id);
+        const eventsData = await listPublishedEvents();
         setEvents(eventsData);
       } catch (err) {
         console.error("Failed to load homepage events:", err);
@@ -424,7 +426,7 @@ export default function HomePage() {
                     <Calendar className="h-5 w-5" />
 
                     <span className="font-medium">
-                      {formatDate(event.date)}
+                      {formatDate(event.event_date)}
                     </span>
                   </div>
 
@@ -441,12 +443,12 @@ export default function HomePage() {
 
                     <div className="flex items-center space-x-2">
                       <span className="text-sm font-medium">
-                        {event.ward} Ward
+                        {event.event_time}
                       </span>
                     </div>
 
                     <div className="text-sm text-gray-500">
-                      {event.time}
+                      {event.description || "Join us — all are welcome."}
                     </div>
                   </div>
 

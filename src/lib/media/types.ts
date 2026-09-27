@@ -18,6 +18,8 @@ export interface MediaUploadRequest {
   /** Optional explicit file name (else provider generates one). */
   fileName?: string;
   visibility: MediaVisibility;
+  /** Authenticated uploader (media_assets.uploaded_by attribution). */
+  uploadedBy?: string;
 }
 
 export interface MediaAssetRecord {
@@ -29,6 +31,8 @@ export interface MediaAssetRecord {
   visibility: MediaVisibility;
   contentType: string | null;
   sizeBytes: number | null;
+  /** Logical purpose recorded at upload (e.g. "election_evidence"). */
+  purpose: string | null;
   url: string | null;
 }
 

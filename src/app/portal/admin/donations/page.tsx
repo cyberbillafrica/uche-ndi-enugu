@@ -3,25 +3,23 @@
 import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
-  getAllDonations,
-  getAllDonors,
+  listDonations,
+  listDonors,
   createDonation,
   updateDonation,
-  getDonationAuditLogs,
-} from "@/lib/firebase/donations";
-import { getAllLGAs } from "@/lib/constants";
+  listDonationAuditLogs,
+  listLgas,
+  type DonationRecord,
+  type DonorRecord,
+  type DonationAuditLog,
+  type DonationStatus,
+  type DonationSourceMethod,
+  type GeoLga,
+} from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/components/ui/toast";
 import { getErrorMessage } from "@/lib/errors";
 import { HelpLink } from "@/components/help/HelpLink";
-import type {
-  DonationRecord,
-  DonorRecord,
-  DonationAuditLog,
-  DonationStatus,
-  DonationSourceMethod,
-  LGA,
-} from "@/types";
 import {
   Plus,
   Search,
@@ -44,7 +42,7 @@ export default function AdminDonationsPage() {
   const toast = useToast();
   const [donations, setDonations] = useState<DonationRecord[]>([]);
   const [donors, setDonors] = useState<DonorRecord[]>([]);
-  const [lgas, setLgas] = useState<LGA[]>([]);
+  const [lgas, setLgas] = useState<GeoLga[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Filters
@@ -87,9 +85,9 @@ export default function AdminDonationsPage() {
       setLoading(true);
       try {
         const [dList, donorList, lgaData] = await Promise.all([
-          getAllDonations(),
-          getAllDonors(),
-          getAllLGAs(),
+          listDonations(),
+          listDonors(),
+          listLgas(),
         ]);
         setDonations(dList);
         setDonors(donorList);
@@ -204,51 +202,51 @@ export default function AdminDonationsPage() {
         await updateDonation(
           editingDonation.id,
           {
-            donor_name: form.donor_name.trim(),
-            donor_phone: form.donor_phone || null,
-            donor_email: form.donor_email || null,
-            donor_reference: form.donor_reference || null,
+            donorName: form.donor_name.trim(),
+            donorPhone: form.donor_phone || null,
+            donorEmail: form.donor_email || null,
+            donorReference: form.donor_reference || null,
             amount: numAmount,
             currency: form.currency,
-            date_received: form.date_received,
-            payment_method: form.payment_method,
+            dateReceived: form.date_received,
+            paymentMethod: form.payment_method,
             category: form.category,
             status: form.status,
-            external_reference: form.external_reference || null,
+            externalReference: form.external_reference || null,
             notes: form.notes || null,
-            lga_id: form.lga_id || null,
-            ward_id: form.ward_id || null,
+            lgaId: form.lga_id || null,
+            wardId: form.ward_id || null,
           },
-          profile?.id || "admin",
-          profile?.full_name || "Admin User"
         );
         toast.success("Donation record updated successfully.");
       } else {
-        await createDonation({
-          donor_name: form.donor_name.trim(),
-          donor_phone: form.donor_phone || null,
-          donor_email: form.donor_email || null,
-          donor_reference: form.donor_reference || null,
-          amount: numAmount,
-          currency: form.currency,
-          date_received: form.date_received,
-          payment_method: form.payment_method,
-          category: form.category,
-          status: form.status,
-          external_reference: form.external_reference || null,
-          notes: form.notes || null,
-          lga_id: form.lga_id || null,
-          ward_id: form.ward_id || null,
-          created_by: profile?.id || "admin",
-          created_by_name: profile?.full_name || "Admin User",
-        });
+        await createDonation(
+          {
+            donorName: form.donor_name.trim(),
+            donorPhone: form.donor_phone || null,
+            donorEmail: form.donor_email || null,
+            donorReference: form.donor_reference || null,
+            amount: numAmount,
+            currency: form.currency,
+            dateReceived: form.date_received,
+            paymentMethod: form.payment_method,
+            category: form.category,
+            status: form.status,
+            externalReference: form.external_reference || null,
+            notes: form.notes || null,
+            lgaId: form.lga_id || null,
+            wardId: form.ward_id || null,
+          },
+          profile?.id || "admin",
+          profile?.full_name || "Admin User",
+        );
         toast.success("Donation recorded in the private ledger.");
       }
 
       setShowFormModal(false);
       const [updatedDonations, updatedDonors] = await Promise.all([
-        getAllDonations(),
-        getAllDonors(),
+        listDonations(),
+        listDonors(),
       ]);
       setDonations(updatedDonations);
       setDonors(updatedDonors);
@@ -264,7 +262,7 @@ export default function AdminDonationsPage() {
     setSelectedDonationForAudit(d);
     setLoadingAudits(true);
     try {
-      const logs = await getDonationAuditLogs(d.id);
+      const logs = await listDonationAuditLogs(d.id);
       setAuditLogs(logs);
     } catch (err) {
       console.error("Failed to load audit logs:", err);
@@ -717,11 +715,15 @@ export default function AdminDonationsPage() {
                     <div className="flex items-center justify-between">
                       <span className="font-bold uppercase text-apc-primary">{log.action}</span>
                       <span className="text-[10px] text-gray-400">
-                        {String(log.performed_at || "Recently")}
+                        {log.occurred_at
+                          ? new Date(log.occurred_at).toLocaleString("en-US")
+                          : "Recently"}
                       </span>
                     </div>
-                    <p className="text-gray-800">{log.details}</p>
-                    <p className="text-gray-500 text-[11px]">By: {log.performed_by_name || log.performed_by}</p>
+                    <p className="text-gray-800">
+                      {log.new_value ? JSON.stringify(log.new_value) : "Record removed"}
+                    </p>
+                    <p className="text-gray-500 text-[11px]">By: {log.actor_name || log.actor_id}</p>
                   </div>
                 ))
               )}

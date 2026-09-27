@@ -1,14 +1,27 @@
 "use client";
 
+/**
+ * POLITICORE — Campaign Area (Phase E cutover: PostgreSQL/Supabase).
+ *
+ * The user's operating area, derived ONLY from (§15):
+ *   * Core identity — registered location (ward/LGA/PU) and active
+ *     organizational assignments (my_scopes), and
+ *   * Core geography — live relational reference data.
+ *
+ * No route parameter can grant authority: this page reads no scope from
+ * the URL at all. Registered location and organizational assignment are
+ * displayed as the DISTINCT concepts they are (§16) — one describes
+ * where the person is registered, the other where they operate.
+ *
+ * The route gate is resolveCampaignAccess (database-resolved,
+ * fail-closed); the RPC/RLS remain the authoritative boundary.
+ */
+
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   ArrowLeft,
-  ArrowRight,
-  Building2,
-  CheckCircle2,
-  ChevronRight,
-  Flag,
+  Loader2,
   MapPin,
   ShieldCheck,
   Users,
@@ -17,465 +30,313 @@ import {
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
-import { useAuth } from "@/contexts/AuthContext";
-import { getWardById, getPollingUnitById, getAllLGAs } from "@/lib/constants";
 import {
-  formatScopeType,
-  getPrimaryOrganizationalScope,
-  formatOrganizationalPosition,
-} from "@/lib/organization";
-import type {
-  OrganizationalAssignment,
-  OrganizationalPosition,
-  ScopeType,
-  LGA,
-} from "@/types";
+  resolveCampaignAccess,
+  resolveIdentity,
+  ensureSupabaseSession,
+  getSupabaseClient,
+  getGeographyCounts,
+  resolveScopeLabels,
+  type CampaignAuthority,
+  type ScopeRef,
+} from "@/lib/supabase";
 
-/*
- * ============================================================
- * CAMPAIGN AREA
- * ============================================================
- */
+function formatScopeType(scopeType: string | null): string {
+  switch (scopeType) {
+    case "campaign":
+      return "Campaign";
+    case "state":
+      return "State";
+    case "senatorial_zone":
+      return "Senatorial Zone";
+    case "lga":
+      return "LGA";
+    case "ward":
+      return "Ward";
+    case "polling_unit":
+      return "Polling Unit";
+    default:
+      return "Organizational scope";
+  }
+}
+
+interface AreaIdentity {
+  wardId: string | null;
+  lgaId: string | null;
+  puId: string | null;
+  scopes: ScopeRef[];
+}
+
+type Gate = "loading" | "no_session" | "denied" | "ready";
 
 export default function CampaignAreaPage() {
-  const { profile, assignments, accessLoading } = useAuth();
-  const [lgas, setLgas] = useState<LGA[]>([]);
+  const [gate, setGate] = useState<Gate>("loading");
+  const [denyReason, setDenyReason] = useState<string | null>(null);
+  const [authority, setAuthority] = useState<CampaignAuthority>("member");
+  const [area, setArea] = useState<AreaIdentity | null>(null);
 
+  const [labels, setLabels] = useState<{ lga?: string; ward?: string; pu?: string }>({});
+  const [counts, setCounts] = useState<{ lgas: number; wards: number; pollingUnits: number } | null>(
+    null,
+  );
+
+  // ── gate: bridged session + database-resolved campaign access ────────
   useEffect(() => {
-    async function loadLgasData() {
-      const data = await getAllLGAs();
-      setLgas(data);
-    }
-    loadLgasData();
+    let cancelled = false;
+    (async () => {
+      const bridge = await ensureSupabaseSession();
+      if (cancelled) return;
+      if (!bridge.sessionReady) {
+        setGate(bridge.reason === "no_session" ? "no_session" : "denied");
+        return;
+      }
+      const supabase = bridge.supabase;
+      const access = await resolveCampaignAccess(supabase);
+      if (cancelled) return;
+      if (!access.allowed) {
+        setDenyReason(access.reason);
+        setGate("denied");
+        return;
+      }
+      setAuthority(access.authority);
+
+      const identity = await resolveIdentity(supabase);
+      if (cancelled) return;
+      setArea({
+        wardId: identity?.profile?.ward_id ?? null,
+        lgaId: identity?.profile?.lga_id ?? null,
+        puId: identity?.profile?.polling_unit_id ?? null,
+        scopes: identity?.scopes ?? [],
+      });
+      setGate("ready");
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  if (!profile) {
-    return null;
-  }
+  // Labels for the registered location + structural counts (live geography).
+  useEffect(() => {
+    if (gate !== "ready" || !area) return;
+    let cancelled = false;
+    (async () => {
+      const supabase = getSupabaseClient();
+      const [countData, lgaParts, wardParts, puParts] = await Promise.all([
+        getGeographyCounts(supabase),
+        area.lgaId ? resolveScopeLabels("lga", area.lgaId, supabase) : Promise.resolve(null),
+        area.wardId ? resolveScopeLabels("ward", area.wardId, supabase) : Promise.resolve(null),
+        area.puId ? resolveScopeLabels("polling_unit", area.puId, supabase) : Promise.resolve(null),
+      ]);
+      if (cancelled) return;
+      setCounts(countData);
+      setLabels({
+        lga: lgaParts ? lgaParts[lgaParts.length - 1] : undefined,
+        ward: wardParts ? wardParts[wardParts.length - 1] : undefined,
+        pu: puParts ? puParts[puParts.length - 1] : undefined,
+      });
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [gate, area]);
 
-  const isAdmin =
-    profile.access_role === "admin" ||
-    profile.access_role === "tenant_super_admin" ||
-    profile.access_role === "platform_super_admin";
-
-  const primaryScope = getPrimaryOrganizationalScope(assignments);
-  const hasAssignment = primaryScope.assignment !== null;
-
-  /*
-   * Registered electoral location
-   */
-  const ward = getWardById(profile.ward_id);
-  const pollingUnit = getPollingUnitById(
-    profile.ward_id,
-    profile.polling_unit_id,
-  );
-
-  const wardLabel = ward ? `${ward.code} — ${ward.name}` : "Not available";
-  const pollingUnitLabel = pollingUnit
-    ? `${pollingUnit.code} — ${pollingUnit.name}`
-    : "Not available";
-
-  if (accessLoading) {
-    return <CampaignAreaLoading />;
-  }
-
-  /*
-   * ADMIN GLOBAL VIEW
-   */
-  if (isAdmin) {
-    const totalWards = lgas.reduce((acc, lga) => acc + lga.wards.length, 0);
-    const totalPUs = lgas.reduce(
-      (acc, lga) =>
-        acc + lga.wards.reduce((wAcc, w) => wAcc + w.pollingUnits.length, 0),
-      0,
-    );
-
+  if (gate === "loading") {
     return (
-      <div className="space-y-6 pb-8">
-        <BackLink />
-
-        <PageHeader
-          title="Campaign Area (Global Admin)"
-          description="Administrative oversight of the entire Enugu State campaign hierarchy."
-        />
-
-        <Card className="overflow-hidden border-apc-primary/20 bg-gradient-to-r from-apc-primary to-apc-dark text-white">
-          <CardContent className="p-6">
-            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-              <div>
-                <p className="text-sm font-medium text-white/70">
-                  System Administrative Scope
-                </p>
-                <h2 className="mt-1 text-2xl font-bold">Enugu State — Campaign Wide</h2>
-                <p className="mt-2 text-sm text-white/80">
-                  As an Administrator, you possess complete global visibility across all 17 LGAs.
-                </p>
-              </div>
-
-              <div className="flex items-center gap-2 rounded-lg bg-white/10 px-3 py-2 text-sm font-semibold text-white">
-                <CheckCircle2 className="h-4 w-4" />
-                Global Admin Authority
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Global Summary */}
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <SummaryCard
-            icon={<Building2 className="h-5 w-5" />}
-            title="LGAs"
-            value={String(lgas.length || 17)}
-            description="Total LGAs covered"
-          />
-          <SummaryCard
-            icon={<MapPin className="h-5 w-5" />}
-            title="Wards"
-            value={String(totalWards || 260)}
-            description="Electoral Wards covered"
-          />
-          <SummaryCard
-            icon={<Vote className="h-5 w-5" />}
-            title="Polling Units"
-            value={String(totalPUs || 4000)}
-            description="Polling Units covered"
-          />
-          <SummaryCard
-            icon={<Users className="h-5 w-5" />}
-            title="Coverage"
-            value="100%"
-            description="State-wide visibility"
-          />
-        </div>
-
-        {/* Operations */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Global Campaign Operations</CardTitle>
-            <p className="text-sm text-gray-500">
-              Access campaign management tools across all scopes.
-            </p>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-3 md:grid-cols-2">
-              <AreaAction
-                icon={<Users className="h-5 w-5" />}
-                title="All Members"
-                description="View and manage the complete campaign member directory."
-                href="/portal/campaign/members"
-              />
-              <AreaAction
-                icon={<CheckCircle2 className="h-5 w-5" />}
-                title="Assignments"
-                description="Review and create organizational assignments across all LGAs."
-                href="/portal/campaign/assignments"
-              />
-              <AreaAction
-                icon={<Building2 className="h-5 w-5" />}
-                title="Activities"
-                description="View and coordinate state-wide campaign activities."
-                href="/portal/campaign/activities"
-              />
-              <AreaAction
-                icon={<Flag className="h-5 w-5" />}
-                title="Field Reports"
-                description="Review field reports from all electoral areas."
-                href="/portal/campaign/reports"
-              />
-            </div>
-          </CardContent>
-        </Card>
-
-        <RegisteredArea wardLabel={wardLabel} pollingUnitLabel={pollingUnitLabel} />
+      <div className="flex min-h-[50vh] items-center justify-center gap-2 text-gray-500">
+        <Loader2 className="h-5 w-5 animate-spin" />
+        Loading...
       </div>
     );
   }
 
-  /*
-   * NON-ADMIN WITHOUT ASSIGNMENT
-   */
-  if (!hasAssignment) {
+  if (gate === "no_session") {
     return (
-      <div className="space-y-6 pb-8">
-        <BackLink />
-
-        <PageHeader
-          title="My Campaign Area"
-          description="Your organizational responsibility within the campaign."
-        />
-
-        <Card className="border-yellow-200 bg-yellow-50">
-          <CardContent className="p-6">
-            <div className="flex gap-4">
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-yellow-100">
-                <ShieldCheck className="h-5 w-5 text-yellow-700" />
-              </div>
-
-              <div>
-                <h2 className="font-semibold text-yellow-900">
-                  No organizational assignment yet
-                </h2>
-
-                <p className="mt-1 max-w-2xl text-sm leading-6 text-yellow-800">
-                  Your account is registered as a campaign member, but you have
-                  not yet been assigned a campaign organizational position.
-                </p>
-
-                <p className="mt-3 text-sm text-yellow-800">
-                  Once an administrator assigns you to a campaign area, your
-                  organizational scope will appear here.
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <RegisteredArea
-          wardLabel={wardLabel}
-          pollingUnitLabel={pollingUnitLabel}
-        />
+      <div className="max-w-xl mx-auto py-16 text-center">
+        <h1 className="text-xl font-bold text-gray-900">Sign in required</h1>
+        <p className="mt-2 text-sm text-gray-500">Sign in to view your campaign area.</p>
       </div>
     );
   }
 
-  /*
-   * NON-ADMIN WITH ASSIGNMENT
-   */
-  const assignment = primaryScope.assignment!;
+  if (gate === "denied") {
+    const message =
+      denyReason === "module_disabled"
+        ? "The Campaign module is not enabled for your organization."
+        : denyReason === "social_only"
+          ? "Social accounts do not have access to Campaign."
+          : denyReason === "not_a_member"
+            ? "Your account is not linked to an organization."
+            : "You do not have access to campaign areas.";
+    return (
+      <div className="max-w-xl mx-auto py-16 text-center">
+        <h1 className="text-xl font-bold text-gray-900">Access restricted</h1>
+        <p className="mt-2 text-sm text-gray-500">{message}</p>
+        <Link
+          href="/portal"
+          className="mt-6 inline-flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+        >
+          Back to portal
+        </Link>
+      </div>
+    );
+  }
+
+  const primaryScope = area?.scopes[0] ?? null;
 
   return (
-    <div className="space-y-6 pb-8">
-      <BackLink />
+    <div className="space-y-6 pb-10">
+      {/* HEADER */}
+      <div>
+        <Link
+          href="/portal/dashboard"
+          className="mb-3 inline-flex items-center gap-2 text-sm font-medium text-gray-500 hover:text-apc-primary"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Campaign Dashboard
+        </Link>
 
-      <PageHeader
-        title="My Campaign Area"
-        description="Your organizational responsibility within the campaign."
-      />
+        <p className="text-sm font-semibold text-apc-primary">Campaign Council</p>
 
-      <Card className="overflow-hidden border-apc-primary/20">
-        <div className="bg-apc-primary px-6 py-5 text-white">
-          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-            <div>
-              <p className="text-sm font-medium text-white/70">
-                Current Organizational Position
-              </p>
+        <h1 className="mt-1 text-2xl font-bold text-gray-900 sm:text-3xl">
+          My Campaign Area
+        </h1>
 
-              <h2 className="mt-1 text-2xl font-bold">
-                {formatOrganizationalPosition(assignment.position)}
-              </h2>
-            </div>
+        <p className="mt-2 max-w-2xl text-sm leading-6 text-gray-500">
+          Your registered location and organizational operating area — resolved
+          from the Core identity system.
+        </p>
+      </div>
 
-            <div className="flex items-center gap-2 rounded-lg bg-white/10 px-3 py-2 text-sm">
-              <CheckCircle2 className="h-4 w-4" />
-              Active Assignment
-            </div>
-          </div>
-        </div>
-
-        <CardContent className="p-6">
-          <div className="grid gap-4 md:grid-cols-3">
-            <AreaInfo
-              icon={<Building2 className="h-4 w-4" />}
-              label="Organizational Scope"
-              value={formatScopeType(assignment.scope_type)}
-            />
-
-            <AreaInfo
-              icon={<MapPin className="h-4 w-4" />}
-              label="Scope"
-              value={assignment.scope_id}
-            />
-
-            <AreaInfo
-              icon={<ShieldCheck className="h-4 w-4" />}
-              label="Assignment Status"
-              value={formatAssignmentStatus(assignment.status)}
-            />
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
+      {/* REGISTERED LOCATION (§16 — distinct from organizational assignment) */}
+      <Card className="border-apc-primary/10">
         <CardHeader>
-          <CardTitle className="text-lg">Area Operations</CardTitle>
-
-          <p className="text-sm text-gray-500">
-            Campaign functions available for your organizational scope.
+          <CardTitle className="text-lg">Registered location</CardTitle>
+          <p className="mt-1 text-sm text-gray-500">
+            Where you are registered — not an organizational position.
           </p>
         </CardHeader>
-
         <CardContent>
-          <div className="grid gap-3 md:grid-cols-2">
-            <AreaAction
-              icon={<Users className="h-5 w-5" />}
-              title="Members"
-              description="View members belonging to your organizational area."
-              href="/portal/campaign/members"
-            />
-
-            <AreaAction
-              icon={<CheckCircle2 className="h-5 w-5" />}
-              title="Assignments"
-              description="Review campaign assignments associated with your area."
-              href="/portal/campaign/assignments"
-            />
-
-            <AreaAction
-              icon={<Building2 className="h-5 w-5" />}
-              title="Activities"
-              description="View campaign activities taking place in your area."
-              href="/portal/campaign/activities"
-            />
-
-            <AreaAction
-              icon={<Flag className="h-5 w-5" />}
-              title="Field Reports"
-              description="Review or submit campaign field reports."
-              href="/portal/campaign/reports"
-            />
+          <div className="grid gap-3 sm:grid-cols-3">
+            <div className="rounded-xl bg-gray-50 p-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">LGA</p>
+              <p className="mt-1 font-bold text-gray-900">{labels.lga ?? "Not set"}</p>
+            </div>
+            <div className="rounded-xl bg-gray-50 p-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">Ward</p>
+              <p className="mt-1 font-bold text-gray-900">{labels.ward ?? "Not set"}</p>
+            </div>
+            <div className="rounded-xl bg-gray-50 p-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                Polling Unit
+              </p>
+              <p className="mt-1 font-bold text-gray-900">{labels.pu ?? "Not set"}</p>
+            </div>
           </div>
         </CardContent>
       </Card>
 
-      <RegisteredArea
-        wardLabel={wardLabel}
-        pollingUnitLabel={pollingUnitLabel}
-      />
-    </div>
-  );
-}
+      {/* ORGANIZATIONAL ASSIGNMENTS (§16 — where the person operates) */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Organizational assignments</CardTitle>
+          <p className="mt-1 text-sm text-gray-500">
+            Where you operate — active positions from the Core organizational
+            model (read-only display).
+          </p>
+        </CardHeader>
+        <CardContent>
+          {(area?.scopes.length ?? 0) === 0 ? (
+            <div className="py-8 text-center">
+              <ShieldCheck className="mx-auto h-10 w-10 text-gray-300" />
+              <p className="mt-3 font-semibold text-gray-900">
+                No organizational assignment
+              </p>
+              <p className="mt-1 text-sm text-gray-500">
+                You hold no active organizational position.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {area!.scopes.map((s: ScopeRef) => (
+                <div
+                  key={`${s.scope_type}:${s.scope_id}`}
+                  className="flex items-center justify-between rounded-xl border p-4"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-apc-primary/10 text-apc-primary">
+                      <ShieldCheck className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold capitalize text-gray-900">
+                        {s.position_name.replace(/_/g, " ")}
+                      </p>
+                      <p className="mt-0.5 text-xs text-gray-500">
+                        {formatScopeType(s.scope_type)} · {s.scope_id}
+                      </p>
+                    </div>
+                  </div>
+                  <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700">
+                    active
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
-function PageHeader({ title, description }: { title: string; description: string }) {
-  return (
-    <div>
-      <p className="text-sm font-semibold text-apc-primary">Campaign Council</p>
-      <h1 className="mt-1 text-2xl font-bold text-gray-900 sm:text-3xl">{title}</h1>
-      <p className="mt-2 text-gray-600">{description}</p>
-    </div>
-  );
-}
-
-function BackLink() {
-  return (
-    <Link
-      href="/portal/dashboard"
-      className="inline-flex items-center gap-2 text-sm font-medium text-gray-500 hover:text-apc-primary"
-    >
-      <ArrowLeft className="h-4 w-4" />
-      Back to Campaign Dashboard
-    </Link>
-  );
-}
-
-function AreaInfo({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
-  return (
-    <div className="rounded-xl border bg-gray-50 p-4">
-      <div className="flex items-center gap-2 text-gray-400">
-        {icon}
-        <span className="text-xs font-semibold uppercase tracking-wide">{label}</span>
-      </div>
-      <p className="mt-2 font-semibold text-gray-900">{value}</p>
-    </div>
-  );
-}
-
-function SummaryCard({
-  icon,
-  title,
-  value,
-  description,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  value: string;
-  description: string;
-}) {
-  return (
-    <Card>
-      <CardContent className="p-5">
-        <div className="flex items-center justify-between">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-apc-primary/10 text-apc-primary">
-            {icon}
+      {/* COVERAGE SNAPSHOT — live relational geography, never client constants */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">
+            {primaryScope ? "Coverage snapshot" : "State structure"}
+          </CardTitle>
+          <p className="mt-1 text-sm text-gray-500">
+            {authority === "admin" || primaryScope?.scope_type === "state"
+              ? "The full organizational geography of the deployment."
+              : primaryScope
+                ? `The geography beneath ${formatScopeType(primaryScope.scope_type)} level.`
+                : "The deployment's organizational geography."}
+          </p>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <div className="flex items-center gap-3 rounded-xl bg-gray-50 p-4">
+              <MapPin className="h-5 w-5 text-apc-primary" />
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                  LGAs
+                </p>
+                <p className="text-xl font-bold text-gray-900">
+                  {counts?.lgas ?? "..."}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 rounded-xl bg-gray-50 p-4">
+              <Vote className="h-5 w-5 text-apc-primary" />
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                  Wards
+                </p>
+                <p className="text-xl font-bold text-gray-900">
+                  {counts?.wards ?? "..."}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 rounded-xl bg-gray-50 p-4">
+              <Users className="h-5 w-5 text-apc-primary" />
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                  Polling Units
+                </p>
+                <p className="text-xl font-bold text-gray-900">
+                  {counts?.pollingUnits ?? "..."}
+                </p>
+              </div>
+            </div>
           </div>
-          <span className="text-2xl font-bold text-gray-900">{value}</span>
-        </div>
-        <p className="mt-4 font-semibold text-gray-900">{title}</p>
-        <p className="mt-1 text-sm text-gray-500">{description}</p>
-      </CardContent>
-    </Card>
-  );
-}
-
-function AreaAction({
-  icon,
-  title,
-  description,
-  href,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  description: string;
-  href: string;
-}) {
-  return (
-    <Link
-      href={href}
-      className="group flex items-center gap-4 rounded-xl border p-4 transition-all hover:border-apc-primary/30 hover:bg-gray-50"
-    >
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-apc-primary/10 text-apc-primary">
-        {icon}
-      </div>
-      <div className="min-w-0 flex-1">
-        <p className="font-semibold text-gray-900">{title}</p>
-        <p className="mt-1 text-sm text-gray-500">{description}</p>
-      </div>
-      <ChevronRight className="h-5 w-5 shrink-0 text-gray-300 transition-transform group-hover:translate-x-1 group-hover:text-apc-primary" />
-    </Link>
-  );
-}
-
-function RegisteredArea({ wardLabel, pollingUnitLabel }: { wardLabel: string; pollingUnitLabel: string }) {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-lg">My Registered Electoral Area</CardTitle>
-        <p className="text-sm text-gray-500">
-          Your personal electoral registration is separate from your campaign organizational responsibility.
-        </p>
-      </CardHeader>
-      <CardContent>
-        <div className="grid gap-4 md:grid-cols-2">
-          <AreaInfo icon={<MapPin className="h-4 w-4" />} label="Registered Ward" value={wardLabel} />
-          <AreaInfo icon={<MapPin className="h-4 w-4" />} label="Registered Polling Unit" value={pollingUnitLabel} />
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-function CampaignAreaLoading() {
-  return (
-    <div className="space-y-6 pb-8">
-      <div className="h-5 w-40 animate-pulse rounded bg-gray-100" />
-      <div className="space-y-3">
-        <div className="h-8 w-64 animate-pulse rounded bg-gray-100" />
-        <div className="h-5 w-96 max-w-full animate-pulse rounded bg-gray-100" />
-      </div>
+        </CardContent>
+      </Card>
     </div>
   );
-}
-
-function formatAssignmentStatus(status: OrganizationalAssignment["status"]): string {
-  switch (status) {
-    case "active":
-      return "Active";
-    case "inactive":
-      return "Inactive";
-    case "suspended":
-      return "Suspended";
-    case "expired":
-      return "Expired";
-    default:
-      return status;
-  }
 }

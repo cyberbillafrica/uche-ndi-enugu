@@ -1,34 +1,45 @@
 "use client";
 
+/**
+ * POLITICORE — Admin Election Management (Phase 2 cutover: PostgreSQL).
+ *
+ * Configuration authority stays in the Election Engine (§26): cycles,
+ * contests, candidates and the ACTIVE election live in politicore.*
+ * tables governed by admin RLS policies; the active cycle+contest is
+ * set through the set_active_election RPC (admin-only, cross-tenant
+ * and cycle-membership guarded server-side). Party master data is
+ * platform-level (0014 design) — tenant admins no longer invent
+ * parties; they add CANDIDATES to contest ballots (§6), which is the
+ * relational ballot rule.
+ */
+
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/components/ui/toast";
-import { getErrorMessage } from "@/lib/errors";
 import {
+  electionErrorMessage,
+  getSupabaseClient,
+  ensureSupabaseSession,
+  resolveElectionAccess,
   getElectionCycles,
-  createElectionCycle,
-  updateElectionCycle,
   getContestsByCycle,
-  createContest,
-  updateContest,
   getPoliticalParties,
-  createPoliticalParty,
-  getElectionSettings,
-  setActiveCollationContest,
   getCandidatesByContest,
+  getElectionSettings,
+  setActiveElection,
+  createElectionCycle,
+  createContest,
   createCandidate,
-} from "@/lib/firebase/election";
-import { getAllLGAs } from "@/lib/constants";
+  updateContestStatus,
+} from "@/lib/supabase";
+import { listLgas, listZones } from "@/lib/supabase/geography";
 import type {
-  ElectionCycle,
-  ElectionContest,
-  PoliticalParty,
-  ElectionSettings,
-  ContestType,
-  ContestScopeType,
-  LGA,
   ElectionCandidate,
+  ElectionContest,
+  ElectionCycle,
+  ElectionSettings,
+  PoliticalParty,
 } from "@/types";
 import {
   Vote,
@@ -36,38 +47,42 @@ import {
   Flag,
   UserCheck,
   CheckCircle2,
-  AlertCircle,
   Plus,
   Loader2,
   Shield,
   Play,
   Pause,
   XCircle,
-  Edit2,
-  Globe,
 } from "lucide-react";
+
+type TabId = "contests" | "cycles" | "parties" | "candidates";
+
+interface GeoOption {
+  id: string;
+  name: string;
+  state_id?: string;
+}
 
 export default function AdminElectionManagementPage() {
   const router = useRouter();
   const { profile, loading: authLoading } = useAuth();
   const toast = useToast();
 
+  const [gate, setGate] = useState<"loading" | "denied" | "no_session" | "ready">("loading");
+  const [profileTenantId, setProfileTenantId] = useState<string>("");
+
   const [cycles, setCycles] = useState<ElectionCycle[]>([]);
   const [selectedCycleId, setSelectedCycleId] = useState<string>("");
   const [contests, setContests] = useState<ElectionContest[]>([]);
   const [parties, setParties] = useState<PoliticalParty[]>([]);
   const [settings, setSettings] = useState<ElectionSettings | null>(null);
-  const [lgas, setLgas] = useState<LGA[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const [activeTab, setActiveTab] = useState<
-    "contests" | "cycles" | "parties" | "candidates"
-  >("contests");
+  const [activeTab, setActiveTab] = useState<TabId>("contests");
 
-  // Form states
+  // Forms
   const [showCycleModal, setShowCycleModal] = useState(false);
   const [cycleForm, setCycleForm] = useState({
-    id: "",
     name: "",
     year: 2027,
     description: "",
@@ -77,179 +92,159 @@ export default function AdminElectionManagementPage() {
   });
 
   const [showContestModal, setShowContestModal] = useState(false);
-  const [contestForm, setContestForm] = useState({
-    id: "",
-    election_cycle_id: "",
-    contest_type: "governorship" as ContestType,
+  const [contestForm, setContestForm] = useState<{
+    name: string;
+    contest_type: ElectionContest["contest_type"];
+    scope_type: ElectionContest["scope_type"];
+    scope_id: string;
+    scope_lgas: string[];
+    state_id: string;
+    zone_id: string;
+    tracked_parties: string[];
+  }>({
     name: "",
-    scope_type: "state" as ContestScopeType,
-    scope_id: "enugu-state",
-    state_id: "enugu-state",
-    senatorial_zone_id: "",
-    selectedLgas: [] as string[],
-    tracked_parties: ["apc", "pdp", "lp", "apga", "adc"],
-    focus_party_id: "apc",
+    contest_type: "governorship",
+    scope_type: "state",
+    scope_id: "",
+    scope_lgas: [],
+    state_id: "",
+    zone_id: "",
+    tracked_parties: [],
   });
 
-  const [showPartyModal, setShowPartyModal] = useState(false);
-  const [partyForm, setPartyForm] = useState({
-    id: "",
-    acronym: "",
-    name: "",
-    color: "#1B4F72",
-    inec_registered: true,
-  });
-
-  const [selectedContestForCandidates, setSelectedContestForCandidates] =
-    useState<string>("");
+  const [selectedContestForCandidates, setSelectedContestForCandidates] = useState<string>("");
   const [candidates, setCandidates] = useState<ElectionCandidate[]>([]);
   const [showCandidateModal, setShowCandidateModal] = useState(false);
   const [candidateForm, setCandidateForm] = useState({
-    party_id: "apc",
+    party_id: "",
     candidate_name: "",
     running_mate_name: "",
   });
 
-  // Unified Election Mode Toggle (synced with the current tenant)
-  const [electionMode, setElectionMode] = useState<boolean>(true);
-
+  const [zones, setZones] = useState<GeoOption[]>([]);
+  const [lgas, setLgas] = useState<GeoOption[]>([]);
   const [submitting, setSubmitting] = useState(false);
 
-  // Auth guard
+  // ── auth + gate (admin only, §13) ──────────────────────────────────
   useEffect(() => {
-    if (authLoading) return;
-    if (!profile) {
-      router.push("/portal/auth/login");
-      return;
-    }
-    const role = profile.access_role;
-    if (
-      role !== "admin" &&
-      role !== "tenant_super_admin" &&
-      role !== "platform_super_admin"
-    ) {
-      router.push("/portal/dashboard");
-    }
+    let cancelled = false;
+    (async () => {
+      if (authLoading) return;
+      if (!profile) {
+        router.replace("/portal/auth/login");
+        return;
+      }
+      const bridge = await ensureSupabaseSession();
+      if (cancelled) return;
+      if (!bridge.sessionReady) {
+        setGate(bridge.reason === "no_session" ? "no_session" : "denied");
+        setLoading(false);
+        return;
+      }
+      const supabase = bridge.supabase ?? getSupabaseClient();
+      const access = await resolveElectionAccess(supabase);
+      if (cancelled) return;
+      if (!access.allowed || access.authority !== "admin") {
+        setGate("denied");
+        setLoading(false);
+        return;
+      }
+      setProfileTenantId(access.profile?.tenant_id ?? "");
+      setGate("ready");
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [profile, authLoading, router]);
 
-  // Load initial datasets
+  // ── initial load ───────────────────────────────────────────────────
   useEffect(() => {
-    async function loadData() {
+    if (gate !== "ready" || !profileTenantId) return;
+    let cancelled = false;
+    (async () => {
+      const supabase = getSupabaseClient();
       try {
-        const lgaData = await getAllLGAs();
-        setLgas(lgaData);
-
-        const loadedSettings = await getElectionSettings();
+        const [loadedSettings, loadedCycles, loadedParties, zoneList, lgaList] =
+          await Promise.all([
+            getElectionSettings(supabase),
+            getElectionCycles(supabase),
+            getPoliticalParties(supabase),
+            listZones(undefined, supabase),
+            listLgas({}, supabase),
+          ]);
+        if (cancelled) return;
         setSettings(loadedSettings);
-
-        // Fetch current tenant election mode setting
-        const { getCurrentTenant } = await import("@/lib/firebase/tenants");
-        const { doc, getDoc } = await import("firebase/firestore");
-        const { db } = await import("@/lib/firebase/config");
-        const tenant = await getCurrentTenant();
-        const tenantSnap = await getDoc(doc(db, "tenants", tenant.id));
-        if (tenantSnap.exists()) {
-          setElectionMode(tenantSnap.data().election_mode_enabled ?? true);
-        }
-
-        const loadedCycles = await getElectionCycles();
         setCycles(loadedCycles);
-
-        const defaultCycleId =
-          loadedSettings?.active_election_cycle_id ||
-          loadedCycles[0]?.id ||
-          "general-election-2027";
-        setSelectedCycleId(defaultCycleId);
-
-        const loadedContests = await getContestsByCycle(defaultCycleId);
-        setContests(loadedContests);
-
-        const loadedParties = await getPoliticalParties();
         setParties(loadedParties);
+        setZones(zoneList);
+        setLgas(lgaList);
+        const defaultCycleId = loadedSettings?.active_election_cycle_id || loadedCycles[0]?.id || "";
+        setSelectedCycleId(defaultCycleId);
+        if (defaultCycleId) {
+          const loadedContests = await getContestsByCycle(defaultCycleId, supabase);
+          if (cancelled) return;
+          setContests(loadedContests);
+        }
       } catch (err) {
         console.error("Failed to load admin election settings:", err);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
-    }
-    if (profile) {
-      loadData();
-    }
-  }, [profile]);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [gate, profileTenantId]);
 
   // Reload contests when cycle changes
   useEffect(() => {
-    if (!selectedCycleId) return;
-    getContestsByCycle(selectedCycleId).then((cList) => {
-      setContests(cList);
-      if (cList.length > 0 && !selectedContestForCandidates) {
-        setSelectedContestForCandidates(cList[0].id);
-      }
-    });
-  }, [selectedCycleId]);
+    if (gate !== "ready" || !selectedCycleId) return;
+    let cancelled = false;
+    getContestsByCycle(selectedCycleId, getSupabaseClient())
+      .then((cList) => {
+        if (cancelled) return;
+        setContests(cList);
+        if (cList.length > 0 && !selectedContestForCandidates) {
+          setSelectedContestForCandidates(cList[0].id);
+        }
+      })
+      .catch((err) => console.error(err));
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedCycleId, gate]);
 
   // Load candidates when contest selection changes
   useEffect(() => {
-    if (!selectedContestForCandidates) return;
-    getCandidatesByContest(selectedContestForCandidates).then((candList) => {
-      setCandidates(candList);
-    });
-  }, [selectedContestForCandidates]);
+    if (gate !== "ready" || !selectedContestForCandidates) return;
+    let cancelled = false;
+    getCandidatesByContest(selectedContestForCandidates, getSupabaseClient())
+      .then((candList) => {
+        if (!cancelled) setCandidates(candList);
+      })
+      .catch((err) => console.error(err));
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedContestForCandidates, gate]);
 
-  const handleToggleElectionMode = async (enabled: boolean) => {
-    if (!profile) return;
-    setSubmitting(true);
-    try {
-      const { getCurrentTenant } = await import("@/lib/firebase/tenants");
-      const { doc, setDoc, serverTimestamp } =
-        await import("firebase/firestore");
-      const { db } = await import("@/lib/firebase/config");
-      const tenant = await getCurrentTenant();
-      await setDoc(
-        doc(db, "tenants", tenant.id),
-        { election_mode_enabled: enabled, updated_at: serverTimestamp() },
-        { merge: true },
-      );
-      setElectionMode(enabled);
-      toast.success(
-        `Election Mode has been ${enabled ? "ENABLED" : "DISABLED"} system-wide.`,
-      );
-    } catch (err: unknown) {
-      console.error("Failed to update election mode:", err);
-      toast.error(
-        getErrorMessage(err, "We couldn't update Election Mode. Please try again."),
-      );
-    } finally {
-      setSubmitting(false);
-    }
-  };
+  // ── actions ────────────────────────────────────────────────────────
 
   const handleSetActiveContest = async (contestId: string) => {
-    if (!profile) return;
     setSubmitting(true);
     try {
-      await setActiveCollationContest({
-        activeCycleId: selectedCycleId,
-        activeContestId: contestId,
-        userId: profile.id || "admin",
-      });
-      setSettings((prev) =>
-        prev
-          ? { ...prev, active_contest_id: contestId }
-          : {
-              tenant_id: profile.tenant_id || "default",
-              active_election_cycle_id: selectedCycleId,
-              active_contest_id: contestId,
-            },
-      );
+      const updated = await setActiveElection(getSupabaseClient(), selectedCycleId, contestId);
+      setSettings(updated);
       toast.success(
         `Active collation contest set to: ${
           contests.find((c) => c.id === contestId)?.name
-        }`,
+        }`
       );
-    } catch (err: any) {
+    } catch (err) {
+      console.error(err);
       toast.error(
-        getErrorMessage(err, "We couldn't update the active contest. Please try again."),
+        electionErrorMessage(err, "We couldn't update the active contest. Please try again.")
       );
     } finally {
       setSubmitting(false);
@@ -258,39 +253,44 @@ export default function AdminElectionManagementPage() {
 
   const handleToggleContestStatus = async (
     contest: ElectionContest,
-    newStatus: ElectionContest["status"],
+    newStatus: ElectionContest["status"]
   ) => {
     try {
-      await updateContest(contest.id, { status: newStatus });
+      await updateContestStatus(getSupabaseClient(), contest.id, newStatus);
       setContests((prev) =>
-        prev.map((c) =>
-          c.id === contest.id ? { ...c, status: newStatus } : c,
-        ),
+        prev.map((c) => (c.id === contest.id ? { ...c, status: newStatus } : c))
       );
       toast.success(`Contest '${contest.name}' status changed to ${newStatus}`);
-    } catch (err: any) {
+    } catch (err) {
+      console.error(err);
       toast.error(
-        getErrorMessage(err, "We couldn't update the contest status. Please try again."),
+        electionErrorMessage(err, "We couldn't update the contest status. Please try again.")
       );
     }
   };
 
   const handleCreateCycleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!profile || !cycleForm.id || !cycleForm.name) return;
+    if (!cycleForm.name) return;
     setSubmitting(true);
     try {
-      await createElectionCycle({
-        ...cycleForm,
-        userId: profile.id || "admin",
+      await createElectionCycle(getSupabaseClient(), {
+        tenantId: profileTenantId,
+        name: cycleForm.name,
+        year: cycleForm.year,
+        description: cycleForm.description,
+        status: cycleForm.status,
+        startDate: cycleForm.start_date,
+        endDate: cycleForm.end_date,
       });
-      const updated = await getElectionCycles();
+      const updated = await getElectionCycles(getSupabaseClient());
       setCycles(updated);
       setShowCycleModal(false);
       toast.success("Election cycle created successfully.");
-    } catch (err: any) {
+    } catch (err) {
+      console.error(err);
       toast.error(
-        getErrorMessage(err, "We couldn't create the election cycle. Please try again."),
+        electionErrorMessage(err, "We couldn't create the election cycle. Please try again.")
       );
     } finally {
       setSubmitting(false);
@@ -299,59 +299,29 @@ export default function AdminElectionManagementPage() {
 
   const handleCreateContestSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!profile || !contestForm.id || !contestForm.name) return;
+    if (!contestForm.name) return;
     setSubmitting(true);
     try {
-      await createContest({
-        id: contestForm.id,
-        election_cycle_id: selectedCycleId,
-        contest_type: contestForm.contest_type,
+      await createContest(getSupabaseClient(), {
+        tenantId: profileTenantId,
+        electionCycleId: selectedCycleId,
+        contestType: contestForm.contest_type,
         name: contestForm.name,
-        scope_type: contestForm.scope_type,
-        scope_id: contestForm.scope_id,
-        state_id: contestForm.state_id,
-        senatorial_zone_id: contestForm.senatorial_zone_id,
-        lga_ids: contestForm.selectedLgas,
-        tracked_parties: contestForm.tracked_parties,
-        focus_party_id: contestForm.focus_party_id,
-        userId: profile.id || "admin",
+        scopeType: contestForm.scope_type,
+        scopeId: contestForm.scope_id || undefined,
+        scopeLgas: contestForm.scope_lgas,
+        stateId: contestForm.state_id || undefined,
+        zoneId: contestForm.zone_id || undefined,
+        trackedParties: contestForm.tracked_parties,
       });
-      const updated = await getContestsByCycle(selectedCycleId);
+      const updated = await getContestsByCycle(selectedCycleId, getSupabaseClient());
       setContests(updated);
       setShowContestModal(false);
       toast.success("Election contest created and configured successfully.");
-    } catch (err: any) {
+    } catch (err) {
+      console.error(err);
       toast.error(
-        getErrorMessage(err, "We couldn't create the contest. Please try again."),
-      );
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handleCreatePartySubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!partyForm.acronym || !partyForm.name) return;
-    const pId = partyForm.acronym.toLowerCase();
-    setSubmitting(true);
-    try {
-      await createPoliticalParty({
-        id: pId,
-        acronym: partyForm.acronym.toUpperCase(),
-        name: partyForm.name,
-        color: partyForm.color,
-        inec_registered: partyForm.inec_registered,
-        status: "active",
-      });
-      const updatedParties = await getPoliticalParties();
-      setParties(updatedParties);
-      setShowPartyModal(false);
-      toast.success(
-        `Party ${partyForm.acronym.toUpperCase()} added to the master registry.`,
-      );
-    } catch (err: any) {
-      toast.error(
-        getErrorMessage(err, "We couldn't add the party. Please try again."),
+        electionErrorMessage(err, "We couldn't create the contest. Please try again.")
       );
     } finally {
       setSubmitting(false);
@@ -360,47 +330,61 @@ export default function AdminElectionManagementPage() {
 
   const handleCreateCandidateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedContestForCandidates || !candidateForm.candidate_name) return;
+    if (!selectedContestForCandidates || !candidateForm.candidate_name || !candidateForm.party_id)
+      return;
     setSubmitting(true);
     try {
-      await createCandidate({
-        tenant_id: profile?.tenant_id || "default",
-        contest_id: selectedContestForCandidates,
-        party_id: candidateForm.party_id,
-        candidate_name: candidateForm.candidate_name,
-        running_mate_name: candidateForm.running_mate_name || undefined,
-        status: "active",
+      await createCandidate(getSupabaseClient(), {
+        tenantId: profileTenantId,
+        contestId: selectedContestForCandidates,
+        partyId: candidateForm.party_id,
+        candidateName: candidateForm.candidate_name,
+        runningMateName: candidateForm.running_mate_name || undefined,
       });
       const updatedCand = await getCandidatesByContest(
         selectedContestForCandidates,
+        getSupabaseClient()
       );
       setCandidates(updatedCand);
       setShowCandidateModal(false);
-      setCandidateForm({
-        party_id: "apc",
-        candidate_name: "",
-        running_mate_name: "",
-      });
-      toast.success("Candidate added to the contest configuration.");
-    } catch (err: any) {
+      setCandidateForm({ party_id: "", candidate_name: "", running_mate_name: "" });
+      toast.success("Candidate added to the contest ballot.");
+    } catch (err) {
+      console.error(err);
       toast.error(
-        getErrorMessage(err, "We couldn't add the candidate. Please try again."),
+        electionErrorMessage(err, "We couldn't add the candidate. Please try again.")
       );
     } finally {
       setSubmitting(false);
     }
   };
 
+  // ── render ─────────────────────────────────────────────────────────
   if (authLoading || loading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4">
         <Loader2 className="w-10 h-10 text-apc-primary animate-spin" />
-        <p className="text-gray-600 font-medium">
-          Loading Election Management Engine...
+        <p className="text-gray-600 font-medium">Loading Election Management Engine...</p>
+      </div>
+    );
+  }
+
+  if (gate === "no_session" || gate === "denied") {
+    return (
+      <div className="max-w-xl mx-auto my-12 p-8 bg-white rounded-2xl shadow-sm border border-gray-200 text-center space-y-4">
+        <div className="mx-auto w-12 h-12 rounded-full bg-red-50 border border-red-200 flex items-center justify-center text-red-600">
+          <Shield className="w-6 h-6" />
+        </div>
+        <h2 className="text-lg font-bold text-gray-900">Administrator access required</h2>
+        <p className="text-sm text-gray-600 leading-relaxed">
+          Election configuration is restricted to tenant administrators. The
+          database enforces this boundary directly.
         </p>
       </div>
     );
   }
+
+  const partyById = new Map(parties.map((p) => [p.id, p]));
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-12">
@@ -415,37 +399,16 @@ export default function AdminElectionManagementPage() {
             Election Cycles & Contest Configurator
           </h1>
           <p className="text-gray-600 text-sm mt-1">
-            Configure election events, races, INEC party masters, candidates,
-            and active collation contexts.
+            Configure election events, races, contest ballots (candidates), and
+            the active collation context.
           </p>
         </div>
 
-        {/* Unified Control Controls: Election Mode & Active Contest */}
         <div className="flex flex-col sm:flex-row gap-3">
-          <div className="bg-gray-50 border p-3 rounded-xl text-xs space-y-1">
-            <span className="text-gray-500 font-semibold block">
-              System Election Mode:
-            </span>
-            <button
-              onClick={() => handleToggleElectionMode(!electionMode)}
-              disabled={submitting}
-              className={`px-3 py-1 text-xs font-bold rounded-lg text-white transition-colors ${
-                electionMode
-                  ? "bg-emerald-600 hover:bg-emerald-700"
-                  : "bg-red-600 hover:bg-red-700"
-              }`}
-            >
-              {electionMode ? "ENABLED (Live)" : "DISABLED (Off)"}
-            </button>
-          </div>
-
           <div className="bg-apc-light border border-apc-primary/30 p-3 rounded-xl text-xs space-y-1">
-            <span className="text-gray-500 font-medium block">
-              Active Collation Contest:
-            </span>
+            <span className="text-gray-500 font-medium block">Active Collation Contest:</span>
             <span className="font-bold text-apc-primary text-sm block">
-              {contests.find((c) => c.id === settings?.active_contest_id)
-                ?.name ||
+              {contests.find((c) => c.id === settings?.active_contest_id)?.name ||
                 settings?.active_contest_id ||
                 "Not Selected"}
             </span>
@@ -457,9 +420,7 @@ export default function AdminElectionManagementPage() {
       <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <Layers className="w-5 h-5 text-apc-primary" />
-          <span className="text-sm font-bold text-gray-800">
-            Selected Election Cycle:
-          </span>
+          <span className="text-sm font-bold text-gray-800">Selected Election Cycle:</span>
           <select
             value={selectedCycleId}
             onChange={(e) => setSelectedCycleId(e.target.value)}
@@ -476,7 +437,6 @@ export default function AdminElectionManagementPage() {
         <button
           onClick={() => {
             setCycleForm({
-              id: `general-election-${Date.now()}`,
               name: "",
               year: 2027,
               description: "",
@@ -494,34 +454,20 @@ export default function AdminElectionManagementPage() {
 
       {/* Tabs */}
       <div className="flex border-b border-gray-200 gap-6">
-        {[
-          {
-            id: "contests",
-            label: `Contests & Races (${contests.length})`,
-            icon: Vote,
-          },
-          {
-            id: "parties",
-            label: `INEC Political Parties (${parties.length})`,
-            icon: Flag,
-          },
-          {
-            id: "candidates",
-            label: "Candidates Configuration",
-            icon: UserCheck,
-          },
-          {
-            id: "cycles",
-            label: `Election Cycles (${cycles.length})`,
-            icon: Layers,
-          },
-        ].map((tab) => {
+        {(
+          [
+            { id: "contests", label: `Contests & Races (${contests.length})`, icon: Vote },
+            { id: "parties", label: `INEC Political Parties (${parties.length})`, icon: Flag },
+            { id: "candidates", label: "Contest Ballot (Candidates)", icon: UserCheck },
+            { id: "cycles", label: `Election Cycles (${cycles.length})`, icon: Layers },
+          ] as Array<{ id: TabId; label: string; icon: typeof Vote }>
+        ).map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
           return (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id as any)}
+              onClick={() => setActiveTab(tab.id)}
               className={`flex items-center gap-2 py-3 px-1 border-b-2 text-sm font-bold transition-colors ${
                 isActive
                   ? "border-apc-primary text-apc-primary"
@@ -540,23 +486,19 @@ export default function AdminElectionManagementPage() {
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-bold text-gray-900">
-              Contests under{" "}
-              {cycles.find((c) => c.id === selectedCycleId)?.name}
+              Contests under {cycles.find((c) => c.id === selectedCycleId)?.name}
             </h2>
             <button
               onClick={() => {
                 setContestForm({
-                  id: `contest-${Date.now()}`,
-                  election_cycle_id: selectedCycleId,
-                  contest_type: "governorship",
                   name: "",
+                  contest_type: "governorship",
                   scope_type: "state",
-                  scope_id: "enugu-state",
-                  state_id: "enugu-state",
-                  senatorial_zone_id: "",
-                  selectedLgas: [],
-                  tracked_parties: ["apc", "pdp", "lp", "apga", "adc"],
-                  focus_party_id: "apc",
+                  scope_id: "",
+                  scope_lgas: [],
+                  state_id: "",
+                  zone_id: "",
+                  tracked_parties: [],
                 });
                 setShowContestModal(true);
               }}
@@ -569,7 +511,6 @@ export default function AdminElectionManagementPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {contests.map((c) => {
               const isActiveCollation = settings?.active_contest_id === c.id;
-
               return (
                 <div
                   key={c.id}
@@ -584,21 +525,17 @@ export default function AdminElectionManagementPage() {
                       <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide bg-gray-100 text-gray-700">
                         {c.contest_type}
                       </span>
-                      <h3 className="text-base font-bold text-gray-900 mt-1">
-                        {c.name}
-                      </h3>
+                      <h3 className="text-base font-bold text-gray-900 mt-1">{c.name}</h3>
                       <p className="text-xs text-gray-500">
-                        Scope:{" "}
-                        <span className="font-semibold">{c.scope_type}</span> (
-                        {c.scope_id})
+                        Scope: <span className="font-semibold">{c.scope_type}</span> (
+                        {c.scope_id || "state-wide"})
                       </p>
                     </div>
 
                     <div className="flex flex-col items-end gap-1">
                       {isActiveCollation ? (
                         <span className="px-2.5 py-1 text-xs font-bold rounded-full bg-apc-primary text-white flex items-center gap-1">
-                          <CheckCircle2 className="w-3.5 h-3.5" /> ACTIVE
-                          COLLATION
+                          <CheckCircle2 className="w-3.5 h-3.5" /> ACTIVE COLLATION
                         </span>
                       ) : (
                         <button
@@ -624,10 +561,10 @@ export default function AdminElectionManagementPage() {
                     </div>
                   </div>
 
-                  {/* Tracked Parties */}
+                  {/* Tracked parties — display/filter hint (ballot = candidates, §6) */}
                   <div className="border-t pt-3">
                     <span className="text-xs font-semibold text-gray-600 block mb-1.5">
-                      Tracked Parties for Entry & Analytics:
+                      Tracked Parties (display hint — ballot comes from Candidates):
                     </span>
                     <div className="flex flex-wrap gap-1.5">
                       {c.tracked_parties.map((pid) => (
@@ -641,35 +578,26 @@ export default function AdminElectionManagementPage() {
                     </div>
                   </div>
 
-                  {/* Controls */}
                   <div className="border-t pt-3 flex items-center justify-between text-xs">
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() =>
-                          handleToggleContestStatus(
-                            c,
-                            c.status === "OPEN" ? "PAUSED" : "OPEN",
-                          )
+                          handleToggleContestStatus(c, c.status === "OPEN" ? "PAUSED" : "OPEN")
                         }
                         className="p-1.5 rounded hover:bg-gray-100 text-gray-700 flex items-center gap-1 font-medium"
                       >
                         {c.status === "OPEN" ? (
                           <>
-                            <Pause className="w-3.5 h-3.5 text-amber-600" />{" "}
-                            Pause Contest
+                            <Pause className="w-3.5 h-3.5 text-amber-600" /> Pause Contest
                           </>
                         ) : (
                           <>
-                            <Play className="w-3.5 h-3.5 text-green-600" /> Open
-                            Contest
+                            <Play className="w-3.5 h-3.5 text-green-600" /> Open Contest
                           </>
                         )}
                       </button>
                     </div>
-
-                    <span className="text-gray-400 font-mono text-[11px]">
-                      ID: {c.id}
-                    </span>
+                    <span className="text-gray-400 font-mono text-[11px]">ID: {c.id.slice(0, 8)}…</span>
                   </div>
                 </div>
               );
@@ -681,27 +609,12 @@ export default function AdminElectionManagementPage() {
       {/* TAB 2: PARTIES */}
       {activeTab === "parties" && (
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-bold text-gray-900">
-              INEC Political Party Master Dataset ({parties.length})
-            </h2>
-            <button
-              onClick={() => {
-                setPartyForm({
-                  id: "",
-                  acronym: "",
-                  name: "",
-                  color: "#1B4F72",
-                  inec_registered: true,
-                });
-                setShowPartyModal(true);
-              }}
-              className="px-4 py-2 bg-apc-primary text-white text-xs font-bold rounded-lg hover:bg-apc-dark flex items-center gap-2"
-            >
-              <Plus className="w-4 h-4" /> Add Political Party
-            </button>
+          <div className="p-4 bg-sky-50 border border-sky-200 rounded-xl text-xs text-sky-900">
+            The party registry is platform-level master data seeded from the INEC
+            register (managed by platform administrators). To put a party on a
+            contest&apos;s ballot, add a <strong>Candidate</strong> in the next tab —
+            only ballot parties can receive votes.
           </div>
-
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
             {parties.map((p) => (
               <div
@@ -715,12 +628,8 @@ export default function AdminElectionManagementPage() {
                   {p.acronym}
                 </div>
                 <div>
-                  <h4 className="font-bold text-gray-900 text-sm">
-                    {p.acronym}
-                  </h4>
-                  <p className="text-[11px] text-gray-500 line-clamp-1">
-                    {p.name}
-                  </p>
+                  <h4 className="font-bold text-gray-900 text-sm">{p.acronym}</h4>
+                  <p className="text-[11px] text-gray-500 line-clamp-1">{p.name}</p>
                 </div>
                 <span className="px-2 py-0.5 text-[9px] font-bold rounded bg-green-50 text-green-700 border border-green-200">
                   INEC Registered
@@ -731,19 +640,15 @@ export default function AdminElectionManagementPage() {
         </div>
       )}
 
-      {/* TAB 3: CANDIDATES */}
+      {/* TAB 3: CANDIDATES (the contest ballot) */}
       {activeTab === "candidates" && (
         <div className="space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-4 bg-white p-4 rounded-xl border border-gray-200">
             <div className="flex items-center gap-3">
-              <span className="text-sm font-bold text-gray-800">
-                Select Contest:
-              </span>
+              <span className="text-sm font-bold text-gray-800">Select Contest:</span>
               <select
                 value={selectedContestForCandidates}
-                onChange={(e) =>
-                  setSelectedContestForCandidates(e.target.value)
-                }
+                onChange={(e) => setSelectedContestForCandidates(e.target.value)}
                 className="px-3 py-1.5 border rounded-lg text-sm font-semibold"
               >
                 {contests.map((c) => (
@@ -765,26 +670,21 @@ export default function AdminElectionManagementPage() {
           <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
             <div className="p-4 bg-gray-50 border-b font-bold text-sm text-gray-800">
               Registered Candidates for{" "}
-              {
-                contests.find((c) => c.id === selectedContestForCandidates)
-                  ?.name
-              }
+              {contests.find((c) => c.id === selectedContestForCandidates)?.name}
             </div>
             {candidates.length === 0 ? (
               <div className="p-8 text-center text-gray-500 text-sm">
-                No candidates configured for this contest yet.
+                No candidates configured for this contest yet — the ballot is
+                empty, so result submission is blocked until candidates exist.
               </div>
             ) : (
               <div className="divide-y">
                 {candidates.map((cand) => (
-                  <div
-                    key={cand.id}
-                    className="p-4 flex items-center justify-between"
-                  >
+                  <div key={cand.id} className="p-4 flex items-center justify-between">
                     <div>
                       <div className="flex items-center gap-2">
                         <span className="px-2 py-0.5 text-xs font-mono font-bold uppercase bg-gray-900 text-white rounded">
-                          {cand.party_id}
+                          {partyById.get(cand.party_id)?.acronym ?? cand.party_id.slice(0, 8)}
                         </span>
                         <span className="font-bold text-gray-900 text-sm">
                           {cand.candidate_name}
@@ -797,7 +697,7 @@ export default function AdminElectionManagementPage() {
                       )}
                     </div>
                     <span className="px-2.5 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
-                      {cand.status}
+                      active
                     </span>
                   </div>
                 ))}
@@ -816,10 +716,7 @@ export default function AdminElectionManagementPage() {
             </div>
             <div className="divide-y">
               {cycles.map((cy) => (
-                <div
-                  key={cy.id}
-                  className="p-4 flex items-center justify-between"
-                >
+                <div key={cy.id} className="p-4 flex items-center justify-between">
                   <div>
                     <h4 className="font-bold text-gray-900">{cy.name}</h4>
                     <p className="text-xs text-gray-500">{cy.description}</p>
@@ -841,24 +738,8 @@ export default function AdminElectionManagementPage() {
       {showCycleModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
           <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 space-y-4">
-            <h3 className="text-lg font-bold text-gray-900">
-              Create Election Cycle
-            </h3>
+            <h3 className="text-lg font-bold text-gray-900">Create Election Cycle</h3>
             <form onSubmit={handleCreateCycleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">
-                  Cycle ID *
-                </label>
-                <input
-                  type="text"
-                  value={cycleForm.id}
-                  onChange={(e) =>
-                    setCycleForm({ ...cycleForm, id: e.target.value })
-                  }
-                  className="w-full px-3 py-2 border rounded-lg text-xs"
-                  required
-                />
-              </div>
               <div>
                 <label className="block text-xs font-semibold text-gray-700 mb-1">
                   Cycle Name *
@@ -867,40 +748,31 @@ export default function AdminElectionManagementPage() {
                   type="text"
                   placeholder="e.g. 2027 General Elections"
                   value={cycleForm.name}
-                  onChange={(e) =>
-                    setCycleForm({ ...cycleForm, name: e.target.value })
-                  }
+                  onChange={(e) => setCycleForm({ ...cycleForm, name: e.target.value })}
                   className="w-full px-3 py-2 border rounded-lg text-xs"
                   required
                 />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">
-                    Year
-                  </label>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">Year</label>
                   <input
                     type="number"
                     value={cycleForm.year}
                     onChange={(e) =>
-                      setCycleForm({
-                        ...cycleForm,
-                        year: parseInt(e.target.value) || 2027,
-                      })
+                      setCycleForm({ ...cycleForm, year: parseInt(e.target.value) || 2027 })
                     }
                     className="w-full px-3 py-2 border rounded-lg text-xs"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">
-                    Status
-                  </label>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">Status</label>
                   <select
                     value={cycleForm.status}
                     onChange={(e) =>
                       setCycleForm({
                         ...cycleForm,
-                        status: e.target.value as any,
+                        status: e.target.value as ElectionCycle["status"],
                       })
                     }
                     className="w-full px-3 py-2 border rounded-lg text-xs"
@@ -937,25 +809,8 @@ export default function AdminElectionManagementPage() {
       {showContestModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
           <div className="bg-white rounded-2xl shadow-xl max-w-lg w-full p-6 space-y-4 max-h-[90vh] overflow-y-auto">
-            <h3 className="text-lg font-bold text-gray-900">
-              Create New Contest
-            </h3>
+            <h3 className="text-lg font-bold text-gray-900">Create New Contest</h3>
             <form onSubmit={handleCreateContestSubmit} className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">
-                  Contest ID *
-                </label>
-                <input
-                  type="text"
-                  value={contestForm.id}
-                  onChange={(e) =>
-                    setContestForm({ ...contestForm, id: e.target.value })
-                  }
-                  className="w-full px-3 py-2 border rounded-lg text-xs"
-                  required
-                />
-              </div>
-
               <div>
                 <label className="block text-xs font-semibold text-gray-700 mb-1">
                   Contest Name *
@@ -964,9 +819,7 @@ export default function AdminElectionManagementPage() {
                   type="text"
                   placeholder="e.g. 2027 Enugu Governorship Election"
                   value={contestForm.name}
-                  onChange={(e) =>
-                    setContestForm({ ...contestForm, name: e.target.value })
-                  }
+                  onChange={(e) => setContestForm({ ...contestForm, name: e.target.value })}
                   className="w-full px-3 py-2 border rounded-lg text-xs"
                   required
                 />
@@ -980,17 +833,13 @@ export default function AdminElectionManagementPage() {
                   <select
                     value={contestForm.contest_type}
                     onChange={(e) => {
-                      const ct = e.target.value as ContestType;
-                      let st: ContestScopeType = "state";
+                      const ct = e.target.value as ElectionContest["contest_type"];
+                      let st: ElectionContest["scope_type"] = "state";
                       if (ct === "presidential") st = "national";
                       if (ct === "senatorial") st = "senatorial_zone";
                       if (ct === "federal_house") st = "federal_constituency";
                       if (ct === "state_house") st = "state_constituency";
-                      setContestForm({
-                        ...contestForm,
-                        contest_type: ct,
-                        scope_type: st,
-                      });
+                      setContestForm({ ...contestForm, contest_type: ct, scope_type: st });
                     }}
                     className="w-full px-3 py-2 border rounded-lg text-xs"
                   >
@@ -1015,30 +864,80 @@ export default function AdminElectionManagementPage() {
                 </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">
-                  Scope ID / Constituency Name
-                </label>
-                <input
-                  type="text"
-                  value={contestForm.scope_id}
-                  onChange={(e) =>
-                    setContestForm({ ...contestForm, scope_id: e.target.value })
-                  }
-                  className="w-full px-3 py-2 border rounded-lg text-xs"
-                />
-              </div>
+              {(contestForm.scope_type === "state" || contestForm.scope_type === "senatorial_zone") && (
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">
+                    {contestForm.scope_type === "state" ? "State" : "Senatorial Zone"} *
+                  </label>
+                  <select
+                    value={contestForm.scope_id}
+                    onChange={(e) =>
+                      setContestForm({
+                        ...contestForm,
+                        scope_id: e.target.value,
+                        zone_id:
+                          contestForm.scope_type === "senatorial_zone" ? e.target.value : "",
+                        state_id:
+                          contestForm.scope_type === "state" ? e.target.value : contestForm.state_id,
+                      })
+                    }
+                    className="w-full px-3 py-2 border rounded-lg text-xs"
+                    required
+                  >
+                    <option value="">Select…</option>
+                    {(contestForm.scope_type === "state"
+                      ? lgas.length > 0
+                        ? [{ id: lgas[0].state_id ?? "enugu-state", name: "Enugu State" }]
+                        : []
+                      : zones
+                    ).map((o) => (
+                      <option key={o.id} value={o.id}>
+                        {o.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
-              {/* Tracked Parties Selection */}
+              {(contestForm.scope_type === "federal_constituency" ||
+                contestForm.scope_type === "state_constituency") && (
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">
+                    Constituency LGAs * (at least one)
+                  </label>
+                  <div className="flex flex-wrap gap-2 bg-gray-50 p-3 rounded-lg border max-h-32 overflow-y-auto">
+                    {lgas.map((l) => {
+                      const checked = contestForm.scope_lgas.includes(l.id);
+                      return (
+                        <label key={l.id} className="flex items-center gap-1.5 text-xs font-medium cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={(e) =>
+                              setContestForm({
+                                ...contestForm,
+                                scope_lgas: e.target.checked
+                                  ? [...contestForm.scope_lgas, l.id]
+                                  : contestForm.scope_lgas.filter((x) => x !== l.id),
+                              })
+                            }
+                            className="rounded text-apc-primary"
+                          />
+                          <span>{l.name}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
               <div>
                 <label className="block text-xs font-semibold text-gray-700 mb-1">
-                  Select Tracked Parties for this Contest
+                  Tracked Parties (display hint)
                 </label>
                 <div className="flex flex-wrap gap-2 bg-gray-50 p-3 rounded-lg border max-h-32 overflow-y-auto">
                   {parties.map((p) => {
-                    const isChecked = contestForm.tracked_parties.includes(
-                      p.id,
-                    );
+                    const isChecked = contestForm.tracked_parties.includes(p.acronym);
                     return (
                       <label
                         key={p.id}
@@ -1047,25 +946,14 @@ export default function AdminElectionManagementPage() {
                         <input
                           type="checkbox"
                           checked={isChecked}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setContestForm({
-                                ...contestForm,
-                                tracked_parties: [
-                                  ...contestForm.tracked_parties,
-                                  p.id,
-                                ],
-                              });
-                            } else {
-                              setContestForm({
-                                ...contestForm,
-                                tracked_parties:
-                                  contestForm.tracked_parties.filter(
-                                    (x) => x !== p.id,
-                                  ),
-                              });
-                            }
-                          }}
+                          onChange={(e) =>
+                            setContestForm({
+                              ...contestForm,
+                              tracked_parties: e.target.checked
+                                ? [...contestForm.tracked_parties, p.acronym]
+                                : contestForm.tracked_parties.filter((x) => x !== p.acronym),
+                            })
+                          }
                           className="rounded text-apc-primary"
                         />
                         <span>{p.acronym}</span>
@@ -1096,103 +984,21 @@ export default function AdminElectionManagementPage() {
         </div>
       )}
 
-      {/* CREATE PARTY MODAL */}
-      {showPartyModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 space-y-4">
-            <h3 className="text-lg font-bold text-gray-900">
-              Add Political Party to Master
-            </h3>
-            <form onSubmit={handleCreatePartySubmit} className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">
-                  Party Acronym *
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g. LP, APC, PDP"
-                  value={partyForm.acronym}
-                  onChange={(e) =>
-                    setPartyForm({ ...partyForm, acronym: e.target.value })
-                  }
-                  className="w-full px-3 py-2 border rounded-lg text-xs uppercase"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">
-                  Official Party Name *
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g. Labour Party"
-                  value={partyForm.name}
-                  onChange={(e) =>
-                    setPartyForm({ ...partyForm, name: e.target.value })
-                  }
-                  className="w-full px-3 py-2 border rounded-lg text-xs"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">
-                  Brand Color Code
-                </label>
-                <input
-                  type="color"
-                  value={partyForm.color}
-                  onChange={(e) =>
-                    setPartyForm({ ...partyForm, color: e.target.value })
-                  }
-                  className="h-10 w-full p-1 border rounded-lg cursor-pointer"
-                />
-              </div>
-
-              <div className="flex justify-end gap-2 pt-2 border-t">
-                <button
-                  type="button"
-                  onClick={() => setShowPartyModal(false)}
-                  className="px-4 py-2 text-xs font-semibold text-gray-600 hover:text-gray-900"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className="px-4 py-2 text-xs font-bold bg-apc-primary text-white rounded-lg hover:bg-apc-dark"
-                >
-                  Save Party
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
       {/* CREATE CANDIDATE MODAL */}
       {showCandidateModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
           <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 space-y-4">
-            <h3 className="text-lg font-bold text-gray-900">
-              Add Contest Candidate
-            </h3>
+            <h3 className="text-lg font-bold text-gray-900">Add Contest Candidate (Ballot Entry)</h3>
             <form onSubmit={handleCreateCandidateSubmit} className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">
-                  Party
-                </label>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">Party *</label>
                 <select
                   value={candidateForm.party_id}
-                  onChange={(e) =>
-                    setCandidateForm({
-                      ...candidateForm,
-                      party_id: e.target.value,
-                    })
-                  }
+                  onChange={(e) => setCandidateForm({ ...candidateForm, party_id: e.target.value })}
                   className="w-full px-3 py-2 border rounded-lg text-xs"
+                  required
                 >
+                  <option value="">Select party…</option>
                   {parties.map((p) => (
                     <option key={p.id} value={p.id}>
                       {p.acronym} — {p.name}
@@ -1210,10 +1016,7 @@ export default function AdminElectionManagementPage() {
                   placeholder="e.g. Dr. Ifeanyi Nkanu"
                   value={candidateForm.candidate_name}
                   onChange={(e) =>
-                    setCandidateForm({
-                      ...candidateForm,
-                      candidate_name: e.target.value,
-                    })
+                    setCandidateForm({ ...candidateForm, candidate_name: e.target.value })
                   }
                   className="w-full px-3 py-2 border rounded-lg text-xs"
                   required
@@ -1229,10 +1032,7 @@ export default function AdminElectionManagementPage() {
                   placeholder="e.g. Chief John Doe"
                   value={candidateForm.running_mate_name}
                   onChange={(e) =>
-                    setCandidateForm({
-                      ...candidateForm,
-                      running_mate_name: e.target.value,
-                    })
+                    setCandidateForm({ ...candidateForm, running_mate_name: e.target.value })
                   }
                   className="w-full px-3 py-2 border rounded-lg text-xs"
                 />

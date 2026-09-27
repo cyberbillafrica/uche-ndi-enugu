@@ -1,26 +1,38 @@
 "use client";
 
-import { useState, useEffect } from "react";
+/**
+ * POLITICORE — Result Submission (Phase 2 cutover: PostgreSQL/Supabase).
+ *
+ * The §9 flow end-to-end:
+ *   1. active cycle + contest from election_settings (§8, no fallback);
+ *   2. PU identified via the relational geography services (§18 — the
+ *      server re-derives all geography from the PU id);
+ *   3. the contest BALLOT is the candidate list (§6 — party_id identity);
+ *   4. vote counts validated client-side for usability only (the RPC is
+ *      the security boundary);
+ *   5. evidence uploaded through the Media Service route (R2, §10);
+ *   6. submit_election_result RPC; the authoritative resulting state is
+ *      displayed (resubmission rules enforced by the database, §11).
+ */
+
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/components/ui/toast";
-import { getErrorMessage } from "@/lib/errors";
 import { HelpLink } from "@/components/help/HelpLink";
 import {
-  submitElectionResultWithEvidence,
+  electionErrorMessage,
+  getSupabaseClient,
+  ensureSupabaseSession,
+  resolveElectionAccess,
+  getActiveElection,
   getElectionCycles,
   getContestsByCycle,
+  getCandidatesByContest,
   getPoliticalParties,
-  getElectionSettings,
-} from "@/lib/firebase/election";
-import { uploadToCloudinary } from "@/lib/cloudinary";
-import { getAllLGAs } from "@/lib/constants";
-import type {
-  LGA,
-  ElectionCycle,
-  ElectionContest,
-  PoliticalParty,
-} from "@/types";
+  submitElectionResult,
+  uploadElectionEvidence,
+} from "@/lib/supabase";
+import { listWards, listPollingUnits, listLgas } from "@/lib/supabase/geography";
 import {
   Upload,
   Loader2,
@@ -30,154 +42,229 @@ import {
   Vote,
   ShieldAlert,
 } from "lucide-react";
+import type {
+  ElectionCandidate,
+  ElectionContest,
+  ElectionCycle,
+  PoliticalParty,
+} from "@/types";
+
+interface BallotEntry {
+  party_id: string;
+  acronym: string;
+  name: string;
+  votes: number;
+}
+
+interface GeoOption {
+  id: string;
+  name: string;
+  code?: string;
+}
 
 export default function ElectionUploadPage() {
   const router = useRouter();
-  const { profile, loading: authLoading } = useAuth();
   const toast = useToast();
 
-  useEffect(() => {
-    if (authLoading) return;
+  const [gate, setGate] = useState<"loading" | "denied" | "no_session" | "ready">("loading");
+  const [tenantWide, setTenantWide] = useState(false);
+  const [registered, setRegistered] = useState<{ wardId: string | null; puId: string | null }>({
+    wardId: null,
+    puId: null,
+  });
 
-    if (!profile) {
-      router.replace("/portal/auth/login");
-      return;
-    }
-
-    const isSocialOnly =
-      profile?.membership_types?.includes("social_member") &&
-      !profile?.membership_types?.includes("campaign_member") &&
-      profile.access_role !== "election_officer" &&
-      profile.access_role !== "admin" &&
-      profile.access_role !== "tenant_super_admin" &&
-      profile.access_role !== "platform_super_admin";
-
-    if (isSocialOnly) {
-      router.replace("/portal/dashboard");
-    }
-  }, [profile, authLoading, router]);
-
-  const isAdminOrElectionOfficer =
-    profile?.access_role === "admin" ||
-    profile?.access_role === "tenant_super_admin" ||
-    profile?.access_role === "platform_super_admin" ||
-    profile?.access_role === "election_officer";
-
-  const [lgas, setLgas] = useState<LGA[]>([]);
   const [cycles, setCycles] = useState<ElectionCycle[]>([]);
   const [contests, setContests] = useState<ElectionContest[]>([]);
-  const [allParties, setAllParties] = useState<PoliticalParty[]>([]);
+  const [parties, setParties] = useState<PoliticalParty[]>([]);
+  const [candidates, setCandidates] = useState<ElectionCandidate[]>([]);
 
   const [selectedCycleId, setSelectedCycleId] = useState<string>("");
   const [selectedContestId, setSelectedContestId] = useState<string>("");
 
-  const [form, setForm] = useState({
-    lga_id: profile?.lga_id ?? "nkanu-west",
-    ward_id: isAdminOrElectionOfficer ? "" : (profile?.ward_id ?? ""),
-    polling_unit_id: isAdminOrElectionOfficer
-      ? ""
-      : (profile?.polling_unit_id ?? ""),
-  });
+  // Geography cascade (relational geography, §18)
+  const [lgaChoices, setLgaChoices] = useState<GeoOption[]>([]);
+  const [lgaId, setLgaId] = useState<string>("");
+  const [wards, setWards] = useState<GeoOption[]>([]);
+  const [wardId, setWardId] = useState<string>("");
+  const [pollingUnits, setPollingUnits] = useState<GeoOption[]>([]);
+  const [pollingUnitId, setPollingUnitId] = useState<string>("");
 
-  // Dynamic party vote entries based on active contest configuration
-  const [partyVotes, setPartyVotes] = useState<Record<string, number>>({});
-
+  const [ballot, setBallot] = useState<BallotEntry[]>([]);
   const [evidenceFile, setEvidenceFile] = useState<File | null>(null);
   const [evidencePreview, setEvidencePreview] = useState<string | null>(null);
 
   const [submitting, setSubmitting] = useState(false);
   const [loadingConfig, setLoadingConfig] = useState(true);
+  const [submittedState, setSubmittedState] = useState<string | null>(null);
 
-  // Load LGAs, Cycles, Contests, Parties & Active Settings
+  // ── access gate ────────────────────────────────────────────────────
   useEffect(() => {
-    async function initData() {
+    let cancelled = false;
+    (async () => {
+      const bridge = await ensureSupabaseSession();
+      if (cancelled) return;
+      if (!bridge.sessionReady) {
+        setGate(bridge.reason === "no_session" ? "no_session" : "denied");
+        setLoadingConfig(false);
+        return;
+      }
+      const supabase = bridge.supabase ?? getSupabaseClient();
+      // Upload requires Election authority (officer/admin/scope/registered member).
+      const access = await resolveElectionAccess(supabase, { requireAuthority: true });
+      if (cancelled) return;
+      if (!access.allowed) {
+        setGate("denied");
+        setLoadingConfig(false);
+        return;
+      }
+      setTenantWide(access.tenantWide);
+      setRegistered({ wardId: access.wardId, puId: access.pollingUnitId });
+      setGate("ready");
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [router]);
+
+  // ── active election + parties (§8) ─────────────────────────────────
+  useEffect(() => {
+    if (gate !== "ready") return;
+    let cancelled = false;
+    (async () => {
+      const supabase = getSupabaseClient();
       try {
-        const lgaData = await getAllLGAs();
-        setLgas(lgaData);
-
-        const loadedSettings = await getElectionSettings();
-        const loadedCycles = await getElectionCycles();
-        setCycles(loadedCycles);
-
-        const defaultCycleId =
-          loadedSettings?.active_election_cycle_id ||
-          loadedCycles[0]?.id ||
-          "general-election-2027";
-        setSelectedCycleId(defaultCycleId);
-
-        const loadedContests = await getContestsByCycle(defaultCycleId);
-        setContests(loadedContests);
-
-        const activeContestId =
-          loadedSettings?.active_contest_id || loadedContests[0]?.id || "";
-        setSelectedContestId(activeContestId);
-
-        const loadedParties = await getPoliticalParties();
-        setAllParties(loadedParties);
+        const [active, partyList] = await Promise.all([
+          getActiveElection(supabase),
+          getPoliticalParties(supabase),
+        ]);
+        if (cancelled) return;
+        setParties(partyList);
+        if (!active.cycle || !active.contest) {
+          setLoadingConfig(false);
+          return;
+        }
+        const cycs = await getElectionCycles(supabase);
+        if (cancelled) return;
+        setCycles(cycs);
+        setSelectedCycleId(active.cycle.id);
+        const cList = await getContestsByCycle(active.cycle.id, supabase);
+        if (cancelled) return;
+        setContests(cList);
+        setSelectedContestId(active.contest.id);
       } catch (err) {
         console.error("Failed to load upload configuration:", err);
       } finally {
-        setLoadingConfig(false);
+        if (!cancelled) setLoadingConfig(false);
       }
-    }
-    initData();
-  }, []);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [gate]);
 
-  // Update contests when cycle changes
+  // ── cycle switch: reload contests ──────────────────────────────────
   useEffect(() => {
-    if (!selectedCycleId) return;
-    getContestsByCycle(selectedCycleId).then((cList) => {
+    if (gate !== "ready" || !selectedCycleId) return;
+    let cancelled = false;
+    (async () => {
+      const supabase = getSupabaseClient();
+      const cList = await getContestsByCycle(selectedCycleId, supabase).catch(() => []);
+      if (cancelled) return;
       setContests(cList);
       if (cList.length > 0 && !cList.some((c) => c.id === selectedContestId)) {
         setSelectedContestId(cList[0].id);
       }
-    });
-  }, [selectedCycleId]);
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedCycleId, gate]);
 
-  // Selected Contest Details & Tracked Parties
-  const currentContest = contests.find((c) => c.id === selectedContestId);
-  const currentCycle = cycles.find((c) => c.id === selectedCycleId);
+  // ── contest switch: load the contest BALLOT (§6/§9 step 4) ─────────
+  const currentContest = contests.find((c) => c.id === selectedContestId) ?? null;
+  const currentCycle = cycles.find((c) => c.id === selectedCycleId) ?? null;
 
-  const trackedPartiesList = currentContest?.tracked_parties ?? [];
-
-  const trackedPartyObjects = trackedPartiesList.map((pid) => {
-    const pObj = allParties.find(
-      (p) => p.id === pid.toLowerCase() || p.acronym.toLowerCase() === pid.toLowerCase()
-    );
-    return (
-      pObj || {
-        id: pid,
-        acronym: pid.toUpperCase(),
-        name: pid.toUpperCase(),
-        inec_registered: true,
-        status: "active" as const,
-      }
-    );
-  });
-
-  // Reset/Initialize party vote object when contest changes
-  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
-    if (!currentContest) return;
-    const initialVotes: Record<string, number> = {};
-    for (const p of trackedPartyObjects) {
-      initialVotes[p.id] = 0;
+    if (gate !== "ready" || !selectedContestId) return;
+    let cancelled = false;
+    (async () => {
+      const supabase = getSupabaseClient();
+      const cands = await getCandidatesByContest(selectedContestId, supabase).catch(() => []);
+      if (cancelled) return;
+      setCandidates(cands);
+      // Ballot = contest candidates (party_id authoritative; acronym/name display only).
+      const byParty = new Map<string, ElectionCandidate>();
+      for (const c of cands) if (!byParty.has(c.party_id)) byParty.set(c.party_id, c);
+      setBallot(
+        Array.from(byParty.values()).map((c) => {
+          const p = parties.find((pp) => pp.id === c.party_id);
+          return {
+            party_id: c.party_id,
+            acronym: p?.acronym ?? c.candidate_name,
+            name: p?.name ?? c.candidate_name,
+            votes: 0,
+          };
+        })
+      );
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedContestId, gate, parties]);
+
+  // ── LGA choices for tenant-wide submitters (UX hint only — the RPC
+  //    re-validates PU ∈ contest.scope authoritatively, §19) ──────────
+  useEffect(() => {
+    if (gate !== "ready" || !tenantWide) return;
+    let cancelled = false;
+    (async () => {
+      const supabase = getSupabaseClient();
+      const all = await listLgas({}, supabase).catch(() => []);
+      if (cancelled) return;
+      const scopeLgas: string[] =
+        (currentContest as unknown as { lga_ids?: string[] } | null)?.lga_ids ?? [];
+      setLgaChoices(scopeLgas.length > 0 ? all.filter((l) => scopeLgas.includes(l.id)) : all);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [gate, tenantWide, currentContest]);
+
+  // Wards of the selected LGA (the empty-reset lives in the LGA
+  // onChange handler, not here, so no synchronous setState in effect)
+  useEffect(() => {
+    if (!tenantWide || !lgaId) return;
+    let cancelled = false;
+    (async () => {
+      const w = await listWards(lgaId, getSupabaseClient()).catch(() => []);
+      if (!cancelled) setWards(w);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [lgaId, tenantWide]);
+
+  // PUs of the selected ward
+  useEffect(() => {
+    if (!tenantWide || !wardId) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- clearing a dependent list when its parent selection empties is synchronous by design
+      setPollingUnits([]);
+      return;
     }
-    setPartyVotes(initialVotes);
-  }, [selectedContestId, currentContest, trackedPartyObjects]);
-  /* eslint-enable react-hooks/set-state-in-effect */
+    let cancelled = false;
+    (async () => {
+      const pus = await listPollingUnits(wardId, getSupabaseClient()).catch(() => []);
+      if (!cancelled) setPollingUnits(pus);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [wardId, tenantWide]);
 
-  const selectedLga = lgas.find((lga) => lga.id === form.lga_id);
-  const wards = selectedLga?.wards ?? [];
-
-  const selectedWard = wards.find((ward) => ward.id === form.ward_id);
-  const pollingUnits = selectedWard?.pollingUnits ?? [];
-
-  // Resolved names for member reporting area
-  const memberLga = lgas.find((lga) => lga.id === (profile?.lga_id ?? "nkanu-west"));
-  const memberWard = memberLga?.wards.find((w) => w.id === profile?.ward_id);
-  const memberPollingUnit = memberWard?.pollingUnits.find(
-    (pu) => pu.id === profile?.polling_unit_id,
+  const totalVotes = useMemo(
+    () => ballot.reduce((sum, b) => sum + (b.votes || 0), 0),
+    [ballot]
   );
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -191,132 +278,73 @@ export default function ElectionUploadPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!selectedContestId || !currentContest) {
+    if (!currentContest) {
       toast.warning("Please select the active election contest first.");
       return;
     }
-
-    if (!form.ward_id || !form.polling_unit_id) {
-      toast.warning("Please select your ward and polling unit.");
-      return;
-    }
-
-    if (!evidenceFile) {
+    if (currentContest.status !== "OPEN") {
       toast.warning(
-        "Please attach a clear photo of the Form EC8 / official result sheet — this evidence is required.",
+        `Contest "${currentContest.name}" is ${currentContest.status} and not open for submissions.`
       );
       return;
     }
-
-    // Non-privileged users can only submit for their own registered ward/PU
-    if (!isAdminOrElectionOfficer) {
-      if (
-        form.ward_id !== profile?.ward_id ||
-        form.polling_unit_id !== profile?.polling_unit_id
-      ) {
-        toast.error(
-          "You can only submit results for your registered ward and polling unit.",
-        );
-        return;
-      }
+    if (!pollingUnitId) {
+      toast.warning("Please select your polling unit.");
+      return;
     }
-
-    // Validate polling unit belongs to contest scope
-    const parentLgaId = form.lga_id;
-    if ((currentContest.scope_type as string) === "lga") {
-      if (
-        parentLgaId &&
-        currentContest.scope_id &&
-        parentLgaId.toLowerCase() !== currentContest.scope_id.toLowerCase()
-      ) {
-        toast.warning(
-          "This polling unit is not within the scope of the selected contest.",
-        );
-        return;
-      }
-    } else if (
-      currentContest.scope_type === "federal_constituency" ||
-      currentContest.scope_type === "state_constituency"
-    ) {
-      if (
-        currentContest.lga_ids &&
-        currentContest.lga_ids.length > 0 &&
-        parentLgaId &&
-        !currentContest.lga_ids.some(
-          (id) => id.toLowerCase() === parentLgaId.toLowerCase()
-        )
-      ) {
-        toast.warning(
-          "This polling unit is not within the scope of the selected contest.",
-        );
-        return;
-      }
+    if (!evidenceFile) {
+      toast.warning(
+        "Please attach a clear photo of the Form EC8 / official result sheet — this evidence is required."
+      );
+      return;
     }
-
-    // Format party vote payload
-    const formattedResults = Object.entries(partyVotes)
-      .map(([party, votes]) => ({ party, votes: Number(votes) || 0 }))
-      .filter((r) => r.votes > 0);
-
-    if (formattedResults.length === 0) {
-      toast.warning("Please enter at least one valid non-zero party vote count.");
+    if (ballot.length === 0) {
+      toast.warning("This contest has no candidate ballot configured.");
+      return;
+    }
+    // Usability-only validation; the database is the authority (§9 step 6).
+    if (totalVotes === 0) {
+      toast.warning("Please enter at least one non-zero party vote count.");
+      return;
+    }
+    if (ballot.some((b) => b.votes < 0)) {
+      toast.error("Vote counts must be zero or positive.");
       return;
     }
 
     setSubmitting(true);
     try {
-      // 1. Upload Form EC8 image to Cloudinary (folder: "ifeanyi-2027/election-results")
-      let cloudinaryUrl: string | null = null;
-      try {
-        cloudinaryUrl = await uploadToCloudinary(
-          evidenceFile,
-          "ifeanyi-2027/election-results"
-        );
-      } catch (uploadErr: unknown) {
-        const err = uploadErr as Error;
-        console.error("Cloudinary upload error:", uploadErr);
-        throw new Error(err.message || "Failed to upload Form EC8 image.");
-      }
+      // 1. Evidence through the Media Service (R2) — never Cloudinary (§10).
+      const { assetId } = await uploadElectionEvidence(evidenceFile);
 
-      if (!cloudinaryUrl) {
-        throw new Error("Form EC8 photo upload failed. Please try again.");
-      }
-
-      // 2. Submit contest-aware result + evidence metadata to Firestore
-      await submitElectionResultWithEvidence({
-        electionCycleId: selectedCycleId,
+      // 2. Authoritative submission through the RPC; the DB validates the
+      //    ballot, scope, state guard, and returns the resulting state.
+      const outcome = await submitElectionResult(getSupabaseClient(), {
         contestId: selectedContestId,
-        contestType: currentContest.contest_type,
-        contestScope: {
-          scope_type: currentContest.scope_type,
-          scope_id: currentContest.scope_id,
-        },
-        lgaId: form.lga_id,
-        wardId: form.ward_id,
-        pollingUnitId: form.polling_unit_id,
-        stateId: currentContest.state_id || "enugu-state",
-        senatorialZoneId: currentContest.senatorial_zone_id || null,
-        results: formattedResults,
-        userId: profile?.id || "unknown",
-        cloudinaryUrl,
+        pollingUnitId,
+        votes: ballot.map((b) => ({ party_id: b.party_id, votes: b.votes })),
+        evidenceAssetId: assetId,
       });
 
+      setSubmittedState(outcome.status);
       toast.success(
-        `Results for ${currentContest.name} submitted with Form EC8 evidence. They now await Election Officer verification.`,
+        `Result submitted for ${currentContest.name} — status: ${outcome.status}. It now awaits Election Officer verification.`
       );
       setEvidenceFile(null);
       setEvidencePreview(null);
-    } catch (err: unknown) {
+      setBallot((prev) => prev.map((b) => ({ ...b, votes: 0 })));
+    } catch (err) {
       console.error("Submission failed:", err);
       toast.error(
-        getErrorMessage(err, "We couldn't submit the result. Please try again."),
+        electionErrorMessage(err, "We couldn't submit the result. Please try again.")
       );
     } finally {
       setSubmitting(false);
     }
   };
 
-  if (loadingConfig) {
+  // ── render states ──────────────────────────────────────────────────
+  if (gate === "loading" || loadingConfig) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[50vh] space-y-3">
         <Loader2 className="h-8 w-8 animate-spin text-apc-primary" />
@@ -325,7 +353,38 @@ export default function ElectionUploadPage() {
     );
   }
 
-  if (contests.length === 0) {
+  if (gate === "no_session") {
+    return (
+      <div className="max-w-xl mx-auto my-12 p-8 bg-white rounded-2xl shadow-sm border border-gray-200 text-center space-y-4">
+        <AlertCircle className="w-10 h-10 text-amber-500 mx-auto" />
+        <h2 className="text-lg font-bold text-gray-900">Sign in required</h2>
+        <button
+          onClick={() => router.replace("/portal/auth/login")}
+          className="px-4 py-2 text-sm font-semibold rounded-lg bg-apc-primary text-white"
+        >
+          Go to sign in
+        </button>
+      </div>
+    );
+  }
+
+  if (gate === "denied") {
+    return (
+      <div className="max-w-xl mx-auto my-12 p-8 bg-white rounded-2xl shadow-sm border border-gray-200 text-center space-y-4">
+        <div className="mx-auto w-12 h-12 rounded-full bg-red-50 border border-red-200 flex items-center justify-center text-red-600">
+          <ShieldAlert className="w-6 h-6" />
+        </div>
+        <h2 className="text-lg font-bold text-gray-900">Submission not authorized</h2>
+        <p className="text-sm text-gray-600 leading-relaxed">
+          Your account cannot submit election results — you need an Election
+          authority (an explicit grant, an organizational scope, or a registered
+          polling unit). The database enforces this regardless of the URL.
+        </p>
+      </div>
+    );
+  }
+
+  if (contests.length === 0 || !currentContest) {
     return (
       <div className="max-w-xl mx-auto my-12 p-8 bg-white rounded-2xl shadow-sm border border-gray-200 text-center space-y-4">
         <div className="mx-auto w-12 h-12 rounded-full bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600">
@@ -333,8 +392,29 @@ export default function ElectionUploadPage() {
         </div>
         <h2 className="text-lg font-bold text-gray-900">No Open Contests Active</h2>
         <p className="text-sm text-gray-600 leading-relaxed">
-          No open election contests are currently active for result collation. Please check back later or contact your Campaign Administrator.
+          No open election contests are currently active for result collation.
+          Please check back later or contact your administrator.
         </p>
+      </div>
+    );
+  }
+
+  if (submittedState) {
+    return (
+      <div className="max-w-xl mx-auto my-12 p-8 bg-white rounded-2xl shadow-sm border border-gray-200 text-center space-y-4">
+        <CheckCircle2 className="w-10 h-10 text-emerald-500 mx-auto" />
+        <h2 className="text-lg font-bold text-gray-900">Result Submitted</h2>
+        <p className="text-sm text-gray-600 leading-relaxed">
+          Status: <strong>{submittedState}</strong>. You can resubmit corrections
+          while the result is not yet approved; an approved result must be
+          reopened by a verifier or corrected by an administrator first.
+        </p>
+        <button
+          onClick={() => setSubmittedState(null)}
+          className="px-4 py-2 text-sm font-semibold rounded-lg bg-apc-primary text-white"
+        >
+          Submit another result
+        </button>
       </div>
     );
   }
@@ -357,38 +437,31 @@ export default function ElectionUploadPage() {
         </p>
       </div>
 
-      {/* Prominent Election & Contest Header Specs (Sec 20 Requirement) */}
+      {/* Active Cycle + Contest header (§7) */}
       <div className="bg-slate-900 text-white p-5 rounded-2xl shadow-md space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-700 pb-3">
           <div>
-            <span className="text-xs uppercase text-slate-400 block">
-              Election Cycle
-            </span>
+            <span className="text-xs uppercase text-slate-400 block">Election Cycle</span>
             <span className="font-bold text-base text-white">
-              {currentCycle?.name || "2027 General Election"}
+              {currentCycle?.name || "—"}
             </span>
           </div>
-
           <div>
-            <span className="text-xs uppercase text-slate-400 block">
-              Active Contest
-            </span>
+            <span className="text-xs uppercase text-slate-400 block">Active Contest</span>
             <span className="font-bold text-base text-apc-light">
               {currentContest?.name || "Select Contest"}
             </span>
           </div>
-
           <div>
             <span className="text-xs uppercase text-slate-400 block">
               Scope / Constituency
             </span>
             <span className="font-mono text-xs bg-slate-800 px-2.5 py-1 rounded text-emerald-400">
-              {currentContest?.scope_type}: {currentContest?.scope_id}
+              {currentContest?.scope_type}: {currentContest?.scope_id || "state-wide"}
             </span>
           </div>
         </div>
 
-        {/* Contest Switchers */}
         <div className="grid sm:grid-cols-2 gap-4 text-xs pt-1">
           <div>
             <label className="text-slate-300 block mb-1">Select Election Cycle:</label>
@@ -404,11 +477,8 @@ export default function ElectionUploadPage() {
               ))}
             </select>
           </div>
-
           <div>
-            <label className="text-slate-300 block mb-1">
-              Select Open Contest:
-            </label>
+            <label className="text-slate-300 block mb-1">Select Open Contest:</label>
             <select
               value={selectedContestId}
               onChange={(e) => setSelectedContestId(e.target.value)}
@@ -424,18 +494,13 @@ export default function ElectionUploadPage() {
         </div>
       </div>
 
-      {!isAdminOrElectionOfficer && (
+      {!tenantWide && (
         <div className="p-4 bg-apc-light text-apc-primary rounded-xl border border-apc-primary/20 text-xs space-y-1">
           <p className="font-bold text-sm">Your Registered Polling Unit Scope</p>
           <p>
-            <span className="font-semibold">LGA:</span>{" "}
-            {memberLga ? memberLga.name : "Not set"} |{" "}
-            <span className="font-semibold">Ward:</span>{" "}
-            {memberWard ? `${memberWard.code} — ${memberWard.name}` : "Not set"} |{" "}
+            <span className="font-semibold">Ward:</span> {registered.wardId ?? "Not set"} |{" "}
             <span className="font-semibold">Polling Unit:</span>{" "}
-            {memberPollingUnit
-              ? `${memberPollingUnit.code} — ${memberPollingUnit.name}`
-              : "Not set"}
+            {registered.puId ?? "Not set"}
           </p>
         </div>
       )}
@@ -444,28 +509,24 @@ export default function ElectionUploadPage() {
         onSubmit={handleSubmit}
         className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 sm:p-8 space-y-6"
       >
-        {/* Geographic Location Selection */}
-        {isAdminOrElectionOfficer ? (
+        {/* Geographic Location Selection (relational geography, §18) */}
+        {tenantWide ? (
           <div className="grid md:grid-cols-3 gap-4">
             <div>
-              <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-                LGA *
-              </label>
+              <label className="block text-xs font-semibold text-gray-700 mb-1.5">LGA *</label>
               <select
-                value={form.lga_id}
-                onChange={(e) =>
-                  setForm({
-                    ...form,
-                    lga_id: e.target.value,
-                    ward_id: "",
-                    polling_unit_id: "",
-                  })
-                }
+                value={lgaId}
+                onChange={(e) => {
+                  setLgaId(e.target.value);
+                  setWardId("");
+                  setWards([]);
+                  setPollingUnitId("");
+                }}
                 className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-apc-primary text-xs"
                 required
               >
                 <option value="">Select LGA</option>
-                {lgas.map((lga) => (
+                {lgaChoices.map((lga) => (
                   <option key={lga.id} value={lga.id}>
                     {lga.name}
                   </option>
@@ -474,28 +535,21 @@ export default function ElectionUploadPage() {
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-                Ward *
-              </label>
+              <label className="block text-xs font-semibold text-gray-700 mb-1.5">Ward *</label>
               <select
-                value={form.ward_id}
-                onChange={(e) =>
-                  setForm({
-                    ...form,
-                    ward_id: e.target.value,
-                    polling_unit_id: "",
-                  })
-                }
-                disabled={!form.lga_id}
+                value={wardId}
+                onChange={(e) => {
+                  setWardId(e.target.value);
+                  setPollingUnitId("");
+                }}
+                disabled={!lgaId}
                 className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-apc-primary disabled:bg-gray-100 text-xs"
                 required
               >
-                <option value="">
-                  {form.lga_id ? "Select ward" : "Select an LGA first"}
-                </option>
-                {wards.map((ward) => (
-                  <option key={ward.id} value={ward.id}>
-                    {ward.code} — {ward.name}
+                <option value="">{lgaId ? "Select ward" : "Select an LGA first"}</option>
+                {wards.map((w) => (
+                  <option key={w.id} value={w.id}>
+                    {w.code ? `${w.code} — ${w.name}` : w.name}
                   </option>
                 ))}
               </select>
@@ -506,20 +560,16 @@ export default function ElectionUploadPage() {
                 Polling Unit *
               </label>
               <select
-                value={form.polling_unit_id}
-                onChange={(e) =>
-                  setForm({ ...form, polling_unit_id: e.target.value })
-                }
-                disabled={!form.ward_id}
+                value={pollingUnitId}
+                onChange={(e) => setPollingUnitId(e.target.value)}
+                disabled={!wardId}
                 className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-apc-primary disabled:bg-gray-100 text-xs"
                 required
               >
-                <option value="">
-                  {form.ward_id ? "Select polling unit" : "Select a ward first"}
-                </option>
+                <option value="">{wardId ? "Select polling unit" : "Select a ward first"}</option>
                 {pollingUnits.map((pu) => (
                   <option key={pu.id} value={pu.id}>
-                    {pu.code} — {pu.name}
+                    {pu.code ? `${pu.code} — ${pu.name}` : pu.name}
                   </option>
                 ))}
               </select>
@@ -528,13 +578,11 @@ export default function ElectionUploadPage() {
         ) : (
           <div className="grid md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-semibold text-gray-700 mb-1">
-                Ward
-              </label>
+              <label className="block text-xs font-semibold text-gray-700 mb-1">Ward</label>
               <input
                 type="text"
                 readOnly
-                value={memberWard ? `${memberWard.code} — ${memberWard.name}` : form.ward_id}
+                value={registered.wardId ?? ""}
                 className="w-full px-3 py-2 border bg-gray-50 rounded-lg text-xs font-medium"
               />
             </div>
@@ -545,25 +593,27 @@ export default function ElectionUploadPage() {
               <input
                 type="text"
                 readOnly
-                value={memberPollingUnit ? `${memberPollingUnit.code} — ${memberPollingUnit.name}` : form.polling_unit_id}
+                value={registered.puId ?? ""}
                 className="w-full px-3 py-2 border bg-gray-50 rounded-lg text-xs font-medium"
               />
             </div>
           </div>
         )}
 
-        {/* Form EC8 Evidence Photo Upload */}
+        {/* Form EC8 Evidence Photo Upload — via Media Service (§10) */}
         <div className="border-t pt-6">
           <label className="block text-sm font-semibold text-gray-900 mb-1">
             Official Form EC8 Result Sheet Evidence Photo *
           </label>
           <p className="text-xs text-gray-500 mb-3">
-            Upload a clear photo of the signed Form EC8 result document for this polling unit.
+            Upload a clear photo of the signed Form EC8 result document for this
+            polling unit. Stored privately; access is via signed URLs only.
           </p>
 
           <div className="flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-xl p-6 bg-gray-50 hover:bg-gray-100/50 transition-colors">
             {evidencePreview ? (
               <div className="relative w-full aspect-video rounded-lg overflow-hidden border mb-3 bg-slate-900">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={evidencePreview}
                   alt="Form EC8 Result Sheet"
@@ -576,7 +626,7 @@ export default function ElectionUploadPage() {
 
             <input
               type="file"
-              accept="image/jpeg,image/png,image/webp"
+              accept="image/jpeg,image/png,image/webp,application/pdf"
               onChange={handleImageChange}
               required={!evidenceFile}
               className="text-xs text-gray-600 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-apc-primary file:text-white hover:file:bg-apc-dark cursor-pointer"
@@ -584,37 +634,43 @@ export default function ElectionUploadPage() {
           </div>
         </div>
 
-        {/* Dynamic Party Vote Inputs (Spec Section 21) */}
+        {/* Party Vote Inputs — the contest BALLOT (candidates, party_id identity §6) */}
         <div className="border-t pt-6">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-base font-bold text-apc-primary">
-              Party Vote Input Fields ({trackedPartyObjects.length} Tracked Parties)
+              Party Vote Input Fields ({ballot.length} Contest Candidates)
             </h3>
-            <span className="text-xs text-gray-500">
-              Dynamically loaded from Contest Config
-            </span>
+            <span className="text-xs text-gray-500">Loaded from the contest ballot</span>
           </div>
 
-          {trackedPartyObjects.length === 0 ? (
+          {ballot.length === 0 ? (
             <div className="p-4 bg-amber-50 text-amber-900 border border-amber-200 rounded-xl text-xs font-semibold">
-              No tracked parties configured for this contest. Contact the election administrator.
+              No candidates are registered on this contest&apos;s ballot. Only
+              ballot parties can receive votes — contact the election
+              administrator.
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {trackedPartyObjects.map((party) => (
-                <div key={party.id} className="p-3 bg-gray-50 rounded-xl border border-gray-200">
+              {ballot.map((entry) => (
+                <div
+                  key={entry.party_id}
+                  className="p-3 bg-gray-50 rounded-xl border border-gray-200"
+                >
                   <label className="block text-xs font-bold text-gray-800 uppercase mb-1">
-                    {party.acronym} — {party.name}
+                    {entry.acronym} — {entry.name}
                   </label>
                   <input
                     type="number"
                     min="0"
-                    value={partyVotes[party.id] ?? 0}
+                    value={entry.votes}
                     onChange={(e) =>
-                      setPartyVotes({
-                        ...partyVotes,
-                        [party.id]: parseInt(e.target.value) || 0,
-                      })
+                      setBallot((prev) =>
+                        prev.map((b) =>
+                          b.party_id === entry.party_id
+                            ? { ...b, votes: Math.max(0, parseInt(e.target.value) || 0) }
+                            : b
+                        )
+                      )
                     }
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-apc-primary text-sm font-mono font-bold"
                     placeholder="0"
@@ -627,7 +683,7 @@ export default function ElectionUploadPage() {
 
         <button
           type="submit"
-          disabled={submitting || trackedPartyObjects.length === 0}
+          disabled={submitting || ballot.length === 0}
           className="w-full bg-apc-primary text-white py-3 rounded-xl font-bold hover:bg-apc-dark transition-colors disabled:opacity-50 flex items-center justify-center gap-2 text-sm"
         >
           {submitting ? (

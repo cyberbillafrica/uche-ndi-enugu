@@ -1,6 +1,21 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+/**
+ * POLITICORE — Election Dashboard (Phase 2 cutover: PostgreSQL/Supabase).
+ *
+ * A client of the Election Engine through src/lib/supabase/election.ts:
+ *   * contest-aware (cycle → contest chain, §7) with the ACTIVE contest
+ *     from election_settings — never a silent fallback (§8);
+ *   * official totals via get_results_aggregate (PostgreSQL aggregation
+ *     over election_result_votes — never client-side totals, §20);
+ *   * operational results from the security-invoker view (RLS-scoped);
+ *   * realtime via Supabase (RLS-scoped) triggering a refetch (§23);
+ *   * admin correction via correct_election_result (pending_review +
+ *     independent re-verification, §12);
+ *   * evidence viewed through the signed-access route (§10).
+ */
+
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -33,28 +48,32 @@ import {
   Filter,
 } from "lucide-react";
 
-import { useAuth } from "@/contexts/AuthContext";
 import { HelpLink } from "@/components/help/HelpLink";
 import { useToast } from "@/components/ui/toast";
-import { getErrorMessage } from "@/lib/errors";
-import { getAllLGAs } from "@/lib/constants";
-import { assignmentCoversScope, isAdminUser } from "@/lib/permissions";
+import { electionErrorMessage } from "@/lib/supabase/election";
 import {
-  subscribeToElectionResults,
-  correctElectionResult,
+  getSupabaseClient,
+  ensureSupabaseSession,
+  resolveElectionAccess,
+  getActiveElection,
   getElectionCycles,
   getContestsByCycle,
   getPoliticalParties,
-  getElectionSettings,
-  type ElectionResultDoc,
-  type ElectionPartyResult,
-} from "@/lib/firebase/election";
-import { CURRENT_TENANT_ID, getCurrentTenant } from "@/lib/firebase/tenants";
+  getElectionResults,
+  getResultHistory,
+  getResultsAggregate,
+  correctElectionResult,
+  subscribeToElectionResults,
+  evidenceViewUrl,
+  type ElectionAuthority,
+} from "@/lib/supabase";
 import type {
-  LGA,
-  Ward,
-  ElectionCycle,
+  ElectionAggregate,
   ElectionContest,
+  ElectionCycle,
+  ElectionPartyTotal,
+  ElectionResult,
+  ElectionResultHistory,
   PoliticalParty,
 } from "@/types";
 
@@ -62,540 +81,397 @@ interface AlertToast {
   id: string;
   puName: string;
   wardName: string;
-  lgaName: string;
-  results: ElectionPartyResult[];
+  partyTotals: Array<{ acronym: string; votes: number }>;
 }
 
-function getDocTimestamp(doc: ElectionResultDoc): number {
-  const ts = doc.updated_at || doc.created_at;
-  if (!ts) return 0;
-  if (typeof ts === "number") return ts;
-  if (typeof ts === "string") {
-    const t = new Date(ts).getTime();
-    return isNaN(t) ? 0 : t;
-  }
-  if (typeof ts === "object") {
-    if (
-      "seconds" in ts &&
-      typeof (ts as { seconds?: number }).seconds === "number"
-    ) {
-      return (ts as { seconds: number }).seconds * 1000;
-    }
-    if (ts instanceof Date) {
-      return ts.getTime();
-    }
-  }
-  return 0;
-}
+const STATUS_LABEL: Record<string, string> = {
+  submitted: "Submitted",
+  pending_review: "Pending Review",
+  approved: "Approved",
+  rejected: "Rejected",
+  clarification_required: "Clarification",
+  reopened: "Reopened",
+};
 
 export default function ElectionDashboard() {
   const router = useRouter();
-  const { profile, assignments, accessLoading } = useAuth();
-  const isAdmin = isAdminUser(profile);
   const toast = useToast();
 
-  useEffect(() => {
-    if (accessLoading) return;
+  // Gate state (database-resolved: module + social-only + authority, §14/§16)
+  const [gate, setGate] = useState<"loading" | "denied" | "no_session" | "ready">("loading");
+  const [authority, setAuthority] = useState<ElectionAuthority>("none");
+  const [isAdmin, setIsAdmin] = useState(false);
 
-    if (!profile) {
-      router.replace("/portal/auth/login");
-      return;
-    }
-
-    const isSocialOnly =
-      profile?.membership_types?.includes("social_member") &&
-      !profile?.membership_types?.includes("campaign_member") &&
-      profile.access_role !== "election_officer" &&
-      profile.access_role !== "admin" &&
-      profile.access_role !== "tenant_super_admin" &&
-      profile.access_role !== "platform_super_admin";
-
-    if (isSocialOnly) {
-      router.replace("/portal/dashboard");
-    }
-  }, [profile, accessLoading, router]);
-
-  const [lgas, setLgas] = useState<LGA[]>([]);
   const [cycles, setCycles] = useState<ElectionCycle[]>([]);
   const [contests, setContests] = useState<ElectionContest[]>([]);
-  const [allParties, setAllParties] = useState<PoliticalParty[]>([]);
-  const [results, setResults] = useState<ElectionResultDoc[]>([]);
+  const [parties, setParties] = useState<PoliticalParty[]>([]);
+  const [results, setResults] = useState<ElectionResult[]>([]);
+  const [activeCycleId, setActiveCycleId] = useState<string>("");
+  const [activeContestId, setActiveContestId] = useState<string>("");
+  const [noActiveElection, setNoActiveElection] = useState(false);
+
   const [loading, setLoading] = useState(true);
   const [listenerError, setListenerError] = useState<string | null>(null);
-  const [needsRegistration, setNeedsRegistration] = useState(false);
-  const [tenantId, setTenantId] = useState(CURRENT_TENANT_ID);
+  const [aggregate, setAggregate] = useState<ElectionAggregate | null>(null);
 
-  // Selection states
-  const [selectedCycleId, setSelectedCycleId] = useState<string>("all");
-  const [selectedContestId, setSelectedContestId] = useState<string>("all");
-  const [selectedLgaId, setSelectedLgaId] = useState<string>("all");
-  const [selectedWardId, setSelectedWardId] = useState<string>("all");
+  // Contest-aware selection (never "all" ambiguity for official totals)
+  const [selectedContestId, setSelectedContestId] = useState<string>("");
 
-  // Configurable Party Comparison (Spec Section 38 & 39)
-  const [comparePartyA, setComparePartyA] = useState<string>("");
-  const [comparePartyB, setComparePartyB] = useState<string>("");
-
-  // Modals & Toasts
+  // Modals
   const [toastAlerts, setToastAlerts] = useState<AlertToast[]>([]);
-  const lastToastTimeRef = useRef<number>(0);
-  const [inspectResult, setInspectResult] = useState<ElectionResultDoc | null>(
-    null,
-  );
-  const [editingResult, setEditingResult] = useState<ElectionResultDoc | null>(
-    null,
-  );
-  const [editFormResults, setEditFormResults] = useState<ElectionPartyResult[]>(
-    [],
-  );
+  const [inspectResult, setInspectResult] = useState<ElectionResult | null>(null);
+  const [inspectHistory, setInspectHistory] = useState<ElectionResultHistory[]>([]);
+  const [editingResult, setEditingResult] = useState<ElectionResult | null>(null);
+  const [editVotes, setEditVotes] = useState<Array<{ party_id: string; acronym: string; votes: number }>>([]);
   const [editReason, setEditReason] = useState("");
   const [savingEdit, setSavingEdit] = useState(false);
 
-  // Initial load
+  // ── access gate (§14/§16) ──────────────────────────────────────────
   useEffect(() => {
-    async function init() {
-      try {
-        const lgaData = await getAllLGAs();
-        setLgas(lgaData);
-        const tenant = await getCurrentTenant();
-        setTenantId(tenant.id);
-
-        const loadedSettings = await getElectionSettings();
-        const loadedCycles = await getElectionCycles();
-        setCycles(loadedCycles);
-
-        const defaultCycle =
-          loadedSettings?.active_election_cycle_id ||
-          loadedCycles[0]?.id ||
-          "general-election-2027";
-        setSelectedCycleId(defaultCycle);
-
-        const loadedContests = await getContestsByCycle(defaultCycle);
-        setContests(loadedContests);
-
-        const activeContest =
-          loadedSettings?.active_contest_id || loadedContests[0]?.id || "all";
-        setSelectedContestId(activeContest);
-
-        const loadedParties = await getPoliticalParties();
-        setAllParties(loadedParties);
-      } catch (err) {
-        console.error("Failed to load initial election dashboard data:", err);
-      }
-    }
-    init();
-  }, []);
-
-  // Update contests when cycle selection changes
-  useEffect(() => {
-    if (selectedCycleId === "all") {
-      if (cycles.length > 0) {
-        getContestsByCycle(cycles[0].id).then((cList) => setContests(cList));
-      }
-    } else {
-      getContestsByCycle(selectedCycleId).then((cList) => setContests(cList));
-    }
-  }, [selectedCycleId, cycles]);
-
-  // Determine scope constraints for Firestore security rules
-  const scopeConstraint = useMemo(() => {
-    if (isAdmin || profile?.access_role === "election_officer") {
-      return selectedContestId !== "all"
-        ? { contest_id: selectedContestId }
-        : undefined;
-    }
-    if (profile?.ward_id && profile?.polling_unit_id) {
-      return {
-        contest_id: selectedContestId !== "all" ? selectedContestId : undefined,
-        ward_id: profile.ward_id,
-        polling_unit_id: profile.polling_unit_id,
-      };
-    }
-    return undefined;
-  }, [isAdmin, profile, selectedContestId]);
-
-  // Real-time Firestore Listener
-  useEffect(() => {
-    if (!tenantId) return;
-
-    /*
-     * Security rules authorize result reads per document:
-     * Admins/Election Officers tenant-wide, other members only
-     * via their registered ward + polling unit. A member with no
-     * registered location cannot read anything, so skip the
-     * listener rather than sending a query the rules must deny.
-     */
-    const isPrivileged =
-      isAdmin || profile?.access_role === "election_officer";
-
-    if (
-      !isPrivileged &&
-      !(scopeConstraint?.ward_id && scopeConstraint?.polling_unit_id)
-    ) {
-      setNeedsRegistration(true);
-      setLoading(false);
-      return;
-    }
-
-    setNeedsRegistration(false);
-
-    const unsubscribe = subscribeToElectionResults(
-      tenantId,
-      (docs, isInitialLoad) => {
-        setResults(docs);
+    let cancelled = false;
+    (async () => {
+      const bridge = await ensureSupabaseSession();
+      if (cancelled) return;
+      if (!bridge.sessionReady) {
+        setGate(bridge.reason === "no_session" ? "no_session" : "denied");
         setLoading(false);
-
-        if (isInitialLoad) {
-          let maxTime = 0;
-          for (const d of docs) {
-            const t = getDocTimestamp(d);
-            if (t > maxTime) maxTime = t;
-          }
-          if (maxTime > lastToastTimeRef.current) {
-            lastToastTimeRef.current = maxTime;
-          }
-        } else if (docs.length > 0) {
-          let newest: ElectionResultDoc | null = null;
-          let maxTime = 0;
-
-          for (const d of docs) {
-            const t = getDocTimestamp(d);
-            if (t > maxTime) {
-              maxTime = t;
-              newest = d;
-            }
-          }
-
-          if (
-            newest &&
-            newest.status === "approved" &&
-            maxTime > lastToastTimeRef.current
-          ) {
-            lastToastTimeRef.current = maxTime;
-
-            let puName = newest.polling_unit_id;
-            let wardName = newest.ward_id;
-            let lgaName = "Enugu";
-
-            for (const lga of lgas) {
-              for (const ward of lga.wards) {
-                const pu = ward.pollingUnits.find(
-                  (p) => p.id === newest!.polling_unit_id,
-                );
-                if (pu) {
-                  puName = `${pu.code} — ${pu.name}`;
-                  wardName = `${ward.code} — ${ward.name}`;
-                  lgaName = lga.name;
-                }
-              }
-            }
-
-            const alert: AlertToast = {
-              id: `${newest.id}_${Date.now()}`,
-              puName,
-              wardName,
-              lgaName,
-              results: newest.results,
-            };
-
-            setToastAlerts((prev) => [...prev, alert]);
-            setTimeout(() => {
-              setToastAlerts((prev) => prev.filter((a) => a.id !== alert.id));
-            }, 6000);
-          }
-        }
-      },
-      (err) => {
-        console.error("Error subscribing to election results:", err);
-        setListenerError(
-          "Live data stream disconnected. Please refresh the page to retry.",
-        );
+        return;
+      }
+      const supabase = bridge.supabase ?? getSupabaseClient();
+      const access = await resolveElectionAccess(supabase);
+      if (cancelled) return;
+      if (!access.allowed) {
+        setGate("denied");
         setLoading(false);
-      },
-      scopeConstraint,
-    );
-
-    return () => unsubscribe();
-  }, [tenantId, lgas, scopeConstraint]);
-
-  // Hierarchical Scope Filtering
-  const coveredResults = useMemo(() => {
-    if (isAdmin || profile?.access_role === "election_officer") return results;
-
-    const activeAssignments = assignments.filter((a) => a.status === "active");
-
-    // Ordinary member without specific administrative assignments is scoped to their registered PU
-    if (activeAssignments.length === 0) {
-      if (profile?.ward_id && profile?.polling_unit_id) {
-        return results.filter(
-          (r) =>
-            r.ward_id === profile.ward_id &&
-            r.polling_unit_id === profile.polling_unit_id,
-        );
+        return;
       }
-      return [];
-    }
-
-    return results.filter((result) => {
-      // Check if user's registered PU matches
-      if (
-        profile?.ward_id === result.ward_id &&
-        profile?.polling_unit_id === result.polling_unit_id
-      ) {
-        return true;
-      }
-
-      return activeAssignments.some(
-        (assignment) =>
-          assignmentCoversScope(
-            assignment,
-            { scope_type: "ward", scope_id: result.ward_id },
-            lgas,
-          ) ||
-          assignmentCoversScope(
-            assignment,
-            { scope_type: "polling_unit", scope_id: result.polling_unit_id },
-            lgas,
-          ),
-      );
-    });
-  }, [isAdmin, profile, assignments, results, lgas]);
-
-  // Operational Submissions vs Official Results
-  const operationalSubmissions = useMemo(() => {
-    return coveredResults.filter((r) => {
-      if (
-        selectedContestId !== "all" &&
-        r.contest_id &&
-        r.contest_id !== selectedContestId
-      ) {
-        return false;
-      }
-      if (selectedLgaId !== "all" && r.lga_id !== selectedLgaId) {
-        return false;
-      }
-      if (selectedWardId !== "all" && r.ward_id !== selectedWardId) {
-        return false;
-      }
-      return true;
-    });
-  }, [coveredResults, selectedContestId, selectedLgaId, selectedWardId]);
-
-  // Official Approved Results (Strictly Section 24 & 42)
-  const officialApprovedResults = useMemo(() => {
-    return operationalSubmissions.filter((r) => r.status === "approved");
-  }, [operationalSubmissions]);
-
-  // Current Contest Object & Tracked Parties List
-  const currentContest = contests.find((c) => c.id === selectedContestId);
-  const trackedParties = currentContest?.tracked_parties ?? [];
-
-  // Dynamically default party comparison selectors when trackedParties loads
-  useEffect(() => {
-    if (trackedParties.length >= 2) {
-      if (!comparePartyA || !trackedParties.includes(comparePartyA)) {
-        setComparePartyA(trackedParties[0]);
-      }
-      if (!comparePartyB || !trackedParties.includes(comparePartyB)) {
-        setComparePartyB(trackedParties[1]);
-      }
-    } else if (trackedParties.length === 1) {
-      setComparePartyA(trackedParties[0]);
-      setComparePartyB(trackedParties[0]);
-    }
-  }, [trackedParties, comparePartyA, comparePartyB]);
-
-  // Aggregated Official Party Totals & Operational Breakdown
-  const aggregates = useMemo(() => {
-    const partyTotals: Record<string, number> = {};
-    for (const p of trackedParties) {
-      partyTotals[p.toLowerCase()] = 0;
-    }
-
-    let totalOfficialVotes = 0;
-
-    for (const r of officialApprovedResults) {
-      for (const pr of r.results) {
-        const partyKey = pr.party.toLowerCase();
-        const v = Number(pr.votes) || 0;
-        totalOfficialVotes += v;
-        partyTotals[partyKey] = (partyTotals[partyKey] || 0) + v;
-      }
-    }
-
-    // Determine leading party among tracked parties
-    let leadingParty = "None";
-    let leadingVotes = -1;
-    for (const [p, v] of Object.entries(partyTotals)) {
-      if (v > leadingVotes && v > 0) {
-        leadingVotes = v;
-        leadingParty = p.toUpperCase();
-      }
-    }
-
-    const votesA = partyTotals[comparePartyA.toLowerCase()] || 0;
-    const votesB = partyTotals[comparePartyB.toLowerCase()] || 0;
-    const marginAB = votesA - votesB;
-
-    const pendingCount = operationalSubmissions.filter(
-      (r) => r.status === "submitted" || r.status === "pending_review",
-    ).length;
-    const approvedCount = officialApprovedResults.length;
-    const rejectedCount = operationalSubmissions.filter(
-      (r) => r.status === "rejected",
-    ).length;
-    const clarifyCount = operationalSubmissions.filter(
-      (r) => r.status === "clarification_required",
-    ).length;
-    const reopenedCount = operationalSubmissions.filter(
-      (r) => r.status === "reopened",
-    ).length;
-
-    let totalPUsInScope = 0;
-    if (selectedWardId !== "all") {
-      for (const l of lgas) {
-        const w = l.wards.find((item) => item.id === selectedWardId);
-        if (w) {
-          totalPUsInScope = w.pollingUnits.length;
-          break;
-        }
-      }
-    } else if (selectedLgaId !== "all") {
-      const l = lgas.find((item) => item.id === selectedLgaId);
-      if (l) {
-        totalPUsInScope = l.wards.reduce(
-          (acc, w) => acc + w.pollingUnits.length,
-          0,
-        );
-      }
-    } else {
-      totalPUsInScope = lgas.reduce(
-        (acc, l) =>
-          acc + l.wards.reduce((wAcc, w) => wAcc + w.pollingUnits.length, 0),
-        0,
-      );
-    }
-
-    const reportingPercent =
-      totalPUsInScope > 0
-        ? ((approvedCount / totalPUsInScope) * 100).toFixed(1)
-        : "0.0";
-
-    return {
-      totalOfficialVotes,
-      partyTotals,
-      leadingParty,
-      leadingVotes,
-      votesA,
-      votesB,
-      marginAB,
-      pendingCount,
-      approvedCount,
-      rejectedCount,
-      clarifyCount,
-      reopenedCount,
-      totalPUsInScope,
-      reportingPercent,
+      setAuthority(access.authority);
+      setIsAdmin(access.authority === "admin");
+      setGate("ready");
+    })();
+    return () => {
+      cancelled = true;
     };
-  }, [
-    officialApprovedResults,
-    operationalSubmissions,
-    trackedParties,
-    comparePartyA,
-    comparePartyB,
-    lgas,
-  ]);
+  }, [router]);
 
-  // Chart Data per Ward
-  const wardChartData = useMemo(() => {
-    const wardMap = new Map<string, Record<string, unknown>>();
-
-    for (const r of officialApprovedResults) {
-      let wardName = r.ward_id;
-      for (const l of lgas) {
-        const w = l.wards.find((item) => item.id === r.ward_id);
-        if (w) {
-          wardName = w.name;
-          break;
+  // ── initial load: active election + parties ────────────────────────
+  useEffect(() => {
+    if (gate !== "ready") return;
+    let cancelled = false;
+    (async () => {
+      const supabase = getSupabaseClient();
+      try {
+        const [active, partyList] = await Promise.all([
+          getActiveElection(supabase),
+          getPoliticalParties(supabase),
+        ]);
+        if (cancelled) return;
+        setParties(partyList);
+        if (!active.cycle || !active.contest) {
+          // No active configuration: explicit empty state, no fallback (§8).
+          setNoActiveElection(true);
+          setLoading(false);
+          return;
         }
+        const cycs = await getElectionCycles(supabase);
+        if (cancelled) return;
+        setCycles(cycs);
+        setActiveCycleId(active.cycle.id);
+        setActiveContestId(active.contest.id);
+        setSelectedContestId(active.contest.id);
+        const cList = await getContestsByCycle(active.cycle.id, supabase);
+        if (cancelled) return;
+        setContests(cList);
+        setNoActiveElection(false);
+      } catch (err) {
+        console.error("Failed to load election dashboard data:", err);
+        if (!cancelled) setNoActiveElection(true);
+      } finally {
+        if (!cancelled) setLoading(false);
       }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [gate]);
 
-      if (!wardMap.has(wardName)) {
-        const initObj: Record<string, any> = { ward: wardName };
-        for (const p of trackedParties) {
-          initObj[p.toUpperCase()] = 0;
-        }
-        wardMap.set(wardName, initObj);
+  // ── contest change: reload contests for the cycle ──────────────────
+  const selectedCycle = cycles.find((c) => c.id === activeCycleId) ?? null;
+  const currentContest = contests.find((c) => c.id === selectedContestId) ?? null;
+
+  // ── results fetch + realtime (§23) ─────────────────────────────────
+  const fetchResults = useCallback(async () => {
+    const supabase = getSupabaseClient();
+    try {
+      const rows = await getElectionResults(supabase, {
+        contestId: selectedContestId || undefined,
+      });
+      setResults(rows);
+      setListenerError(null);
+    } catch (err) {
+      console.error("Failed to load results:", err);
+      setListenerError("Live results could not be loaded. Please refresh to retry.");
+    }
+  }, [selectedContestId]);
+
+  useEffect(() => {
+    if (gate !== "ready" || !selectedContestId) return;
+    let unsub: (() => void) | null = null;
+    (async () => {
+      await fetchResults();
+      const handle = subscribeToElectionResults(
+        getSupabaseClient(),
+        () => void fetchResults(),
+        () =>
+          setListenerError(
+            "Live data stream disconnected. Please refresh the page to retry."
+          )
+      );
+      unsub = handle.unsubscribe;
+    })();
+    return () => unsub?.();
+  }, [gate, selectedContestId, fetchResults]);
+
+  // ── official aggregation — PostgreSQL, over approved results (§20) ─
+  useEffect(() => {
+    if (gate !== "ready" || !activeCycleId || !selectedContestId) return;
+    let cancelled = false;
+    (async () => {
+      const supabase = getSupabaseClient();
+      try {
+        const agg = await getResultsAggregate(supabase, {
+          cycleId: activeCycleId,
+          contestId: selectedContestId,
+          scopeType: null,
+          scopeId: null,
+        });
+        if (!cancelled) setAggregate(agg);
+      } catch (err) {
+        console.error("Aggregation failed:", err);
+        if (!cancelled) setAggregate(null);
       }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [gate, activeCycleId, selectedContestId, results]);
 
-      const entry = wardMap.get(wardName)!;
-      for (const pr of r.results) {
-        const pKey = pr.party.toUpperCase();
-        entry[pKey] = ((entry[pKey] as number) || 0) + (Number(pr.votes) || 0);
+  // Refresh aggregation after every result change (realtime refetch also
+  // triggers this via the results dependency).
+
+  // ── approval toast on realtime updates ─────────────────────────────
+  const lastApprovedRef = useRef(0);
+  useEffect(() => {
+    if (results.length === 0) return;
+    const newest = results[0]; // ordered updated_at desc by the service
+    const ts = newest.updated_at ? new Date(newest.updated_at).getTime() : 0;
+    // Track the newest timestamp seen so only FRESH approvals toast.
+    // eslint-disable-next-line react-hooks/preserve-manual-memoization -- cross-render mutable watermark, not derived state
+    if (ts > lastApprovedRef.current) {
+      const isFirstLoad = lastApprovedRef.current === 0;
+      lastApprovedRef.current = ts;
+      if (!isFirstLoad && newest.status === "approved") {
+        const alert: AlertToast = {
+          id: `${newest.result_id}_${ts}`,
+          puName: newest.polling_unit_id,
+          wardName: newest.ward_id,
+          partyTotals: (currentContest?.tracked_parties ?? []).map((acronym) => ({
+            acronym,
+            votes:
+              newest.votes
+                .filter((v) => parties.find((p) => p.id === v.party_id)?.acronym === acronym)
+                .reduce((sum, v) => sum + v.votes, 0) || 0,
+          })),
+        };
+        setToastAlerts((prev) => [...prev, alert]);
+        setTimeout(() => {
+          setToastAlerts((prev) => prev.filter((a) => a.id !== alert.id));
+        }, 6000);
       }
     }
+  }, [results, currentContest, parties]);
 
-    return Array.from(wardMap.values());
-  }, [officialApprovedResults, lgas, trackedParties]);
+  // ── derived views ──────────────────────────────────────────────────
+  const trackedParties = currentContest?.tracked_parties ?? [];
+  const partyByAcronym = useMemo(() => {
+    const m = new Map<string, PoliticalParty>();
+    for (const p of parties) m.set(p.acronym.toUpperCase(), p);
+    return m;
+  }, [parties]);
 
-  // Pie Chart Data
-  const pieChartData = useMemo(() => {
-    return Object.entries(aggregates.partyTotals).map(([pKey, val]) => ({
-      name: pKey.toUpperCase(),
-      value: val,
-    }));
-  }, [aggregates.partyTotals]);
-
-  // Dynamic Party Colors map
-  const getPartyColor = (partyKey: string) => {
-    const found = allParties.find(
-      (p) =>
-        p.id === partyKey.toLowerCase() ||
-        p.acronym.toLowerCase() === partyKey.toLowerCase(),
-    );
+  const getPartyColor = (acronym: string): string => {
+    const found = partyByAcronym.get(acronym.toUpperCase());
     if (found?.color) return found.color;
-    if (partyKey.toLowerCase() === "apc") return "#1B4F72";
-    if (partyKey.toLowerCase() === "pdp") return "#27AE60";
-    if (partyKey.toLowerCase() === "lp") return "#D35400";
-    if (partyKey.toLowerCase() === "apga") return "#8E44AD";
-    if (partyKey.toLowerCase() === "adc") return "#F39C12";
+    const key = acronym.toLowerCase();
+    if (key === "apc") return "#1B4F72";
+    if (key === "pdp") return "#27AE60";
+    if (key === "lp") return "#D35400";
+    if (key === "apga") return "#8E44AD";
+    if (key === "adc") return "#F39C12";
     return "#34495E";
   };
 
-  const handleSaveCorrection = async () => {
-    if (!editingResult || !profile) return;
-    setSavingEdit(true);
+  const operationalSubmissions = results; // RLS-scoped; contest filter applied in query
+  const officialApproved = useMemo(
+    () => operationalSubmissions.filter((r) => r.status === "approved"),
+    [operationalSubmissions]
+  );
 
+  // Per-PU votes by party acronym (relational votes resolved to labels for display)
+  const votesByAcronym = (r: ElectionResult): Record<string, number> => {
+    const out: Record<string, number> = {};
+    for (const v of r.votes) {
+      const acronym = parties.find((p) => p.id === v.party_id)?.acronym ?? v.party_id;
+      out[acronym.toUpperCase()] = v.votes;
+    }
+    return out;
+  };
+
+  const wardChartData = useMemo(() => {
+    const wardMap = new Map<string, Record<string, unknown>>();
+    for (const r of officialApproved) {
+      const wardName = r.ward_id;
+      if (!wardMap.has(wardName)) {
+        const initObj: Record<string, unknown> = { ward: wardName };
+        for (const p of trackedParties) initObj[p.toUpperCase()] = 0;
+        wardMap.set(wardName, initObj);
+      }
+      const entry = wardMap.get(wardName)!;
+      for (const v of r.votes) {
+        const acronym =
+          parties.find((p) => p.id === v.party_id)?.acronym ?? v.party_id;
+        const k = acronym.toUpperCase();
+        entry[k] = ((entry[k] as number) || 0) + v.votes;
+      }
+    }
+    return Array.from(wardMap.values());
+  }, [officialApproved, trackedParties, parties]);
+
+  const pieChartData: Array<{ name: string; value: number }> = useMemo(
+    () =>
+      (aggregate?.party_totals ?? []).map((t: ElectionPartyTotal) => ({
+        name: t.acronym,
+        value: t.total_votes,
+      })),
+    [aggregate]
+  );
+
+  const partyTotalByAcronym = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const t of aggregate?.party_totals ?? []) m.set(t.acronym.toUpperCase(), t.total_votes);
+    return m;
+  }, [aggregate]);
+
+  const comparePartyA = trackedParties[0] ?? "";
+  const comparePartyB = trackedParties[1] ?? comparePartyA;
+  const votesA = partyTotalByAcronym.get(comparePartyA.toUpperCase()) ?? 0;
+  const votesB = partyTotalByAcronym.get(comparePartyB.toUpperCase()) ?? 0;
+  const marginAB = votesA - votesB;
+
+  const pendingCount = operationalSubmissions.filter(
+    (r) => r.status === "submitted" || r.status === "pending_review"
+  ).length;
+  const rejectedCount = operationalSubmissions.filter((r) => r.status === "rejected").length;
+  const clarifyCount = operationalSubmissions.filter(
+    (r) => r.status === "clarification_required"
+  ).length;
+  const reopenedCount = operationalSubmissions.filter((r) => r.status === "reopened").length;
+
+  // ── admin correction (§12 — RPC; DB forces pending_review) ─────────
+  const openInspect = async (r: ElectionResult) => {
+    setInspectResult(r);
+    setInspectHistory([]);
     try {
-      await correctElectionResult({
-        resultDocId: editingResult.id,
-        newResults: editFormResults,
-        adminUserId: profile.id || "admin",
-        reason: editReason,
-        existingDoc: editingResult,
-      });
+      const hist = await getResultHistory(getSupabaseClient(), r.result_id);
+      setInspectHistory(hist);
+    } catch (err) {
+      console.error("History load failed:", err);
+    }
+  };
 
+  const handleSaveCorrection = async () => {
+    if (!editingResult) return;
+    setSavingEdit(true);
+    try {
+      await correctElectionResult(
+        getSupabaseClient(),
+        editingResult.result_id,
+        editVotes.map((v) => ({ party_id: v.party_id, votes: v.votes })),
+        editReason || undefined
+      );
       toast.success(
-        "Correction saved. The result has been returned to the review queue for re-verification.",
+        "Correction saved. The result is pending independent re-verification by an Election Officer."
       );
       setEditingResult(null);
       setEditReason("");
+      await fetchResults();
     } catch (err) {
       console.error("Failed to correct election result:", err);
       toast.error(
-        getErrorMessage(err, "We couldn't save the correction. Please try again."),
+        electionErrorMessage(err, "We couldn't save the correction. Please try again.")
       );
     } finally {
       setSavingEdit(false);
     }
   };
 
-  if (accessLoading || loading) {
+  // ── gate render states ─────────────────────────────────────────────
+  if (gate === "loading" || loading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[50vh] space-y-3">
         <Loader2 className="h-8 w-8 animate-spin text-apc-primary" />
         <span className="text-sm text-gray-500">
-          Connecting to live contest results engine...
+          Connecting to the election results engine...
         </span>
+      </div>
+    );
+  }
+
+  if (gate === "no_session") {
+    return (
+      <div className="max-w-xl mx-auto my-12 p-8 bg-white rounded-2xl shadow-sm border border-gray-200 text-center space-y-4">
+        <AlertCircle className="w-10 h-10 text-amber-500 mx-auto" />
+        <h2 className="text-lg font-bold text-gray-900">Sign in required</h2>
+        <p className="text-sm text-gray-600">
+          Sign in through the portal to view Election results.
+        </p>
+        <button
+          onClick={() => router.replace("/portal/auth/login")}
+          className="px-4 py-2 text-sm font-semibold rounded-lg bg-apc-primary text-white"
+        >
+          Go to sign in
+        </button>
+      </div>
+    );
+  }
+
+  if (gate === "denied") {
+    return (
+      <div className="max-w-xl mx-auto my-12 p-8 bg-white rounded-2xl shadow-sm border border-gray-200 text-center space-y-4">
+        <div className="mx-auto w-12 h-12 rounded-full bg-red-50 border border-red-200 flex items-center justify-center text-red-600">
+          <Lock className="w-6 h-6" />
+        </div>
+        <h2 className="text-lg font-bold text-gray-900">Election access denied</h2>
+        <p className="text-sm text-gray-600 leading-relaxed">
+          Your account does not have Election access, or the Election module is
+          not enabled for your organization. A direct URL cannot bypass this
+          check — authorization is enforced by the database.
+        </p>
+      </div>
+    );
+  }
+
+  if (noActiveElection) {
+    return (
+      <div className="max-w-xl mx-auto my-12 p-8 bg-white rounded-2xl shadow-sm border border-gray-200 text-center space-y-4">
+        <div className="mx-auto w-12 h-12 rounded-full bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600">
+          <Vote className="w-6 h-6" />
+        </div>
+        <h2 className="text-lg font-bold text-gray-900">No Active Election</h2>
+        <p className="text-sm text-gray-600 leading-relaxed">
+          No active election cycle and contest has been configured. An
+          administrator can set it in Election Management.
+        </p>
       </div>
     );
   }
@@ -616,28 +492,20 @@ export default function ElectionDashboard() {
               </div>
               <button
                 onClick={() =>
-                  setToastAlerts((prev) =>
-                    prev.filter((item) => item.id !== a.id),
-                  )
+                  setToastAlerts((prev) => prev.filter((item) => item.id !== a.id))
                 }
                 className="text-gray-400 hover:text-gray-600"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
-
-            <p className="mt-1 text-xs font-semibold text-gray-900">
-              {a.puName}
-            </p>
-            <p className="text-xs text-gray-500">
-              {a.wardName} · {a.lgaName}
-            </p>
-
+            <p className="mt-1 text-xs font-semibold text-gray-900">{a.puName}</p>
+            <p className="text-xs text-gray-500">Ward: {a.wardName}</p>
             <div className="mt-2 grid grid-cols-3 gap-2 bg-gray-50 p-2 rounded-lg text-center text-xs font-semibold">
-              {a.results.map((r) => (
-                <div key={r.party}>
-                  <span className="text-gray-500 uppercase">{r.party}: </span>
-                  <span className="text-gray-900">{r.votes}</span>
+              {a.partyTotals.map((t) => (
+                <div key={t.acronym}>
+                  <span className="text-gray-500 uppercase">{t.acronym}: </span>
+                  <span className="text-gray-900">{t.votes}</span>
                 </div>
               ))}
             </div>
@@ -660,15 +528,7 @@ export default function ElectionDashboard() {
         </div>
       )}
 
-      {needsRegistration && !listenerError && (
-        <div className="p-4 bg-sky-50 text-sky-900 border border-sky-200 rounded-xl text-xs font-semibold">
-          Your profile has no registered polling unit yet. Ask an administrator
-          to set your ward and polling unit so you can follow results for your
-          area.
-        </div>
-      )}
-
-      {/* Contest Selector & Specs Header (Spec Section 40) */}
+      {/* Contest Selector & Active Election Header (§7/§8) */}
       <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 text-apc-primary font-semibold text-xs tracking-wide uppercase mb-1">
@@ -682,22 +542,28 @@ export default function ElectionDashboard() {
             <HelpLink article="election-dashboard" label="Election guide" />
           </div>
           <p className="text-sm text-gray-500 mt-1">
-            Official totals are calculated strictly from{" "}
-            <span className="font-bold text-emerald-700">APPROVED</span>{" "}
-            results.
+            {selectedCycle ? `${selectedCycle.name} · ` : ""}
+            {currentContest ? currentContest.name : ""} — official totals are
+            calculated strictly from{" "}
+            <span className="font-bold text-emerald-700">APPROVED</span> results.
           </p>
         </div>
 
-        {/* Global Selectors */}
         <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
           <div className="flex items-center gap-1.5 bg-gray-50 p-2 rounded-xl border border-gray-200 max-w-full min-w-0">
             <Layers className="w-4 h-4 text-gray-500 shrink-0" />
             <select
-              value={selectedCycleId}
-              onChange={(e) => setSelectedCycleId(e.target.value)}
+              value={activeCycleId}
+              onChange={async (e) => {
+                const cycleId = e.target.value;
+                setActiveCycleId(cycleId);
+                const supabase = getSupabaseClient();
+                const cList = await getContestsByCycle(cycleId, supabase);
+                setContests(cList);
+                if (cList.length > 0) setSelectedContestId(cList[0].id);
+              }}
               className="text-xs font-bold text-gray-900 bg-transparent border-0 focus:ring-0 cursor-pointer truncate max-w-[160px] sm:max-w-xs"
             >
-              <option value="all">All Election Cycles</option>
               {cycles.map((cy) => (
                 <option key={cy.id} value={cy.id}>
                   {cy.name}
@@ -713,7 +579,6 @@ export default function ElectionDashboard() {
               onChange={(e) => setSelectedContestId(e.target.value)}
               className="text-xs font-bold text-apc-primary bg-transparent border-0 focus:ring-0 cursor-pointer truncate max-w-[160px] sm:max-w-xs"
             >
-              <option value="all">All Open Contests</option>
               {contests.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.name}
@@ -724,88 +589,7 @@ export default function ElectionDashboard() {
         </div>
       </div>
 
-      {/* Filter Bar */}
-      <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex flex-wrap items-center justify-between gap-4">
-        <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
-          <Filter className="w-4 h-4 text-gray-500 shrink-0" />
-          <span className="text-xs font-bold text-gray-700">
-            Geographic Filter:
-          </span>
-          <select
-            value={selectedLgaId}
-            onChange={(e) => {
-              setSelectedLgaId(e.target.value);
-              setSelectedWardId("all");
-            }}
-            className="px-3 py-1.5 border rounded-lg text-xs font-semibold bg-gray-50 max-w-[140px] sm:max-w-[180px] truncate"
-          >
-            <option value="all">All LGAs</option>
-            {lgas.map((lga) => (
-              <option key={lga.id} value={lga.id}>
-                {lga.name}
-              </option>
-            ))}
-          </select>
-
-          <select
-            value={selectedWardId}
-            onChange={(e) => setSelectedWardId(e.target.value)}
-            disabled={selectedLgaId === "all"}
-            className="px-3 py-1.5 border rounded-lg text-xs font-semibold bg-gray-50 disabled:bg-gray-100 max-w-[150px] sm:max-w-[220px] truncate"
-          >
-            <option value="all">All Wards</option>
-            {selectedLgaId !== "all" &&
-              lgas
-                .find((l) => l.id === selectedLgaId)
-                ?.wards.map((w) => (
-                  <option key={w.id} value={w.id}>
-                    {w.code} — {w.name}
-                  </option>
-                ))}
-          </select>
-        </div>
-
-        {/* Party Comparison Selector (Spec Sec 38) */}
-        <div className="flex flex-wrap items-center gap-2 bg-slate-50 p-2 rounded-lg border text-xs max-w-full">
-          <ArrowRightLeft className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-          <span className="font-bold text-slate-700">Compare Parties:</span>
-          <select
-            value={comparePartyA}
-            onChange={(e) => setComparePartyA(e.target.value)}
-            disabled={trackedParties.length === 0}
-            className="px-2 py-1 border rounded bg-white font-bold uppercase disabled:bg-gray-100 max-w-[90px] truncate"
-          >
-            {trackedParties.length === 0 ? (
-              <option value="">N/A</option>
-            ) : (
-              trackedParties.map((p) => (
-                <option key={p} value={p}>
-                  {p.toUpperCase()}
-                </option>
-              ))
-            )}
-          </select>
-          <span className="text-slate-400 font-bold">vs</span>
-          <select
-            value={comparePartyB}
-            onChange={(e) => setComparePartyB(e.target.value)}
-            disabled={trackedParties.length === 0}
-            className="px-2 py-1 border rounded bg-white font-bold uppercase disabled:bg-gray-100 max-w-[90px] truncate"
-          >
-            {trackedParties.length === 0 ? (
-              <option value="">N/A</option>
-            ) : (
-              trackedParties.map((p) => (
-                <option key={p} value={p}>
-                  {p.toUpperCase()}
-                </option>
-              ))
-            )}
-          </select>
-        </div>
-      </div>
-
-      {/* Official vs Operational Status Metrics Cards (Spec Section 41 & 42) */}
+      {/* Official vs Operational Status Metrics (aggregates from PostgreSQL) */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Card className="bg-emerald-50/60 border-emerald-200">
           <CardContent className="p-6">
@@ -815,10 +599,10 @@ export default function ElectionDashboard() {
                   Official Approved PUs
                 </p>
                 <p className="text-3xl font-bold text-emerald-900 mt-1">
-                  {aggregates.approvedCount} / {aggregates.totalPUsInScope}
+                  {aggregate?.approved_pus ?? 0} / {aggregate?.total_pus_in_scope ?? 0}
                 </p>
                 <p className="text-xs text-emerald-700 mt-1 font-medium">
-                  {aggregates.reportingPercent}% Official Coverage
+                  {aggregate?.reporting_pct ?? 0}% Official Coverage
                 </p>
               </div>
               <CheckCircle2 className="h-8 w-8 text-emerald-600 shrink-0" />
@@ -834,12 +618,16 @@ export default function ElectionDashboard() {
                   Total Official Votes
                 </p>
                 <p className="text-3xl font-bold text-gray-900 mt-1">
-                  {aggregates.totalOfficialVotes.toLocaleString()}
+                  {(aggregate?.party_totals ?? [])
+                    .reduce((sum, t) => sum + t.total_votes, 0)
+                    .toLocaleString()}
                 </p>
                 <p className="text-xs text-slate-500 mt-1">
                   Leading:{" "}
                   <span className="font-bold text-apc-primary">
-                    {aggregates.leadingParty}
+                    {(aggregate?.party_totals ?? [])
+                      .slice()
+                      .sort((a, b) => b.total_votes - a.total_votes)[0]?.acronym ?? "None"}
                   </span>
                 </p>
               </div>
@@ -852,29 +640,23 @@ export default function ElectionDashboard() {
           <CardContent className="p-6">
             <div>
               <p className="text-xs font-bold uppercase tracking-wide text-gray-500">
-                {comparePartyA.toUpperCase()} vs {comparePartyB.toUpperCase()}{" "}
-                Margin
+                {comparePartyA.toUpperCase()} vs {comparePartyB.toUpperCase()} Margin
               </p>
               <p
                 className={`text-3xl font-bold mt-1 ${
-                  aggregates.marginAB >= 0 ? "text-emerald-700" : "text-red-700"
+                  marginAB >= 0 ? "text-emerald-700" : "text-red-700"
                 }`}
               >
-                {aggregates.marginAB >= 0
-                  ? `+${aggregates.marginAB.toLocaleString()}`
-                  : aggregates.marginAB.toLocaleString()}
+                {marginAB >= 0 ? `+${marginAB.toLocaleString()}` : marginAB.toLocaleString()}
               </p>
               <p className="text-xs text-gray-500 mt-1">
-                {comparePartyA.toUpperCase()}:{" "}
-                {aggregates.votesA.toLocaleString()} |{" "}
-                {comparePartyB.toUpperCase()}:{" "}
-                {aggregates.votesB.toLocaleString()}
+                {comparePartyA.toUpperCase()}: {votesA.toLocaleString()} |{" "}
+                {comparePartyB.toUpperCase()}: {votesB.toLocaleString()}
               </p>
             </div>
           </CardContent>
         </Card>
 
-        {/* Operational Status Summary */}
         <Card className="bg-slate-50 border-slate-200">
           <CardContent className="p-5">
             <p className="text-xs font-bold uppercase tracking-wide text-slate-500 mb-2">
@@ -882,52 +664,47 @@ export default function ElectionDashboard() {
             </p>
             <div className="grid grid-cols-2 gap-2 text-xs font-semibold">
               <div className="bg-white p-2 rounded border text-amber-700">
-                Pending: {aggregates.pendingCount}
+                Pending: {pendingCount}
               </div>
               <div className="bg-white p-2 rounded border text-red-700">
-                Rejected: {aggregates.rejectedCount}
+                Rejected: {rejectedCount}
               </div>
               <div className="bg-white p-2 rounded border text-amber-800">
-                Clarify: {aggregates.clarifyCount}
+                Clarify: {clarifyCount}
               </div>
               <div className="bg-white p-2 rounded border text-purple-800">
-                Reopened: {aggregates.reopenedCount}
+                Reopened: {reopenedCount}
               </div>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Dynamic Party Totals Breakdown Bar */}
+      {/* Official Approved Party Totals — from the PostgreSQL aggregate */}
       <Card>
         <CardHeader className="py-4">
           <CardTitle className="text-base font-bold text-slate-900">
-            Official Approved Party Totals ({trackedParties.length} Tracked
-            Parties)
+            Official Approved Party Totals ({trackedParties.length} Tracked Parties)
           </CardTitle>
         </CardHeader>
         <CardContent className="pb-6">
           {trackedParties.length === 0 ? (
             <div className="p-4 bg-amber-50 text-amber-900 border border-amber-200 rounded-xl text-xs font-semibold">
-              No tracked parties configured for this contest. Contact the
-              election administrator.
+              No tracked parties configured for this contest. Contact the election
+              administrator.
             </div>
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
               {trackedParties.map((p) => {
-                const pKey = p.toLowerCase();
-                const v = aggregates.partyTotals[pKey] || 0;
-                const pColor = getPartyColor(pKey);
-
+                const v = partyTotalByAcronym.get(p.toUpperCase()) ?? 0;
+                const pColor = getPartyColor(p);
                 return (
                   <div
                     key={p}
                     className="p-3 rounded-xl border flex flex-col items-center text-center space-y-1"
                     style={{ borderLeftWidth: "4px", borderLeftColor: pColor }}
                   >
-                    <span className="text-xs font-bold uppercase text-slate-500">
-                      {p}
-                    </span>
+                    <span className="text-xs font-bold uppercase text-slate-500">{p}</span>
                     <span className="text-xl font-bold font-mono text-slate-900">
                       {v.toLocaleString()}
                     </span>
@@ -959,11 +736,7 @@ export default function ElectionDashboard() {
                     <YAxis />
                     <Tooltip />
                     {trackedParties.map((p) => (
-                      <Bar
-                        key={p}
-                        dataKey={p.toUpperCase()}
-                        fill={getPartyColor(p)}
-                      />
+                      <Bar key={p} dataKey={p.toUpperCase()} fill={getPartyColor(p)} />
                     ))}
                   </BarChart>
                 </ResponsiveContainer>
@@ -978,7 +751,8 @@ export default function ElectionDashboard() {
           </CardHeader>
           <CardContent>
             <div className="h-80">
-              {aggregates.totalOfficialVotes === 0 ? (
+              {(aggregate?.party_totals ?? []).reduce((s, t) => s + t.total_votes, 0) ===
+              0 ? (
                 <div className="flex items-center justify-center h-full text-gray-400 text-sm">
                   No official votes recorded yet in this scope.
                 </div>
@@ -995,10 +769,7 @@ export default function ElectionDashboard() {
                       label
                     >
                       {pieChartData.map((entry, index) => (
-                        <Cell
-                          key={`cell-${index}`}
-                          fill={getPartyColor(entry.name)}
-                        />
+                        <Cell key={`cell-${index}`} fill={getPartyColor(entry.name)} />
                       ))}
                     </Pie>
                     <Tooltip />
@@ -1014,9 +785,7 @@ export default function ElectionDashboard() {
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
-            <CardTitle>
-              Polling Unit Results ({operationalSubmissions.length})
-            </CardTitle>
+            <CardTitle>Polling Unit Results ({operationalSubmissions.length})</CardTitle>
             {!isAdmin && (
               <span className="inline-flex items-center gap-1 text-xs text-gray-500 bg-gray-100 px-2.5 py-1 rounded-full">
                 <Lock className="h-3 w-3" /> Read-Only View
@@ -1036,6 +805,7 @@ export default function ElectionDashboard() {
                   <tr className="border-b bg-gray-50 text-xs font-semibold uppercase text-gray-500">
                     <th className="text-left py-3 px-4">Polling Unit / Ward</th>
                     <th className="text-left py-3 px-4">Contest</th>
+                    <th className="text-left py-3 px-4">Votes (APC / PDP)</th>
                     <th className="text-center py-3 px-4">Status</th>
                     <th className="text-center py-3 px-4">Form EC8 Evidence</th>
                     <th className="text-right py-3 px-4">Actions</th>
@@ -1043,26 +813,34 @@ export default function ElectionDashboard() {
                 </thead>
                 <tbody className="divide-y">
                   {operationalSubmissions.map((r) => {
-                    const contestObj = contests.find(
-                      (c) => c.id === r.contest_id,
-                    );
-
+                    const votesMap = votesByAcronym(r);
                     return (
-                      <tr key={r.id} className="hover:bg-gray-50/80">
+                      <tr key={r.result_id} className="hover:bg-gray-50/80">
                         <td className="py-3 px-4">
                           <p className="font-semibold text-gray-900">
                             {r.polling_unit_id}
                           </p>
-                          <p className="text-xs text-gray-500">
-                            Ward: {r.ward_id}
-                          </p>
+                          <p className="text-xs text-gray-500">Ward: {r.ward_id}</p>
                         </td>
                         <td className="py-3 px-4">
                           <p className="font-semibold text-xs text-emerald-800">
-                            {contestObj?.name ||
-                              r.contest_id ||
-                              "State Contest"}
+                            {r.contest_name || r.contest_id}
                           </p>
+                        </td>
+                        <td className="py-3 px-4 font-mono text-xs text-gray-700">
+                          {r.votes.length === 0 ? (
+                            <span className="text-gray-400">—</span>
+                          ) : (
+                            r.votes.map((v) => {
+                              const acronym =
+                                parties.find((p) => p.id === v.party_id)?.acronym ?? "?";
+                              return (
+                                <span key={v.party_id} className="mr-2">
+                                  {acronym}: {v.votes.toLocaleString()}
+                                </span>
+                              );
+                            })
+                          )}
                         </td>
                         <td className="text-center py-3 px-4">
                           <span
@@ -1078,45 +856,49 @@ export default function ElectionDashboard() {
                                       : "bg-blue-100 text-blue-800"
                             }`}
                           >
-                            {r.status}
+                            {STATUS_LABEL[r.status] ?? r.status}
                           </span>
                         </td>
                         <td className="text-center py-3 px-4">
-                          {r.cloudinary_url ? (
+                          {r.evidence_asset_id ? (
                             <button
-                              onClick={() => setInspectResult(r)}
+                              onClick={() => void openInspect(r)}
                               className="inline-flex items-center gap-1 text-xs font-semibold text-apc-primary hover:underline"
                             >
                               <Eye className="h-3.5 w-3.5" />
                               Inspect EC8
                             </button>
                           ) : (
-                            <span className="text-xs text-gray-400">
-                              No Image
-                            </span>
+                            <span className="text-xs text-gray-400">No Image</span>
                           )}
                         </td>
                         <td className="text-right py-3 px-4">
                           <div className="flex items-center justify-end gap-2">
-                            {r.history && r.history.length > 0 && (
-                              <button
-                                onClick={() => setInspectResult(r)}
-                                title="View audit history"
-                                className="p-1 text-gray-400 hover:text-apc-primary"
-                              >
-                                <History className="h-4 w-4" />
-                              </button>
-                            )}
-
+                            <button
+                              onClick={() => void openInspect(r)}
+                              title="View audit history"
+                              className="p-1 text-gray-400 hover:text-apc-primary"
+                            >
+                              <History className="h-4 w-4" />
+                            </button>
                             {isAdmin && (
                               <button
                                 onClick={() => {
                                   setEditingResult(r);
-                                  setEditFormResults([...r.results]);
+                                  setEditVotes(
+                                    r.votes.map((v) => ({
+                                      party_id: v.party_id,
+                                      acronym:
+                                        parties.find((p) => p.id === v.party_id)?.acronym ??
+                                        v.party_id,
+                                      votes: v.votes,
+                                    }))
+                                  );
                                   setEditReason("");
                                 }}
                                 className="px-2.5 py-1 text-xs font-semibold rounded bg-apc-primary/10 text-apc-primary hover:bg-apc-primary hover:text-white transition-colors"
                               >
+                                <Edit3 className="inline h-3 w-3 mr-1" />
                                 Correct
                               </button>
                             )}
@@ -1132,7 +914,7 @@ export default function ElectionDashboard() {
         </CardContent>
       </Card>
 
-      {/* Inspect EC8 Image & Audit History Modal */}
+      {/* Inspect EC8 Evidence & Audit History Modal */}
       {inspectResult && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
           <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full overflow-hidden animate-in fade-in zoom-in-95 duration-200 max-h-[90vh] flex flex-col">
@@ -1140,8 +922,7 @@ export default function ElectionDashboard() {
               <div>
                 <h2 className="font-bold text-lg">Form EC8 Result Evidence</h2>
                 <p className="text-xs text-white/80">
-                  PU: {inspectResult.polling_unit_id} · Ward:{" "}
-                  {inspectResult.ward_id}
+                  PU: {inspectResult.polling_unit_id} · Ward: {inspectResult.ward_id}
                 </p>
               </div>
               <button
@@ -1153,15 +934,16 @@ export default function ElectionDashboard() {
             </div>
 
             <div className="p-6 overflow-y-auto space-y-6">
-              {/* Evidence Image */}
-              {inspectResult.cloudinary_url ? (
+              {inspectResult.evidence_asset_id ? (
                 <div>
                   <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">
-                    Official Form EC8 Result Sheet Image
+                    Official Form EC8 Result Sheet (signed private access)
                   </p>
                   <div className="rounded-xl border bg-gray-50 overflow-hidden flex items-center justify-center p-2 min-h-[250px]">
+                    {/* Signed-access route; no public object URL is ever constructed (§10) */}
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
-                      src={inspectResult.cloudinary_url}
+                      src={evidenceViewUrl(inspectResult.evidence_asset_id)}
                       alt="Form EC8 Evidence"
                       className="max-h-[350px] object-contain rounded"
                     />
@@ -1173,29 +955,35 @@ export default function ElectionDashboard() {
                 </div>
               )}
 
-              {/* Audit History */}
-              {inspectResult.history && inspectResult.history.length > 0 && (
+              {inspectHistory.length > 0 && (
                 <div className="border-t pt-4">
                   <h3 className="font-bold text-sm text-gray-900 mb-3 flex items-center gap-1.5">
                     <History className="h-4 w-4 text-apc-primary" />
-                    Correction Audit History
+                    Audit History (append-only, database-recorded)
                   </h3>
                   <div className="space-y-3">
-                    {inspectResult.history.map((h, i) => (
-                      <div
-                        key={i}
-                        className="bg-gray-50 p-3 rounded-lg border text-xs space-y-1"
-                      >
+                    {inspectHistory.map((h) => (
+                      <div key={h.id} className="bg-gray-50 p-3 rounded-lg border text-xs space-y-1">
                         <p className="font-semibold text-gray-800">
-                          Action: {h.action} | Actor: {h.edited_by}
+                          Action: {h.action} | Actor: {h.actor_id}
                         </p>
                         <p className="text-gray-500">
-                          Reason / Notes:{" "}
-                          {h.notes || h.reason || "None specified"}
+                          {h.old_status ?? "—"} → {h.new_status ?? "—"}
+                          {h.new_votes
+                            ? ` · ballots: ${h.new_votes
+                                .map((v) => `${v.party_id.slice(0, 8)}…=${v.votes}`)
+                                .join(", ")}`
+                            : ""}
                         </p>
-                        <p className="text-gray-400">
-                          Timestamp: {String(h.edited_at)}
+                        <p className="text-gray-500">
+                          Reason / Notes: {h.notes || "None specified"}
                         </p>
+                        {h.new_evidence_asset_id && (
+                          <p className="text-gray-400">
+                            Evidence: {h.new_evidence_asset_id.slice(0, 8)}…
+                          </p>
+                        )}
+                        <p className="text-gray-400">Timestamp: {String(h.created_at)}</p>
                       </div>
                     ))}
                   </div>
@@ -1215,7 +1003,7 @@ export default function ElectionDashboard() {
         </div>
       )}
 
-      {/* Admin Correction Modal */}
+      {/* Admin Correction Modal — always lands in pending_review (§12) */}
       {editingResult && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
           <div className="bg-white rounded-2xl shadow-xl max-w-md w-full overflow-hidden animate-in fade-in zoom-in-95 duration-200">
@@ -1237,26 +1025,28 @@ export default function ElectionDashboard() {
             <div className="p-6 space-y-4">
               <p className="text-xs text-gray-500">
                 Correct party vote counts against the submitted Form EC8 photo
-                evidence. All corrections will be recorded in the audit trail.
+                evidence. The corrected result returns to{" "}
+                <strong>pending_review</strong> and requires independent
+                re-verification — it cannot be approved from this screen.
               </p>
 
               <div className="space-y-3">
-                {editFormResults.map((pr, idx) => (
-                  <div
-                    key={pr.party}
-                    className="flex items-center justify-between gap-4"
-                  >
+                {editVotes.map((pr, idx) => (
+                  <div key={pr.party_id} className="flex items-center justify-between gap-4">
                     <label className="text-sm font-semibold text-gray-700 uppercase">
-                      {pr.party} Votes
+                      {pr.acronym} Votes
                     </label>
                     <input
                       type="number"
                       min="0"
                       value={pr.votes}
                       onChange={(e) => {
-                        const updated = [...editFormResults];
-                        updated[idx].votes = parseInt(e.target.value) || 0;
-                        setEditFormResults(updated);
+                        const updated = [...editVotes];
+                        updated[idx] = {
+                          ...pr,
+                          votes: Math.max(0, parseInt(e.target.value) || 0),
+                        };
+                        setEditVotes(updated);
                       }}
                       className="w-28 px-3 py-2 border rounded-lg text-sm text-right font-mono font-bold"
                     />

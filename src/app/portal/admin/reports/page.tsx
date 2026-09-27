@@ -2,8 +2,18 @@
 
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { getAllUsers, getAllTasks } from "@/lib/firebase/firestore";
-import { getAllLGAs } from "@/lib/constants";
+import {
+  getSupabaseClient,
+  ensureSupabaseSession,
+  resolveSocialAccess,
+  getSocialTasks,
+  type SocialTask,
+  listMembers,
+  listAllWards,
+  getGeographyCounts,
+  type DirectoryMember,
+  type GeoWard,
+} from "@/lib/supabase";
 import { exportToCSV, exportToExcel, exportToPDFPrint } from "@/lib/export";
 import {
   BarChart3,
@@ -21,32 +31,67 @@ import {
   AlertTriangle,
   Briefcase,
 } from "lucide-react";
-import type { LGA } from "@/types";
+function getWardName(u: Pick<DirectoryMember, "ward_id">, wards: Map<string, string>): string {
+  if (!u.ward_id) return "Unassigned";
+  return wards.get(u.ward_id) ?? u.ward_id;
+}
 
 export default function AdminReportsPage() {
-  const [users, setUsers] = useState<any[]>([]);
-  const [tasks, setTasks] = useState<any[]>([]);
-  const [lgas, setLgas] = useState<LGA[]>([]);
+  const [users, setUsers] = useState<DirectoryMember[]>([]);
+  const [tasks, setTasks] = useState<SocialTask[]>([]);
+  const [wardNames, setWardNames] = useState<Map<string, string>>(new Map());
+  const [geoCounts, setGeoCounts] = useState<{ lgas: number; wards: number; pollingUnits: number }>({
+    lgas: 0,
+    wards: 0,
+    pollingUnits: 0,
+  });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let cancelled = false;
+
+    async function loadSocialTasks() {
+      // Social task stats via the canonical Social Force service
+      // (admin authority resolved server-side; module gate enforced —
+      // Phase E cutover from the legacy Firebase tenant-wide read).
+      try {
+        const bridge = await ensureSupabaseSession();
+        if (!bridge.sessionReady || cancelled) return;
+        const supabase = bridge.supabase ?? getSupabaseClient();
+        const access = await resolveSocialAccess(supabase);
+        if (!access.allowed || cancelled) return;
+        const rows = await getSocialTasks(supabase);
+        if (!cancelled) setTasks(rows);
+      } catch (err) {
+        console.error("Failed to load social task stats:", err);
+      }
+    }
+
     async function loadData() {
       try {
-        const [userData, taskData, lgaData] = await Promise.all([
-          getAllUsers(),
-          getAllTasks(),
-          getAllLGAs(),
+        // Canonical Supabase directory + geography (RLS-scoped reads).
+        const [memberData, wardData, geoCounts] = await Promise.all([
+          listMembers(),
+          listAllWards(),
+          getGeographyCounts(),
         ]);
-        setUsers(userData);
-        setTasks(taskData);
-        setLgas(lgaData);
+        if (cancelled) return;
+        setUsers(memberData);
+        setWardNames(new Map(wardData.map((w: GeoWard) => [w.id, w.name])));
+        setGeoCounts(geoCounts);
       } catch (err) {
         console.error("Failed to load admin reports data:", err);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     }
+
+    void loadSocialTasks();
     loadData();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const totalMembers = users.length;
@@ -62,16 +107,7 @@ export default function AdminReportsPage() {
   const wardMap = new Map<string, { name: string; count: number; points: number }>();
 
   users.forEach((u) => {
-    let wardName = u.ward || u.ward_id || "Unassigned";
-    if (u.ward_id && lgas.length > 0) {
-      for (const l of lgas) {
-        const w = l.wards.find((item) => item.id === u.ward_id);
-        if (w) {
-          wardName = w.name;
-          break;
-        }
-      }
-    }
+    const wardName = getWardName(u, wardNames);
 
     if (!wardMap.has(wardName)) {
       wardMap.set(wardName, { name: wardName, count: 0, points: 0 });
@@ -277,22 +313,15 @@ export default function AdminReportsPage() {
           <CardContent className="space-y-3 text-xs">
             <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
               <span className="text-gray-600 font-medium">Total Registered LGAs</span>
-              <span className="font-bold text-gray-900">{lgas.length}</span>
+              <span className="font-bold text-gray-900">{geoCounts.lgas}</span>
             </div>
             <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
               <span className="text-gray-600 font-medium">Total Electoral Wards</span>
-              <span className="font-bold text-gray-900">
-                {lgas.reduce((acc, l) => acc + l.wards.length, 0)}
-              </span>
+              <span className="font-bold text-gray-900">{geoCounts.wards}</span>
             </div>
             <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
               <span className="text-gray-600 font-medium">Total Polling Units</span>
-              <span className="font-bold text-gray-900">
-                {lgas.reduce(
-                  (acc, l) => acc + l.wards.reduce((wAcc, w) => wAcc + w.pollingUnits.length, 0),
-                  0
-                )}
-              </span>
+              <span className="font-bold text-gray-900">{geoCounts.pollingUnits}</span>
             </div>
           </CardContent>
         </Card>

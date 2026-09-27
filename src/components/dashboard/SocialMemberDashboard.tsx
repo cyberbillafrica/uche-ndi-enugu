@@ -23,22 +23,17 @@ import { cn, formatNumber } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 
 import {
-  getActiveTasks,
-  getLeaderboard,
-  getUserTaskSubmissions,
-} from "@/lib/firebase/firestore";
+  getSupabaseClient,
+  ensureSupabaseSession,
+  resolveSocialAccess,
+  SocialForceError,
+  getSocialTasks,
+  getMySubmissions,
+  getSocialLeaderboard,
+  type SocialLeaderboardEntry,
+} from "@/lib/supabase";
 
 import { SiFacebook, SiInstagram, SiTiktok, SiX } from "react-icons/si";
-
-import { getWardById } from "@/lib/constants";
-
-interface LeaderboardUser {
-  id: string;
-  full_name?: string;
-  points?: number;
-  ward_id?: string;
-  [key: string]: unknown;
-}
 
 interface ActiveTask {
   id: string;
@@ -46,30 +41,27 @@ interface ActiveTask {
   action?: string;
   points?: number;
   url?: string;
-  deadline?: string | null;
+  expiration_date?: string | null;
   status?: string;
-  [key: string]: unknown;
 }
 
-interface FirestoreSubmission {
+interface DashboardSubmission {
   id: string;
   task_id: string;
   status: "pending" | "verified";
-  submitted_at?: {
-    toDate?: () => Date;
-  } | null;
-  [key: string]: unknown;
+  submitted_at: string | null;
 }
 
-function formatSubmittedAt(value: FirestoreSubmission["submitted_at"]) {
-  if (value && typeof value.toDate === "function") {
-    return value.toDate().toLocaleDateString("en-NG", {
-      month: "short",
-      day: "numeric",
-    });
-  }
+function formatSubmittedAt(value: string | null) {
+  if (!value) return "Recently";
 
-  return "Recently";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Recently";
+
+  return date.toLocaleDateString("en-NG", {
+    month: "short",
+    day: "numeric",
+  });
 }
 
 function getPlatformStyle(platform?: string) {
@@ -129,15 +121,18 @@ function formatDeadline(deadline?: string | null) {
 export default function MemberDashboard() {
   const { profile, loading: authLoading } = useAuth();
 
-  const [leaderboard, setLeaderboard] = useState<LeaderboardUser[]>([]);
-  const [submissions, setSubmissions] = useState<FirestoreSubmission[]>([]);
+  const [leaderboard, setLeaderboard] = useState<SocialLeaderboardEntry[]>([]);
+  const [submissions, setSubmissions] = useState<DashboardSubmission[]>([]);
   const [activeTasks, setActiveTasks] = useState<ActiveTask[]>([]);
+  const [authoritativePoints, setAuthoritativePoints] = useState<number | null>(
+    null,
+  );
 
   const [loadingData, setLoadingData] = useState(true);
   const [loadError, setLoadError] = useState("");
 
   useEffect(() => {
-    if (!profile?.id) return;
+    if (authLoading || !profile?.id) return;
 
     let cancelled = false;
 
@@ -146,32 +141,55 @@ export default function MemberDashboard() {
       setLoadError("");
 
       try {
-        const profileId = profile.id;
-
-        if (!profileId) {
+        const bridge = await ensureSupabaseSession();
+        if (cancelled) return;
+        if (!bridge.sessionReady) {
+          setLoadError("Your session has expired. Please sign in again.");
           setLoadingData(false);
           return;
         }
 
-        const [leaderboardData, submissionData, activeTaskData] =
-          await Promise.all([
-            getLeaderboard(100),
-            getUserTaskSubmissions(profileId),
-            getActiveTasks(),
-          ]);
+        const supabase = getSupabaseClient();
+
+        const access = await resolveSocialAccess(supabase);
+        if (cancelled) return;
+        if (!access.allowed) {
+          // Fail closed with the standard module/authorization message —
+          // identical contract to the Tasks/Points/Leaderboard pages.
+          setLoadError(
+            access.reason === "module_disabled"
+              ? "The Social Force module is not enabled for your organization."
+              : "You do not have permission to view the Social dashboard.",
+          );
+          setLoadingData(false);
+          return;
+        }
+
+        // Three authoritative reads, all RLS-scoped by resolveSocialAccess
+        // plus the security_invoker view policies:
+        //   tasks        → active, unexpired (RLS member policy)
+        //   submissions  → the caller's own rows only (Phase C path)
+        //   leaderboard  → social_leaderboard projection with its own rank
+        const [taskData, submissionData, leaderboardData] = await Promise.all([
+          getSocialTasks(supabase, { status: "active" }),
+          getMySubmissions(supabase),
+          getSocialLeaderboard(supabase, { limit: 100 }),
+        ]);
 
         if (cancelled) return;
 
-        setLeaderboard(leaderboardData as LeaderboardUser[]);
-
-        setSubmissions(submissionData as FirestoreSubmission[]);
-
-        setActiveTasks(activeTaskData as ActiveTask[]);
+        setActiveTasks(taskData as ActiveTask[]);
+        setSubmissions(submissionData as DashboardSubmission[]);
+        setLeaderboard(leaderboardData);
       } catch (error) {
         console.error("Failed to load dashboard data:", error);
 
         if (!cancelled) {
-          setLoadError("Some dashboard data could not be loaded right now.");
+          setLoadError(
+            error instanceof SocialForceError
+              ? error.message
+              : "Some dashboard data could not be loaded right now.",
+          );
         }
       } finally {
         if (!cancelled) {
@@ -185,7 +203,33 @@ export default function MemberDashboard() {
     return () => {
       cancelled = true;
     };
-  }, [profile?.id]);
+  }, [authLoading, profile?.id]);
+
+  // Points come from the server-maintained projection (politicore_profiles
+  // view), never a client-side award reduction and never the legacy
+  // Firebase users.points document (§6). The profile row already carries
+  // the same projection; reading it through the service keeps one source.
+  useEffect(() => {
+    if (authLoading || !profile?.id) return;
+    let cancelled = false;
+
+    const loadPoints = async () => {
+      try {
+        const supabase = getSupabaseClient();
+        const { getMySocialPoints } = await import("@/lib/supabase");
+        const total = await getMySocialPoints(supabase);
+        if (!cancelled) setAuthoritativePoints(total);
+      } catch (error) {
+        console.error("Failed to load points:", error);
+        // Leave the profile fallback displayed rather than zeroing.
+      }
+    };
+
+    loadPoints();
+    return () => {
+      cancelled = true;
+    };
+  }, [authLoading, profile?.id]);
 
   const submittedTaskIds = useMemo(() => {
     return new Set(submissions.map((submission) => submission.task_id));
@@ -205,12 +249,12 @@ export default function MemberDashboard() {
       .length;
   }, [submissions]);
 
+  // §7: the position IS the projection's own `position` column —
+  // findIndex()+1 client ranking is gone.
   const leaderboardPosition = useMemo(() => {
     if (!profile?.id) return null;
-
-    const index = leaderboard.findIndex((user) => user.id === profile?.id);
-
-    return index >= 0 ? index + 1 : null;
+    const mine = leaderboard.find((entry) => entry.id === profile.id);
+    return mine ? mine.position : null;
   }, [leaderboard, profile]);
 
   const topPerformers = leaderboard.slice(0, 5);
@@ -288,7 +332,9 @@ export default function MemberDashboard() {
                 </p>
 
                 <p className="mt-1 text-3xl font-bold text-apc-primary">
-                  {formatNumber(profile.points ?? 0)}
+                  {authoritativePoints === null
+                    ? formatNumber(profile.points ?? 0)
+                    : formatNumber(authoritativePoints)}
                 </p>
 
                 <p className="mt-1 text-xs text-gray-500">
@@ -624,7 +670,7 @@ export default function MemberDashboard() {
             ) : (
               <div className="space-y-3">
                 {nextTasks.map((task) => {
-                  const deadline = formatDeadline(task.deadline);
+                  const deadline = formatDeadline(task.expiration_date);
 
                   return (
                     <div
@@ -717,66 +763,64 @@ export default function MemberDashboard() {
               </p>
             ) : (
               <div className="space-y-3">
-                {topPerformers.map((member, index) => {
-                  const ward = getWardById(member.ward_id);
-
-                  return (
+                {topPerformers.map((member, index) => (
+                  <div
+                    key={member.id}
+                    className={cn(
+                      "flex items-center gap-3 rounded-lg p-3",
+                      member.id === profile.id
+                        ? "bg-apc-primary/5 ring-1 ring-apc-primary/10"
+                        : "bg-gray-50",
+                    )}
+                  >
                     <div
-                      key={member.id}
                       className={cn(
-                        "flex items-center gap-3 rounded-lg p-3",
-                        member.id === profile.id
-                          ? "bg-apc-primary/5 ring-1 ring-apc-primary/10"
-                          : "bg-gray-50",
+                        "flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-bold",
+                        index === 0
+                          ? "bg-yellow-100 text-yellow-700"
+                          : index === 1
+                            ? "bg-gray-200 text-gray-700"
+                            : index === 2
+                              ? "bg-orange-100 text-orange-700"
+                              : "bg-white text-gray-500",
                       )}
                     >
-                      <div
-                        className={cn(
-                          "flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-bold",
-                          index === 0
-                            ? "bg-yellow-100 text-yellow-700"
-                            : index === 1
-                              ? "bg-gray-200 text-gray-700"
-                              : index === 2
-                                ? "bg-orange-100 text-orange-700"
-                                : "bg-white text-gray-500",
-                        )}
-                      >
-                        {index === 0 ? (
-                          <Medal className="h-5 w-5" />
-                        ) : (
-                          index + 1
-                        )}
-                      </div>
-
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-semibold text-gray-900">
-                          {member.full_name || "Member"}
-
-                          {member.id === profile.id && (
-                            <span className="ml-2 text-xs font-medium text-apc-primary">
-                              You
-                            </span>
-                          )}
-                        </p>
-
-                        <p className="text-xs text-gray-500">
-                          {ward ? `${ward.name} Ward` : "Ward not set"}
-                        </p>
-                      </div>
-
-                      <div className="text-right">
-                        <p className="text-sm font-bold text-apc-primary">
-                          {formatNumber(member.points ?? 0)}
-                        </p>
-
-                        <p className="text-[10px] uppercase tracking-wide text-gray-400">
-                          points
-                        </p>
-                      </div>
+                      {index === 0 ? (
+                        <Medal className="h-5 w-5" />
+                      ) : (
+                        member.position
+                      )}
                     </div>
-                  );
-                })}
+
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-semibold text-gray-900">
+                        {member.full_name || "Member"}
+
+                        {member.id === profile.id && (
+                          <span className="ml-2 text-xs font-medium text-apc-primary">
+                            You
+                          </span>
+                        )}
+                      </p>
+
+                      <p className="text-xs text-gray-500">
+                        {member.ward_name
+                          ? `${member.ward_name} Ward`
+                          : "Ward not set"}
+                      </p>
+                    </div>
+
+                    <div className="text-right">
+                      <p className="text-sm font-bold text-apc-primary">
+                        {formatNumber(member.points ?? 0)}
+                      </p>
+
+                      <p className="text-[10px] uppercase tracking-wide text-gray-400">
+                        points
+                      </p>
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
 

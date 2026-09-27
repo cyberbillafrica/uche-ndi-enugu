@@ -20,10 +20,12 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/components/ui/toast";
 import { getErrorMessage } from "@/lib/errors";
-import { getBiography, updateBiography } from "@/lib/firebase/biography";
+import {
+  getBiography,
+  updateBiography,
+  type BiographyData,
+} from "@/lib/supabase";
 import { uploadToCloudinary } from "@/lib/cloudinary";
-import { getCurrentTenant } from "@/lib/firebase/tenants";
-import type { BiographyData } from "@/types";
 
 const DEFAULT_BIOGRAPHY: Omit<
   BiographyData,
@@ -71,15 +73,17 @@ export default function AdminBiographyPage() {
   const loadBiography = useCallback(async () => {
     try {
       setLoading(true);
-      const tenant = await getCurrentTenant();
-      const data = await getBiography(tenant.id);
+      // Canonical Supabase read; RLS shows the admin their tenant's row in
+      // any status. The tenant id for first-save upserts comes from the
+      // authenticated admin's profile (server-validated by RLS anyway).
+      const data = await getBiography();
 
       if (data) {
         setBio(data);
       } else {
         setBio({
           ...DEFAULT_BIOGRAPHY,
-          tenant_id: tenant.id,
+          tenant_id: profile?.tenant_id ?? "",
         } as BiographyData);
       }
     } catch (err) {
@@ -88,10 +92,11 @@ export default function AdminBiographyPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [profile?.tenant_id]);
 
   useEffect(() => {
     if (!authLoading && profile?.access_role === "admin") {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- async loader opens with a synchronous loading-state flip; established pattern
       loadBiography();
     }
   }, [authLoading, profile, loadBiography]);
@@ -113,9 +118,17 @@ export default function AdminBiographyPage() {
     setSaving(true);
 
     try {
-      const tenant = await getCurrentTenant();
-      await updateBiography(tenant.id, {
-        ...bio,
+      if (!profile?.tenant_id) {
+        toast.error("Your session has no tenant context. Please sign in again.");
+        return;
+      }
+      await updateBiography(profile.tenant_id, {
+        full_name: bio.full_name,
+        title: bio.title,
+        about: bio.about,
+        image_url: bio.image_url ?? null,
+        stats: bio.stats,
+        social_links: bio.social_links ?? {},
         status,
       });
       toast.success(
@@ -139,7 +152,6 @@ export default function AdminBiographyPage() {
     setUploadingImage(true);
 
     try {
-      const tenant = await getCurrentTenant();
       const url = await uploadToCloudinary(file, "ifeanyi-2027/candidate");
       setBio((prev) => {
         if (!prev) return prev;

@@ -20,12 +20,15 @@ import {
 } from "lucide-react";
 
 import { useAuth } from "@/contexts/AuthContext";
-import { getManifesto, updateManifesto } from "@/lib/firebase/manifesto";
+import {
+  getManifesto,
+  updateManifesto,
+  type ManifestoData,
+  type ManifestoSection,
+} from "@/lib/supabase";
 import { uploadPDFToCloudinary } from "@/lib/cloudinary";
 import { useToast } from "@/components/ui/toast";
 import { getErrorMessage } from "@/lib/errors";
-import { getCurrentTenant } from "@/lib/firebase/tenants";
-import type { ManifestoData, ManifestoSection } from "@/types";
 
 // ─────────────────────────────────────────────
 // DEFAULTS
@@ -83,8 +86,9 @@ export default function AdminManifestoPage() {
   const loadManifesto = useCallback(async () => {
     try {
       setLoading(true);
-      const tenant = await getCurrentTenant();
-      const data = await getManifesto(tenant.id);
+      // Canonical Supabase read; RLS shows the admin their tenant's row in
+      // any status. Tenant id for first-save upserts comes from the profile.
+      const data = await getManifesto();
 
       if (data) {
         setManifesto(data);
@@ -92,7 +96,7 @@ export default function AdminManifestoPage() {
         // Start with empty manifesto
         setManifesto({
           ...DEFAULT_MANIFESTO,
-          tenant_id: tenant.id,
+          tenant_id: profile?.tenant_id ?? "",
         } as ManifestoData);
       }
     } catch (err) {
@@ -101,10 +105,11 @@ export default function AdminManifestoPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [profile?.tenant_id]);
 
   useEffect(() => {
     if (!authLoading && profile?.access_role === "admin") {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- async loader opens with a synchronous loading-state flip; established pattern
       loadManifesto();
     }
   }, [authLoading, profile, loadManifesto]);
@@ -131,9 +136,21 @@ export default function AdminManifestoPage() {
     setSaving(true);
 
     try {
-      const tenant = await getCurrentTenant();
-      await updateManifesto(tenant.id, {
-        ...manifesto,
+      if (!profile?.tenant_id) {
+        toast.error("Your session has no tenant context. Please sign in again.");
+        return;
+      }
+      await updateManifesto(profile.tenant_id, {
+        title: manifesto.title,
+        subtitle: manifesto.subtitle,
+        introduction: manifesto.introduction,
+        candidate_name: manifesto.candidate_name,
+        candidate_title: manifesto.candidate_title,
+        sections: manifesto.sections,
+        closing: manifesto.closing,
+        call_to_action: manifesto.call_to_action,
+        call_to_action_link: manifesto.call_to_action_link,
+        pdf_url: manifesto.pdf_url ?? null,
         status,
       });
       toast.success(
@@ -253,11 +270,10 @@ export default function AdminManifestoPage() {
     setUploadingPDF(true);
 
     try {
-      const tenant = await getCurrentTenant();
       // Upload to Cloudinary with tenant-specific folder
       const url = await uploadPDFToCloudinary(
         file,
-        `ifeanyi-2027/manifestos/${tenant.id}`,
+        `ifeanyi-2027/manifestos/${profile?.tenant_id ?? "default"}`,
       );
 
       setManifesto((prev) => {

@@ -10,8 +10,7 @@ import { Calendar, Tag, ArrowLeft, User, MessageCircle } from "lucide-react";
 
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
-import { getNewsArticleBySlug } from "@/lib/firebase/firestore";
-import type { NewsArticle } from "@/types";
+import { getNewsBySlug } from "@/lib/supabase";
 
 interface PageProps {
   params: Promise<{
@@ -70,7 +69,8 @@ function getAbsoluteImageUrl(image?: string) {
 // ─────────────────────────────────────────────
 
 const getArticle = cache(async (slug: string) => {
-  const article = await getNewsArticleBySlug(slug);
+  // Canonical Supabase read; published rows only (RLS + explicit filter).
+  const article = await getNewsBySlug(slug);
 
   if (!article || article.status !== "published") {
     return null;

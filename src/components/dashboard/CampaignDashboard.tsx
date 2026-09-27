@@ -26,7 +26,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 
-import { getAllLGAs, getWardById, getPollingUnitById } from "@/lib/constants";
+import { getWardById, getPollingUnitById } from "@/lib/constants";
+import { listLgaTree } from "@/lib/supabase";
 import type { LGA } from "@/types";
 
 import {
@@ -94,7 +95,7 @@ export default function CampaignDashboard() {
   useEffect(() => {
     async function loadLgas() {
       try {
-        const data = await getAllLGAs();
+        const data = await listLgaTree();
         setLgas(data);
       } catch (err) {
         console.error("Failed to load LGAs in campaign dashboard:", err);

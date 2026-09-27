@@ -128,3 +128,41 @@ export function watchNotifications(
     supabase.removeChannel(channel);
   };
 }
+
+/**
+ * Subscribe to the current user's notifications — the portal bell
+ * contract. Combines an initial RLS-scoped fetch (newest first) with
+ * postgres_changes realtime; every subsequent change re-fetches through
+ * the same authorized path, so the rendered rows are always exactly the
+ * RLS-permitted set (no client-side recipient filtering ever).
+ *
+ * Returns an unsubscribe function. Safe against post-unsubscribe
+ * emissions (a local flag guards the callback).
+ */
+export function subscribeMyNotifications(
+  onUpdate: (notifications: PolitiCoreNotification[]) => void,
+  supabase: SupabaseClient = getSupabaseClient()
+): () => void {
+  let active = true;
+
+  const refresh = async () => {
+    try {
+      const rows = await listMyNotifications({ limit: 50 }, supabase);
+      if (active) onUpdate(rows);
+    } catch (error) {
+      console.error("notifications: subscribe refresh failed:", error);
+      if (active) onUpdate([]);
+    }
+  };
+
+  void refresh();
+
+  const unsubscribeRealtime = watchNotifications(() => {
+    void refresh();
+  }, supabase);
+
+  return () => {
+    active = false;
+    unsubscribeRealtime();
+  };
+}

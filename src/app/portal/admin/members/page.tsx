@@ -2,37 +2,51 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { getAllUsers } from '@/lib/firebase/firestore';
-import { getAllLGAs } from '@/lib/constants';
-import { updateUserLifecycleStatus } from '@/lib/firebase/auth';
-import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/toast';
 import { getErrorMessage } from '@/lib/errors';
+import { listMembers, setMemberLifecycle, listLgas, listAllWards } from '@/lib/supabase';
+import type { DirectoryMember, GeoLga, GeoWard } from '@/lib/supabase';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { exportToCSV, exportToExcel, exportToPDFPrint } from '@/lib/export';
+import { exportToCSV, exportToExcel } from '@/lib/export';
 import {
   Plus,
   Search,
   Filter,
   Download,
   FileSpreadsheet,
-  Printer,
-  ShieldAlert,
-  UserCheck,
-  UserX,
-  Power,
   Loader2,
-  CheckCircle2,
-  AlertCircle,
   X,
 } from 'lucide-react';
-import type { LGA, UserLifecycleStatus } from '@/types';
+import type { UserLifecycleStatus } from '@/types';
+
+/** LGA/ward label resolution over the canonical geography engine. */
+interface GeoIndex {
+  lgaNames: Map<string, string>;
+  wardNames: Map<string, string>;
+}
+
+function buildGeoIndex(lgas: GeoLga[], wards: GeoWard[]): GeoIndex {
+  return {
+    lgaNames: new Map(lgas.map((l) => [l.id, l.name])),
+    wardNames: new Map(wards.map((w) => [w.id, w.name])),
+  };
+}
+
+function getWardName(user: Pick<DirectoryMember, 'ward_id'>, geo: GeoIndex): string {
+  if (!user.ward_id) return '-';
+  return geo.wardNames.get(user.ward_id) ?? user.ward_id;
+}
+
+function getLgaName(user: Pick<DirectoryMember, 'lga_id'>, geo: GeoIndex): string {
+  if (!user.lga_id) return '-';
+  return geo.lgaNames.get(user.lga_id) ?? user.lga_id;
+}
 
 export default function AdminMembersPage() {
-  const { profile } = useAuth();
   const toast = useToast();
-  const [members, setMembers] = useState<any[]>([]);
-  const [lgas, setLgas] = useState<LGA[]>([]);
+  const [members, setMembers] = useState<DirectoryMember[]>([]);
+  const [geo, setGeo] = useState<GeoIndex>({ lgaNames: new Map(), wardNames: new Map() });
+  const [lgaOptions, setLgaOptions] = useState<GeoLga[]>([]);
   const [loading, setLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
 
@@ -46,7 +60,7 @@ export default function AdminMembersPage() {
 
   // Reason Modal
   const [actionModal, setActionModal] = useState<{
-    user: any;
+    user: DirectoryMember;
     targetStatus: UserLifecycleStatus;
   } | null>(null);
   const [reasonNotes, setReasonNotes] = useState('');
@@ -54,12 +68,15 @@ export default function AdminMembersPage() {
   const fetchMembers = async () => {
     setLoading(true);
     try {
-      const [userData, lgaData] = await Promise.all([
-        getAllUsers(),
-        getAllLGAs(),
+      // Canonical Supabase directory + geography (RLS-scoped reads).
+      const [memberData, lgaData, wardData] = await Promise.all([
+        listMembers(),
+        listLgas(),
+        listAllWards(),
       ]);
-      setMembers(userData);
-      setLgas(lgaData);
+      setMembers(memberData);
+      setGeo(buildGeoIndex(lgaData, wardData));
+      setLgaOptions(lgaData);
     } catch (err) {
       console.error("Failed to load members:", err);
     } finally {
@@ -68,24 +85,10 @@ export default function AdminMembersPage() {
   };
 
   useEffect(() => {
-    fetchMembers();
+    // Deferred so the effect body performs no synchronous setState
+    // (react-hooks/set-state-in-effect): fetchMembers flips `loading`.
+    void Promise.resolve().then(fetchMembers);
   }, []);
-
-  const getWardName = (user: Record<string, unknown>) => {
-    if (user.ward) return String(user.ward);
-    if (!user.ward_id || !lgas.length) return String(user.ward_id || '-');
-    for (const lga of lgas) {
-      const w = lga.wards.find((ward) => ward.id === user.ward_id);
-      if (w) return w.name;
-    }
-    return String(user.ward_id);
-  };
-
-  const getLgaName = (user: Record<string, unknown>) => {
-    if (!user.lga_id || !lgas.length) return String(user.lga_id || '-');
-    const found = lgas.find((l) => l.id === user.lga_id);
-    return found ? found.name : String(user.lga_id);
-  };
 
   // Advanced Multi-Parameter Filtering
   const filteredMembers = useMemo(() => {
@@ -112,18 +115,18 @@ export default function AdminMembersPage() {
   }, [members, searchTerm, membershipFilter, roleFilter, statusFilter, lgaFilter, wardFilter]);
 
   const handleUpdateStatus = async () => {
-    if (!actionModal || !profile) return;
+    if (!actionModal) return;
     const { user, targetStatus } = actionModal;
     setUpdatingId(user.id);
 
     try {
-      await updateUserLifecycleStatus(
-        user.id,
-        targetStatus,
-        profile.id || 'admin',
-        profile.full_name || 'Admin',
-        reasonNotes
-      );
+      // Server-side authority RPC (0032): actor/tenant resolved server-side,
+      // fail-closed for non-admins, audited via the 0002 trigger.
+      await setMemberLifecycle({
+        memberId: user.id,
+        lifecycleStatus: targetStatus,
+        statusReason: reasonNotes || null,
+      });
       setActionModal(null);
       setReasonNotes('');
       await fetchMembers();
@@ -143,8 +146,8 @@ export default function AdminMembersPage() {
       m.full_name || "",
       m.email || "",
       m.phone || "",
-      getLgaName(m),
-      getWardName(m),
+      getLgaName(m, geo),
+      getWardName(m, geo),
       m.polling_unit_id || "",
       m.access_role || "member",
       (m.membership_types || []).join(";"),
@@ -160,8 +163,8 @@ export default function AdminMembersPage() {
       m.full_name || "",
       m.email || "",
       m.phone || "",
-      getLgaName(m),
-      getWardName(m),
+      getLgaName(m, geo),
+      getWardName(m, geo),
       m.polling_unit_id || "",
       m.access_role || "member",
       (m.membership_types || []).join(";"),
@@ -262,7 +265,7 @@ export default function AdminMembersPage() {
                 className="px-2.5 py-1.5 border rounded-lg text-xs font-semibold bg-gray-50 max-w-[130px] truncate"
               >
                 <option value="all">All LGAs</option>
-                {lgas.map((l) => (
+                {lgaOptions.map((l) => (
                   <option key={l.id} value={l.id}>
                     {l.name}
                   </option>
@@ -296,7 +299,7 @@ export default function AdminMembersPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y">
-                  {filteredMembers.map((m: any) => {
+                  {filteredMembers.map((m: DirectoryMember) => {
                     const status: UserLifecycleStatus = m.lifecycle_status || 'active';
 
                     return (
@@ -306,8 +309,8 @@ export default function AdminMembersPage() {
                           <p className="text-[11px] text-gray-500">{m.email} {m.phone ? `· ${m.phone}` : ''}</p>
                         </td>
                         <td className="py-3 px-4">
-                          <p className="font-semibold text-gray-800">{getLgaName(m)}</p>
-                          <p className="text-[11px] text-gray-500">Ward: {getWardName(m)}</p>
+                          <p className="font-semibold text-gray-800">{getLgaName(m, geo)}</p>
+                          <p className="text-[11px] text-gray-500">Ward: {getWardName(m, geo)}</p>
                           {m.polling_unit_id && <p className="text-[10px] text-gray-400">PU: {m.polling_unit_id}</p>}
                         </td>
                         <td className="py-3 px-4">

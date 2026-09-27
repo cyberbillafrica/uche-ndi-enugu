@@ -4,7 +4,7 @@ import { useState } from "react";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import { Mail, Phone, MapPin, Send, CheckCircle2, Loader2 } from "lucide-react";
-import { submitContactMessage } from "@/lib/firebase/firestore";
+import { submitContactMessage } from "@/lib/supabase";
 import { useToast } from "@/components/ui/toast";
 import { getErrorMessage } from "@/lib/errors";
 

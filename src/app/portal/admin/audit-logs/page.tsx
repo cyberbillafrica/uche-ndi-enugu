@@ -2,8 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { getSystemAuditLogs } from "@/lib/firebase/audit";
-import type { SystemAuditLog, AuditResource } from "@/types";
+import { getSystemAuditLogs, type SystemAuditLog } from "@/lib/supabase";
+import type { AuditResource } from "@/types";
 import {
   ShieldAlert,
   Search,
@@ -143,7 +143,9 @@ export default function AdminAuditLogsPage() {
                   {filteredLogs.map((log) => (
                     <tr key={log.id} className="hover:bg-gray-50">
                       <td className="py-3 px-4 whitespace-nowrap text-gray-600 font-mono">
-                        {String((log.timestamp as any)?.toDate?.() || log.timestamp || "Recently")}
+                        {log.occurred_at
+                          ? new Date(log.occurred_at).toLocaleString("en-US")
+                          : "Recently"}
                       </td>
                       <td className="py-3 px-4">
                         <p className="font-bold text-gray-900">{log.actor_name || log.actor_id}</p>

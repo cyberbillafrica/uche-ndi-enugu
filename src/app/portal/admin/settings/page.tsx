@@ -5,9 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/components/ui/toast";
 import { getErrorMessage } from "@/lib/errors";
 import { Settings, Bell, Shield, Loader2 } from "lucide-react";
-import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
-import { db } from "@/lib/firebase/config";
-import { getCurrentTenant } from "@/lib/firebase/tenants";
+import { getTenantSettings, updateTenantSettings } from "@/lib/supabase";
 
 export default function AdminSettingsPage() {
   const toast = useToast();
@@ -24,26 +22,15 @@ export default function AdminSettingsPage() {
   useEffect(() => {
     async function loadSettings() {
       try {
-        const tenant = await getCurrentTenant();
-        const docRef = doc(db, "tenants", tenant.id);
-        const snap = await getDoc(docRef);
-
-        if (snap.exists()) {
-          const data = snap.data();
-          setSettings({
-            election_mode_enabled: data.election_mode_enabled ?? true,
-            volunteer_registration_enabled: data.volunteer_registration_enabled ?? true,
-            new_member_alerts: data.new_member_alerts ?? true,
-            task_verification_alerts: data.task_verification_alerts ?? true,
-          });
-        }
+        const data = await getTenantSettings();
+        setSettings(data);
       } catch (err) {
         console.error("Failed to load tenant settings:", err);
       } finally {
         setLoading(false);
       }
     }
-    loadSettings();
+    void Promise.resolve().then(loadSettings);
   }, []);
 
   const handleSave = async (updatedSettings: typeof settings) => {
@@ -51,16 +38,9 @@ export default function AdminSettingsPage() {
     setSaving(true);
 
     try {
-      const tenant = await getCurrentTenant();
-      const docRef = doc(db, "tenants", tenant.id);
-      await setDoc(
-        docRef,
-        {
-          ...updatedSettings,
-          updated_at: serverTimestamp(),
-        },
-        { merge: true }
-      );
+      // Canonical tenant config (politicore.tenants.config) through the
+      // RLS-guarded service — tenant admins only.
+      await updateTenantSettings(updatedSettings);
       toast.success("Settings saved and applied in real-time.");
     } catch (err: unknown) {
       console.error("Failed to save tenant settings:", err);

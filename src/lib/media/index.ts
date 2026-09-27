@@ -64,7 +64,7 @@ export function localProvider(rootDir = ".media-local"): MediaProvider {
 }
 
 // ── Service over provider ────────────────────────────────────────────────────
-interface DbLike {
+export interface DbLike {
   query(sql: string, params?: unknown[]): Promise<{ rows: Record<string, unknown>[] }>;
 }
 
@@ -89,9 +89,9 @@ export function mediaService(provider: MediaProvider, bucket: string, db: DbLike
 
       const insert = await db.query(
         `INSERT INTO politicore.media_assets
-           (tenant_id, provider, bucket, object_key, visibility, content_type, size_bytes, purpose)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
-         RETURNING id, tenant_id, provider, bucket, object_key, visibility, content_type, size_bytes`,
+           (tenant_id, provider, bucket, object_key, visibility, content_type, size_bytes, purpose, uploaded_by)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+         RETURNING id, tenant_id, provider, bucket, object_key, visibility, content_type, size_bytes, purpose, uploaded_by::text`,
         [
           req.tenantId,
           provider.name,
@@ -101,6 +101,7 @@ export function mediaService(provider: MediaProvider, bucket: string, db: DbLike
           req.contentType,
           null,
           req.purpose,
+          req.uploadedBy ?? null,
         ]
       );
       const row = insert.rows[0];
@@ -113,6 +114,7 @@ export function mediaService(provider: MediaProvider, bucket: string, db: DbLike
         visibility: row.visibility as MediaVisibility,
         contentType: (row.content_type as string) ?? null,
         sizeBytes: (row.size_bytes as number) ?? null,
+        purpose: (row.purpose as string) ?? null,
         url: null,
       };
     },
@@ -127,7 +129,7 @@ export function mediaService(provider: MediaProvider, bucket: string, db: DbLike
 
     async stat(registryId) {
       const res = await db.query(
-        `SELECT id, tenant_id, provider, bucket, object_key, visibility, content_type, size_bytes
+        `SELECT id, tenant_id, provider, bucket, object_key, visibility, content_type, size_bytes, purpose
          FROM politicore.media_assets WHERE id = $1`,
         [registryId]
       );
@@ -142,6 +144,7 @@ export function mediaService(provider: MediaProvider, bucket: string, db: DbLike
         visibility: row.visibility as MediaVisibility,
         contentType: (row.content_type as string) ?? null,
         sizeBytes: (row.size_bytes as number) ?? null,
+        purpose: (row.purpose as string) ?? null,
         url: null,
       };
     },

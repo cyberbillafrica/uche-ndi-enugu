@@ -4,8 +4,9 @@
  * Preserves the existing application identity model:
  *   Supabase Auth user → politicore.profiles row → tenant/roles/permissions.
  *
- * In Phase 1A this layer is provided but NOT wired into the existing UI
- * (AuthContext still runs on Firebase). Consumers migrate in Phase 1B+.
+ * Native Supabase Auth is the canonical identity surface (Core Identity
+ * Phase 1); this compatibility layer serves profile-shaped reads for
+ * access/identity resolution.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 

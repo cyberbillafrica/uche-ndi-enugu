@@ -12,6 +12,7 @@
  * are platform-admin-only and happen via migrations, not this module.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { LGA, Ward, PollingUnit } from "@/types";
 import { getSupabaseClient } from "./config";
 
 export interface GeoState {
@@ -38,6 +39,22 @@ export interface GeoPollingUnit {
   name: string;
   code: string;
   is_new: boolean;
+}
+
+/** Tenant-neutral structural counts for area/coverage displays (§15). */
+export async function getGeographyCounts(
+  supabase: SupabaseClient = getSupabaseClient()
+): Promise<{ lgas: number; wards: number; pollingUnits: number }> {
+  const [lgas, wards, pus] = await Promise.all([
+    supabase.from("lgas").select("id", { count: "exact", head: true }),
+    supabase.from("wards").select("id", { count: "exact", head: true }),
+    supabase.from("polling_units").select("id", { count: "exact", head: true }),
+  ]);
+  return {
+    lgas: lgas.count ?? 17,
+    wards: wards.count ?? 260,
+    pollingUnits: pus.count ?? 4145,
+  };
 }
 
 /** All states (Enugu deployment: exactly one). */
@@ -72,6 +89,18 @@ export async function listLgas(
   const { data, error } = await q;
   if (error) throw new Error(`geography: listLgas failed: ${error.message}`);
   return (data ?? []) as GeoLga[];
+}
+
+/**
+ * All wards (paged — 260 total across 17 LGAs). Ward-name resolution for
+ * directory/assignment displays: id → name lookup without N+1 queries.
+ */
+export async function listAllWards(
+  supabase: SupabaseClient = getSupabaseClient()
+): Promise<GeoWard[]> {
+  const { data, error } = await supabase.from("wards").select("*").order("name");
+  if (error) throw new Error(`geography: listAllWards failed: ${error.message}`);
+  return (data ?? []) as GeoWard[];
 }
 
 /** Wards of an LGA (paged — 260 total across 17 LGAs). */
@@ -115,6 +144,43 @@ export async function listLgaPollingUnits(
     .order("code");
   if (error) throw new Error(`geography: listLgaPollingUnits failed: ${error.message}`);
   return (data ?? []) as GeoPollingUnit[];
+}
+
+/**
+ * Nested LGA→Ward→PollingUnit tree for cascading geo pickers (volunteer
+ * signup, profile, member creation, campaign dashboards). Assembles the
+ * application `LGA` shape from three paged canonical queries — a single
+ * indexed fetch per table, no N+1, no Firestore geography.
+ */
+export async function listLgaTree(
+  supabase: SupabaseClient = getSupabaseClient()
+): Promise<LGA[]> {
+  const [lgasRes, wardsRes, pusRes] = await Promise.all([
+    supabase.from("lgas").select("*").order("name"),
+    supabase.from("wards").select("*").order("code"),
+    supabase.from("polling_units").select("*").order("code"),
+  ]);
+  const error = lgasRes.error ?? wardsRes.error ?? pusRes.error;
+  if (error) throw new Error(`geography: listLgaTree failed: ${error.message}`);
+
+  const pusByWard = new Map<string, PollingUnit[]>();
+  for (const pu of (pusRes.data ?? []) as GeoPollingUnit[]) {
+    const list = pusByWard.get(pu.ward_id) ?? [];
+    list.push({ id: pu.id, code: pu.code, name: pu.name, isNew: pu.is_new });
+    pusByWard.set(pu.ward_id, list);
+  }
+  const wardsByLga = new Map<string, Ward[]>();
+  for (const w of (wardsRes.data ?? []) as GeoWard[]) {
+    const list = wardsByLga.get(w.lga_id) ?? [];
+    list.push({ id: w.id, code: w.code, name: w.name, pollingUnits: pusByWard.get(w.id) ?? [] });
+    wardsByLga.set(w.lga_id, list);
+  }
+  return ((lgasRes.data ?? []) as GeoLga[]).map((l) => ({
+    id: l.id,
+    code: l.code,
+    name: l.name,
+    wards: wardsByLga.get(l.id) ?? [],
+  }));
 }
 
 /** Resolved label chain for a scope id, e.g. "Enugu → Nkanu West → Agbani". */

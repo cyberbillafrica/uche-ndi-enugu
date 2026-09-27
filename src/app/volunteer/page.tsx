@@ -11,8 +11,8 @@ import Link from "next/link";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 
-import { signUpVolunteer } from "@/lib/firebase/auth";
-import { getAllLGAs } from "@/lib/constants";
+import { getSupabaseClient, signUpVolunteer } from "@/lib/supabase";
+import { listLgaTree } from "@/lib/supabase";
 import type { LGA } from "@/types";
 
 const volunteerSchema = z
@@ -201,7 +201,7 @@ export default function VolunteerPage() {
 
   useEffect(() => {
     async function loadLgas() {
-      const data = await getAllLGAs();
+      const data = await listLgaTree();
       setLgas(data);
     }
     loadLgas();
@@ -314,6 +314,7 @@ export default function VolunteerPage() {
       email,
       password,
       userData,
+      getSupabaseClient(),
     );
 
     if (signUpError) {

@@ -31,12 +31,9 @@ import { getErrorMessage } from "@/lib/errors";
 import {
   getGallery,
   updateGallery,
-  addGalleryImage,
-  removeGalleryImage,
-} from "@/lib/firebase/gallery";
+  type GalleryImage,
+} from "@/lib/supabase";
 import { uploadToCloudinary } from "@/lib/cloudinary";
-import { getCurrentTenant } from "@/lib/firebase/tenants";
-import type { GalleryImage } from "@/types";
 
 export default function AdminGalleryPage() {
   const { profile, loading: authLoading } = useAuth();
@@ -67,9 +64,10 @@ export default function AdminGalleryPage() {
   const loadGallery = useCallback(async () => {
     try {
       setLoading(true);
-      const tenant = await getCurrentTenant();
-      setTenantId(tenant.id);
-      const data = await getGallery(tenant.id);
+      // Canonical Supabase read; tenant id for first-save upserts comes
+      // from the authenticated admin's profile (RLS validates server-side).
+      setTenantId(profile?.tenant_id ?? "");
+      const data = await getGallery();
       setImages(data?.images || []);
     } catch (err) {
       console.error("Failed to load gallery:", err);
@@ -77,10 +75,11 @@ export default function AdminGalleryPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [profile?.tenant_id]);
 
   useEffect(() => {
     if (!authLoading && profile?.access_role === "admin") {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- async loader opens with a synchronous loading-state flip; established pattern
       loadGallery();
     }
   }, [authLoading, profile, loadGallery]);
@@ -115,11 +114,21 @@ export default function AdminGalleryPage() {
     setSaving(true);
 
     try {
-      await addGalleryImage(tenantId, {
-        url: pendingUploadUrl,
-        title: imageTitle.trim() || "Gallery image",
-        description: imageDescription.trim() || undefined,
-      });
+      if (!profile?.tenant_id) {
+        toast.error("Your session has no tenant context. Please sign in again.");
+        return;
+      }
+      const existing = await getGallery();
+      await updateGallery(profile.tenant_id, [
+        {
+          id: `img-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          url: pendingUploadUrl,
+          title: imageTitle.trim() || "Gallery image",
+          description: imageDescription.trim() || undefined,
+          uploaded_at: new Date().toISOString(),
+        },
+        ...(existing?.images ?? []),
+      ], existing?.status ?? "published");
       setDetailsOpen(false);
       setPendingUploadUrl(null);
       await loadGallery();
@@ -138,7 +147,16 @@ export default function AdminGalleryPage() {
     if (!confirm("Remove this image from the gallery?")) return;
 
     try {
-      await removeGalleryImage(tenantId, imageId);
+      const existing = await getGallery();
+      if (!profile?.tenant_id) {
+        toast.error("Your session has no tenant context. Please sign in again.");
+        return;
+      }
+      await updateGallery(
+        profile.tenant_id,
+        (existing?.images ?? []).filter((img) => img.id !== imageId),
+        existing?.status ?? "published",
+      );
       await loadGallery();
       toast.success("Image removed from the gallery.");
     } catch (err) {
@@ -255,7 +273,7 @@ export default function AdminGalleryPage() {
           <ImageIcon className="h-16 w-16 text-gray-300 mx-auto mb-4" />
           <p className="text-gray-500">No images uploaded yet.</p>
           <p className="text-sm text-gray-400 mt-1">
-            Click "Upload Image" to add photos.
+            Click &quot;Upload Image&quot; to add photos.
           </p>
         </div>
       ) : (

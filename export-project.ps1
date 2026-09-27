@@ -1,4 +1,4 @@
-$Output = "project-export.txt"
+$Output = "project-latest-state.txt"
 
 $ExcludeDirs = @(
     "node_modules",
@@ -8,7 +8,8 @@ $ExcludeDirs = @(
     "dist",
     "build",
     "coverage",
-    ".turbo"
+    ".turbo",
+    "lgas"
 )
 
 $AllowedExtensions = @(
@@ -39,14 +40,14 @@ $Root = (Get-Location).Path
 $OutputFullPath = Join-Path $Root $Output
 
 # Remove previous export before scanning
-Remove-Item -LiteralPath $OutputFullPath -ErrorAction SilentlyContinue
+Remove-Item $OutputFullPath -ErrorAction SilentlyContinue
 
 "============================================================" | Out-File $OutputFullPath -Encoding utf8
 "NEXT.JS PROJECT EXPORT" | Out-File $OutputFullPath -Append -Encoding utf8
 "Generated: $(Get-Date)" | Out-File $OutputFullPath -Append -Encoding utf8
 "============================================================" | Out-File $OutputFullPath -Append -Encoding utf8
 
-$Files = Get-ChildItem -LiteralPath $Root -Recurse -File -ErrorAction SilentlyContinue |
+$Files = Get-ChildItem -Path $Root -Recurse -File -ErrorAction SilentlyContinue |
     Where-Object {
         $file = $_
 
@@ -63,7 +64,7 @@ $Files = Get-ChildItem -LiteralPath $Root -Recurse -File -ErrorAction SilentlyCo
         $excluded = $false
 
         foreach ($dir in $ExcludeDirs) {
-            if ($file.FullName -match "[\\/]" + [regex]::Escape($dir) + "([\\/]|$)") {
+            if ($file.FullName -match "[\\/]" + [regex]::Escape($dir) + "[\\/]") {
                 $excluded = $true
                 break
             }
@@ -103,8 +104,7 @@ foreach ($File in $Files) {
         Out-File $OutputFullPath -Append -Encoding utf8
 
     try {
-        # Using -LiteralPath prevents PowerShell from interpreting brackets like [slug] as wildcards
-        Get-Content -LiteralPath $File.FullName -Raw |
+        Get-Content $File.FullName -Raw |
             Out-File $OutputFullPath -Append -Encoding utf8
     }
     catch {

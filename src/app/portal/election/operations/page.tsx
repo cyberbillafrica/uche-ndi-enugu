@@ -1,9 +1,19 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+/**
+ * POLITICORE — Election Operations / Review Desk (Phase 2 cutover).
+ *
+ * Officer review through the review_election_result RPC — the DATABASE
+ * state machine is authoritative (§11): approve/reject/clarify legal
+ * from submitted/pending_review/reopened, reopen only from approved,
+ * and independent re-verification after corrections is enforced
+ * server-side. Illegal actions surface the database's own error text
+ * (translated, §28); the UI never invents transitions.
+ */
+
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/ui/toast";
-import { getErrorMessage } from "@/lib/errors";
 import {
   CheckCircle,
   XCircle,
@@ -22,202 +32,247 @@ import {
   User,
 } from "lucide-react";
 
-import { useAuth } from "@/contexts/AuthContext";
 import {
-  ElectionResultDoc,
-  ElectionResultStatus,
-  reviewElectionResult,
-  subscribeToElectionResults,
+  electionErrorMessage,
+  getSupabaseClient,
+  ensureSupabaseSession,
+  resolveElectionAccess,
+  getActiveElection,
   getElectionCycles,
   getContestsByCycle,
-} from "@/lib/firebase/election";
-import { getEnuguElectoralData } from "@/lib/firebase/electoral";
+  getElectionResults,
+  getResultHistory,
+  reviewElectionResult,
+  subscribeToElectionResults,
+  evidenceViewUrl,
+  type ReviewAction,
+} from "@/lib/supabase";
+import { resolveScopeLabels } from "@/lib/supabase/geography";
 import type {
-  EnuguStateElectoralData,
-  PollingUnit,
   ElectionContest,
   ElectionCycle,
+  ElectionResult,
+  ElectionResultHistory,
+  ElectionResultStatus,
 } from "@/types";
 
 export default function ElectionOperationsPage() {
   const router = useRouter();
-  const { profile, loading: authLoading } = useAuth();
   const toast = useToast();
 
-  const [electoralData, setElectoralData] = useState<EnuguStateElectoralData | null>(null);
+  const [gate, setGate] = useState<"loading" | "denied" | "no_session" | "ready">("loading");
+  const [labelCache, setLabelCache] = useState<Map<string, string>>(new Map());
+
   const [cycles, setCycles] = useState<ElectionCycle[]>([]);
   const [contests, setContests] = useState<ElectionContest[]>([]);
-  const [selectedCycleId, setSelectedCycleId] = useState<string>("all");
+  const [selectedCycleId, setSelectedCycleId] = useState<string>("");
   const [selectedContestId, setSelectedContestId] = useState<string>("all");
 
-  const [results, setResults] = useState<ElectionResultDoc[]>([]);
+  const [results, setResults] = useState<ElectionResult[]>([]);
+  const [selectedResult, setSelectedResult] = useState<ElectionResult | null>(null);
+  const [partiesById, setPartiesById] = useState<Map<string, string>>(new Map());
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [selectedResult, setSelectedResult] = useState<ElectionResultDoc | null>(null);
+  const [history, setHistory] = useState<ElectionResultHistory[]>([]);
   const [reviewNotes, setReviewNotes] = useState("");
   const [submittingAction, setSubmittingAction] = useState(false);
 
-  // Fetch electoral data taxonomy and contests
+  // ── access gate: Election Officer authority required (§13) ─────────
   useEffect(() => {
-    async function init() {
-      const eData = await getEnuguElectoralData();
-      if (eData) setElectoralData(eData);
-
-      const cycList = await getElectionCycles();
-      setCycles(cycList);
-
-      if (cycList.length > 0) {
-        const cList = await getContestsByCycle(cycList[0].id);
-        setContests(cList);
+    let cancelled = false;
+    (async () => {
+      const bridge = await ensureSupabaseSession();
+      if (cancelled) return;
+      if (!bridge.sessionReady) {
+        setGate(bridge.reason === "no_session" ? "no_session" : "denied");
+        setLoading(false);
+        return;
       }
-    }
-    init();
-  }, []);
-
-  // Reload contests when cycle changes
-  useEffect(() => {
-    if (selectedCycleId === "all") {
-      if (cycles.length > 0) {
-        getContestsByCycle(cycles[0].id).then((cList) => setContests(cList));
+      const supabase = bridge.supabase ?? getSupabaseClient();
+      const access = await resolveElectionAccess(supabase);
+      if (cancelled) return;
+      // Verification authority = admin or election_officer (the resolver
+      // question verify_election_result answers this authoritatively; the
+      // page gate mirrors it for UX while the RPC remains the boundary).
+      const verifier =
+        access.allowed &&
+        (access.authority === "admin" || access.authority === "election_officer");
+      if (!verifier) {
+        setGate("denied");
+        setLoading(false);
+        return;
       }
-    } else {
-      getContestsByCycle(selectedCycleId).then((cList) => setContests(cList));
-    }
-  }, [selectedCycleId, cycles]);
-
-  // Helper map for Ward and Polling Unit labels
-  const getElectoralLabels = (wardId: string, puId: string, lgaId?: string) => {
-    if (!electoralData) {
-      return { lga: lgaId || "Enugu State", ward: wardId, pu: puId };
-    }
-
-    let lgaName = "";
-    let wardName = "";
-    let puName = "";
-
-    for (const lga of electoralData.lgas) {
-      if (lgaId && lga.id === lgaId) {
-        lgaName = lga.name;
-      }
-      for (const ward of lga.wards) {
-        if (ward.id === wardId) {
-          if (!lgaName) lgaName = lga.name;
-          wardName = ward.name;
-          const pu = ward.pollingUnits.find((p: PollingUnit) => p.id === puId);
-          if (pu) puName = pu.name;
-          break;
-        }
-      }
-      if (wardName) break;
-    }
-
-    return {
-      lga: lgaName || lgaId || "Enugu State",
-      ward: wardName || wardId,
-      pu: puName || puId,
+      setGate("ready");
+    })();
+    return () => {
+      cancelled = true;
     };
-  };
+  }, [router]);
 
-  // Auth Protection Check: Strictly Election Officer per J-E2-4 & Spec §27
+  // ── initial load: active election ──────────────────────────────────
   useEffect(() => {
-    if (authLoading) return;
+    if (gate !== "ready") return;
+    let cancelled = false;
+    (async () => {
+      const supabase = getSupabaseClient();
+      try {
+        const active = await getActiveElection(supabase);
+        if (cancelled) return;
+        const cycs = await getElectionCycles(supabase);
+        if (cancelled) return;
+        setCycles(cycs);
+        if (active.cycle && active.contest) {
+          setSelectedCycleId(active.cycle.id);
+          setSelectedContestId(active.contest.id);
+          const cList = await getContestsByCycle(active.cycle.id, supabase);
+          if (cancelled) return;
+          setContests(cList);
+        } else if (cycs.length > 0) {
+          setSelectedCycleId(cycs[0].id);
+          const cList = await getContestsByCycle(cycs[0].id, supabase);
+          if (cancelled) return;
+          setContests(cList);
+        }
+        // party label map (relational votes resolve to acronym via id)
+        const { getPoliticalParties } = await import("@/lib/supabase/election");
+        const ps = await getPoliticalParties(supabase);
+        if (cancelled) return;
+        setPartiesById(new Map(ps.map((p) => [p.id, p.acronym])));
+      } catch (err) {
+        console.error("Failed to load operations data:", err);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [gate]);
 
-    if (!profile) {
-      router.replace("/portal/auth/login");
-      return;
-    }
-
-    const isSocialOnly =
-      profile?.membership_types?.includes("social_member") &&
-      !profile?.membership_types?.includes("campaign_member") &&
-      profile.access_role !== "election_officer" &&
-      profile.access_role !== "admin" &&
-      profile.access_role !== "tenant_super_admin" &&
-      profile.access_role !== "platform_super_admin";
-
-    if (isSocialOnly) {
-      router.replace("/portal/dashboard");
-      return;
-    }
-
-    if (profile.access_role !== "election_officer") {
-      router.replace("/portal/dashboard");
-    }
-  }, [profile, authLoading, router]);
-
-  // Subscribe to real-time election results
+  // ── cycle change reload ────────────────────────────────────────────
   useEffect(() => {
-    if (!profile) return;
+    if (gate !== "ready" || !selectedCycleId) return;
+    let cancelled = false;
+    (async () => {
+      const cList = await getContestsByCycle(selectedCycleId, getSupabaseClient()).catch(() => []);
+      if (!cancelled) setContests(cList);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedCycleId, gate]);
 
-    const tenantId = profile.tenant_id || "default";
-    const scopeConstraint = selectedContestId !== "all" ? { contest_id: selectedContestId } : undefined;
+  // ── results fetch + realtime (§23) ─────────────────────────────────
+  const fetchResults = useCallback(async () => {
+    try {
+      const rows = await getElectionResults(getSupabaseClient(), {
+        contestId: selectedContestId !== "all" ? selectedContestId : undefined,
+      });
+      setResults(rows);
+      setLoading(false);
+    } catch (err) {
+      console.error("Failed to load results:", err);
+      setLoading(false);
+    }
+  }, [selectedContestId]);
 
-    const unsubscribe = subscribeToElectionResults(
-      tenantId,
-      (data) => {
-        setResults(data);
-        setLoading(false);
-      },
-      (err) => {
-        console.error("Failed to subscribe to results:", err);
-        setLoading(false);
-      },
-      scopeConstraint
-    );
+  useEffect(() => {
+    if (gate !== "ready") return;
+    let unsub: (() => void) | null = null;
+    (async () => {
+      await fetchResults();
+      const handle = subscribeToElectionResults(getSupabaseClient(), () => void fetchResults());
+      unsub = handle.unsubscribe;
+    })();
+    return () => unsub?.();
+  }, [gate, fetchResults]);
 
-    return () => unsubscribe();
-  }, [profile, selectedContestId]);
+  // ── geography labels from the relational services (§18/§30) ────────
+  const getLabels = useCallback(
+    async (wardId: string, puId: string): Promise<{ ward: string; pu: string }> => {
+      const key = `${wardId}/${puId}`;
+      const cached = labelCache.get(key);
+      if (cached) {
+        const [ward, pu] = cached.split("|");
+        return { ward, pu };
+      }
+      try {
+        const [wardLabels, puLabels] = await Promise.all([
+          wardId ? resolveScopeLabels("ward", wardId, getSupabaseClient()) : Promise.resolve([]),
+          resolveScopeLabels("polling_unit", puId, getSupabaseClient()),
+        ]);
+        const ward = wardLabels.slice(-1)[0] ?? wardId;
+        const pu = puLabels.slice(-1)[0] ?? puId;
+        setLabelCache((prev) => new Map(prev).set(key, `${ward}|${pu}`));
+        return { ward, pu };
+      } catch {
+        return { ward: wardId, pu: puId };
+      }
+    },
+    [labelCache]
+  );
 
-  if (authLoading || loading) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4">
-        <Loader2 className="w-10 h-10 text-emerald-600 animate-spin" />
-        <p className="text-slate-600 font-medium">Loading Election Operations Desk...</p>
-      </div>
-    );
-  }
+  const [rowLabels, setRowLabels] = useState<Map<string, { ward: string; pu: string }>>(new Map());
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const next = new Map<string, { ward: string; pu: string }>();
+      for (const r of results.slice(0, 200)) {
+        const l = await getLabels(r.ward_id, r.polling_unit_id);
+        next.set(r.result_id, l);
+      }
+      if (!cancelled) setRowLabels(next);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [results, getLabels]);
 
   const filteredResults = results.filter((res) => {
-    if (selectedContestId !== "all" && res.contest_id && res.contest_id !== selectedContestId) {
-      return false;
-    }
+    if (selectedContestId !== "all" && res.contest_id !== selectedContestId) return false;
     if (statusFilter === "all") return true;
     return res.status === statusFilter;
   });
 
-  const handleReview = async (action: "approve" | "reject" | "clarify" | "reopen") => {
-    if (!selectedResult || !profile) return;
-
+  // ── review through the RPC — DB state machine decides (§11) ────────
+  const handleReview = async (action: ReviewAction) => {
+    if (!selectedResult) return;
     if ((action === "reject" || action === "clarify") && !reviewNotes.trim()) {
-      toast.warning(
-        `Please provide notes explaining why this result is marked ${action}.`,
-      );
+      toast.warning(`Please provide notes explaining why this result is marked ${action}.`);
       return;
     }
-
     setSubmittingAction(true);
-
     try {
-      await reviewElectionResult({
-        resultDocId: selectedResult.id,
-        officerUserId: profile.id || "officer",
+      const outcome = await reviewElectionResult(
+        getSupabaseClient(),
+        selectedResult.result_id,
         action,
-        notes: reviewNotes.trim(),
-        existingDoc: selectedResult,
-      });
-
-      toast.success(
-        `Result successfully marked as ${action.toUpperCase()}.`,
+        reviewNotes.trim() || undefined
       );
+      toast.success(`Result successfully marked as ${outcome.status.toUpperCase()}.`);
       setReviewNotes("");
       setSelectedResult(null);
-    } catch (err: unknown) {
+      setHistory([]);
+      await fetchResults();
+    } catch (err) {
       console.error("Review action error:", err);
       toast.error(
-        getErrorMessage(err, "We couldn't process the review action. Please try again."),
+        electionErrorMessage(err, "We couldn't process the review action. Please try again.")
       );
     } finally {
       setSubmittingAction(false);
+    }
+  };
+
+  const openResult = async (res: ElectionResult) => {
+    setSelectedResult(res);
+    setReviewNotes(res.review_notes ?? "");
+    setHistory([]);
+    try {
+      const h = await getResultHistory(getSupabaseClient(), res.result_id);
+      setHistory(h);
+    } catch (err) {
+      console.error("History load failed:", err);
     }
   };
 
@@ -247,16 +302,59 @@ export default function ElectionOperationsPage() {
             <RotateCcw className="w-3.5 h-3.5" /> Reopened
           </span>
         );
-      case "submitted":
-      case "pending_review":
       default:
         return (
           <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800 border border-blue-200">
-            <Loader2 className="w-3.5 h-3.5 animate-spin" /> Pending Review
+            <Loader2 className="w-3.5 h-3.5 animate-spin" />{" "}
+            {status === "pending_review" ? "Pending Review (corrected)" : "Submitted"}
           </span>
         );
     }
   };
+
+  if (gate === "loading" || loading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4">
+        <Loader2 className="w-10 h-10 text-emerald-600 animate-spin" />
+        <p className="text-slate-600 font-medium">Loading Election Operations Desk...</p>
+      </div>
+    );
+  }
+
+  if (gate === "no_session") {
+    return (
+      <div className="max-w-xl mx-auto my-12 p-8 bg-white rounded-2xl shadow-sm border border-gray-200 text-center space-y-4">
+        <ShieldAlert className="w-10 h-10 text-amber-500 mx-auto" />
+        <h2 className="text-lg font-bold text-gray-900">Sign in required</h2>
+        <button
+          onClick={() => router.replace("/portal/auth/login")}
+          className="px-4 py-2 text-sm font-semibold rounded-lg bg-apc-primary text-white"
+        >
+          Go to sign in
+        </button>
+      </div>
+    );
+  }
+
+  if (gate === "denied") {
+    return (
+      <div className="max-w-xl mx-auto my-12 p-8 bg-white rounded-2xl shadow-sm border border-gray-200 text-center space-y-4">
+        <div className="mx-auto w-12 h-12 rounded-full bg-red-50 border border-red-200 flex items-center justify-center text-red-600">
+          <ShieldAlert className="w-6 h-6" />
+        </div>
+        <h2 className="text-lg font-bold text-gray-900">Operations Desk restricted</h2>
+        <p className="text-sm text-gray-600 leading-relaxed">
+          Result review and verification requires Election Officer authority (or
+          an explicit verification grant). This boundary is enforced by the
+          database, not the interface.
+        </p>
+      </div>
+    );
+  }
+
+  const selectedLabels = selectedResult
+    ? rowLabels.get(selectedResult.result_id)
+    : undefined;
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto p-4 md:p-6">
@@ -271,11 +369,12 @@ export default function ElectionOperationsPage() {
             Form EC8 Inspection & Audit Desk
           </h1>
           <p className="text-slate-600 text-sm mt-1">
-            Review submitted polling unit results against Form EC8 physical evidence before official collation.
+            Review submitted polling unit results against Form EC8 physical
+            evidence before official collation. Transitions follow the
+            database-enforced state machine.
           </p>
         </div>
 
-        {/* Quick Stats Pill */}
         <div className="flex items-center gap-3 bg-slate-50 p-3 rounded-xl border border-slate-200 text-xs">
           <div>
             <span className="text-slate-500 block">Pending Queue</span>
@@ -362,41 +461,42 @@ export default function ElectionOperationsPage() {
           ) : (
             <div className="divide-y divide-slate-100 max-h-[700px] overflow-y-auto">
               {filteredResults.map((res) => {
-                const labels = getElectoralLabels(res.ward_id, res.polling_unit_id, res.lga_id);
-                const isSelected = selectedResult?.id === res.id;
-                const totalVotes = res.results.reduce((acc, curr) => acc + (curr.votes || 0), 0);
-                const contestObj = contests.find((c) => c.id === res.contest_id);
+                const labels = rowLabels.get(res.result_id);
+                const isSelected = selectedResult?.result_id === res.result_id;
+                const totalVotes = res.votes.reduce((acc, v) => acc + v.votes, 0);
 
                 return (
                   <div
-                    key={res.id}
-                    onClick={() => {
-                      setSelectedResult(res);
-                      setReviewNotes(res.review_notes || "");
-                    }}
+                    key={res.result_id}
+                    onClick={() => void openResult(res)}
                     className={`p-4 cursor-pointer transition-colors hover:bg-slate-50 flex items-center justify-between gap-4 ${
                       isSelected ? "bg-emerald-50/60 border-l-4 border-emerald-600" : ""
                     }`}
                   >
                     <div className="space-y-1">
                       <div className="flex items-center gap-2">
-                        <span className="font-bold text-slate-900 text-sm">{labels.pu}</span>
+                        <span className="font-bold text-slate-900 text-sm">
+                          {labels?.pu ?? res.polling_unit_id}
+                        </span>
                         {getStatusBadge(res.status)}
                       </div>
                       <div className="text-[11px] font-semibold text-emerald-800">
-                        Contest: {contestObj?.name || res.contest_id || "State Contest"}
+                        Contest: {res.contest_name || res.contest_id}
                       </div>
                       <div className="flex items-center gap-3 text-xs text-slate-500">
                         <span className="flex items-center gap-1">
-                          <Building2 className="w-3 h-3 text-slate-400" /> {labels.lga}
+                          <Building2 className="w-3 h-3 text-slate-400" /> {res.lga_id}
                         </span>
                         <span>•</span>
                         <span className="flex items-center gap-1">
-                          <MapPin className="w-3 h-3 text-slate-400" /> Ward: {labels.ward}
+                          <MapPin className="w-3 h-3 text-slate-400" /> Ward:{" "}
+                          {labels?.ward ?? res.ward_id}
                         </span>
                       </div>
                       <div className="text-xs text-slate-600 font-medium pt-1">
-                        Total Cast Votes: <span className="text-slate-900 font-bold">{totalVotes}</span> | Submitter ID: {res.submitted_by}
+                        Total Cast Votes:{" "}
+                        <span className="text-slate-900 font-bold">{totalVotes}</span> | Submitter
+                        ID: {res.submitted_by.slice(0, 8)}…
                       </div>
                     </div>
 
@@ -415,56 +515,64 @@ export default function ElectionOperationsPage() {
           {!selectedResult ? (
             <div className="flex flex-col items-center justify-center min-h-[400px] text-center text-slate-400 space-y-3">
               <FileText className="w-12 h-12 stroke-[1.5]" />
-              <p className="text-sm">Select a submission from the queue to view Form EC8 evidence & perform officer review.</p>
+              <p className="text-sm">
+                Select a submission from the queue to view Form EC8 evidence & perform officer
+                review.
+              </p>
             </div>
           ) : (
             <>
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">Inspection Panel</span>
+                  <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                    Inspection Panel
+                  </span>
                   {getStatusBadge(selectedResult.status)}
                 </div>
-                {(() => {
-                  const labels = getElectoralLabels(selectedResult.ward_id, selectedResult.polling_unit_id, selectedResult.lga_id);
-                  const contestObj = contests.find((c) => c.id === selectedResult.contest_id);
-                  return (
-                    <div className="space-y-1">
-                      <div className="text-xs font-bold text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-md border border-emerald-200">
-                        Contest: {contestObj?.name || selectedResult.contest_id || "General Contest"}
-                      </div>
-                      <h3 className="text-lg font-bold text-slate-900 pt-1">{labels.pu}</h3>
-                      <p className="text-xs text-slate-500">{labels.lga} LGA • Ward {labels.ward}</p>
-                    </div>
-                  );
-                })()}
+                <div className="space-y-1">
+                  <div className="text-xs font-bold text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-md border border-emerald-200">
+                    Contest: {selectedResult.contest_name || selectedResult.contest_id}
+                  </div>
+                  <h3 className="text-lg font-bold text-slate-900 pt-1">
+                    {selectedLabels?.pu ?? selectedResult.polling_unit_id}
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    {selectedResult.lga_id} LGA • Ward{" "}
+                    {selectedLabels?.ward ?? selectedResult.ward_id}
+                  </p>
+                </div>
               </div>
 
-              {/* Submitter Info Specs (Sec 53) */}
+              {/* Submitter Info */}
               <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 text-xs space-y-1">
                 <div className="flex items-center gap-1.5 text-slate-700 font-semibold">
                   <User className="w-3.5 h-3.5 text-slate-400" />
-                  <span>Submitter ID:</span> {selectedResult.submitted_by}
+                  <span>Submitter ID:</span> {selectedResult.submitted_by.slice(0, 8)}…
                 </div>
                 {selectedResult.created_at ? (
                   <div className="flex items-center gap-1.5 text-slate-500 text-[11px]">
                     <Clock className="w-3.5 h-3.5 text-slate-400" />
-                    <span>Submission Time:</span> {String(selectedResult.created_at)}
+                    <span>Submission Time:</span>{" "}
+                    {new Date(selectedResult.created_at).toLocaleString()}
                   </div>
                 ) : null}
               </div>
 
-              {/* Form EC8 Preview */}
+              {/* Form EC8 Preview — signed private access (§10) */}
               <div className="space-y-2">
-                <span className="text-xs font-semibold text-slate-700 block">Form EC8 Result Sheet Evidence</span>
-                {selectedResult.cloudinary_url ? (
+                <span className="text-xs font-semibold text-slate-700 block">
+                  Form EC8 Result Sheet Evidence
+                </span>
+                {selectedResult.evidence_asset_id ? (
                   <div className="relative aspect-[4/3] rounded-xl overflow-hidden border border-slate-200 bg-slate-900">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
-                      src={selectedResult.cloudinary_url}
+                      src={evidenceViewUrl(selectedResult.evidence_asset_id)}
                       alt="Form EC8 Evidence"
                       className="w-full h-full object-contain"
                     />
                     <a
-                      href={selectedResult.cloudinary_url}
+                      href={evidenceViewUrl(selectedResult.evidence_asset_id)}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="absolute bottom-2 right-2 px-2.5 py-1 text-xs bg-black/75 text-white rounded-md hover:bg-black font-medium backdrop-blur-sm"
@@ -479,22 +587,39 @@ export default function ElectionOperationsPage() {
                 )}
               </div>
 
-              {/* Party Breakdown Table */}
+              {/* Party Breakdown — relational votes resolved to acronyms (§6) */}
               <div className="space-y-2">
-                <span className="text-xs font-semibold text-slate-700 block">Submitted Party Vote Count</span>
+                <span className="text-xs font-semibold text-slate-700 block">
+                  Submitted Party Vote Count
+                </span>
                 <div className="bg-slate-50 rounded-xl p-3 border border-slate-200 space-y-1.5">
-                  {selectedResult.results.map((r, i) => (
-                    <div key={i} className="flex items-center justify-between text-xs py-1 border-b border-slate-200 last:border-0">
-                      <span className="font-bold uppercase text-slate-800">{r.party}</span>
-                      <span className="font-mono font-bold text-emerald-700 text-sm">{r.votes.toLocaleString()}</span>
-                    </div>
-                  ))}
+                  {selectedResult.votes.length === 0 ? (
+                    <p className="text-xs text-slate-400 py-2 text-center">
+                      No ballot rows recorded.
+                    </p>
+                  ) : (
+                    selectedResult.votes.map((v) => (
+                      <div
+                        key={v.party_id}
+                        className="flex items-center justify-between text-xs py-1 border-b border-slate-200 last:border-0"
+                      >
+                        <span className="font-bold uppercase text-slate-800">
+                          {partiesById.get(v.party_id) ?? v.party_id.slice(0, 8)}
+                        </span>
+                        <span className="font-mono font-bold text-emerald-700 text-sm">
+                          {v.votes.toLocaleString()}
+                        </span>
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
 
-              {/* Review Notes Input */}
+              {/* Review Notes */}
               <div className="space-y-2">
-                <label className="text-xs font-semibold text-slate-700 block">Officer Notes / Clarification Reason</label>
+                <label className="text-xs font-semibold text-slate-700 block">
+                  Officer Notes / Clarification Reason
+                </label>
                 <textarea
                   value={reviewNotes}
                   onChange={(e) => setReviewNotes(e.target.value)}
@@ -504,9 +629,11 @@ export default function ElectionOperationsPage() {
                 />
               </div>
 
-              {/* Action Buttons */}
+              {/* Action Buttons — the DB decides legality (§11) */}
               <div className="space-y-2 pt-2 border-t border-slate-100">
-                <span className="text-xs font-semibold text-slate-700 block">Officer Decision</span>
+                <span className="text-xs font-semibold text-slate-700 block">
+                  Officer Decision
+                </span>
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     onClick={() => handleReview("approve")}
@@ -537,23 +664,39 @@ export default function ElectionOperationsPage() {
                     <RotateCcw className="w-4 h-4" /> Reopen Result
                   </button>
                 </div>
+                <p className="text-[11px] text-slate-400 pt-1">
+                  Approved results must be reopened before resubmission; corrected results
+                  pending independent review cannot be overwritten. Illegal transitions are
+                  refused by the database.
+                </p>
               </div>
 
-              {/* Audit Trail History */}
-              {selectedResult.history && selectedResult.history.length > 0 && (
+              {/* Audit Trail */}
+              {history.length > 0 && (
                 <div className="space-y-2 pt-3 border-t border-slate-100">
                   <span className="text-xs font-semibold text-slate-700 flex items-center gap-1">
-                    <History className="w-3.5 h-3.5 text-slate-500" /> Audit Trail ({selectedResult.history.length})
+                    <History className="w-3.5 h-3.5 text-slate-500" /> Audit Trail ({history.length})
                   </span>
                   <div className="space-y-2 max-h-40 overflow-y-auto text-xs bg-slate-50 p-2.5 rounded-xl border border-slate-200">
-                    {selectedResult.history.map((item, idx) => (
-                      <div key={idx} className="border-b border-slate-200 pb-1.5 last:border-0 last:pb-0">
+                    {history.map((item) => (
+                      <div
+                        key={item.id}
+                        className="border-b border-slate-200 pb-1.5 last:border-0 last:pb-0"
+                      >
                         <div className="flex items-center justify-between text-[11px] text-slate-500">
-                          <span className="font-semibold text-slate-700">Action: {item.action}</span>
-                          <span>{new Date(item.edited_at as string).toLocaleTimeString()}</span>
+                          <span className="font-semibold text-slate-700">
+                            Action: {item.action} · {item.old_status ?? "—"} →{" "}
+                            {item.new_status ?? "—"}
+                          </span>
+                          <span>
+                            {item.created_at
+                              ? new Date(item.created_at).toLocaleTimeString()
+                              : ""}
+                          </span>
                         </div>
-                        {item.notes && <p className="text-slate-600 text-[11px] mt-0.5">{String(item.notes)}</p>}
-                        {item.reason && <p className="text-slate-600 text-[11px] mt-0.5">Reason: {String(item.reason)}</p>}
+                        {item.notes && (
+                          <p className="text-slate-600 text-[11px] mt-0.5">{item.notes}</p>
+                        )}
                       </div>
                     ))}
                   </div>

@@ -225,7 +225,7 @@ export default function DocumentationPage() {
               <div className="bg-gray-50 p-4 rounded-xl border text-xs">
                 <p className="font-bold text-gray-900 mb-2">Firestore Helpers & Security Policy:</p>
                 <p className="text-gray-600 leading-relaxed">
-                  <code>getPublishedNews()</code> in <code>src/lib/firebase/firestore.ts</code> fetches published news using equality filters without requiring composite indexes, sorting in memory by <code>created_at</code>. <code>firestore.rules</code> enforces read access for <code>status == "published"</code> or <code>published == true</code> while restricting write access to authenticated administrators.
+                  <code>listPublishedNews()</code> in <code>src/lib/supabase/news.ts</code> reads published articles from the canonical <code>politicore.news_articles</code> table; RLS enforces <code>status == 'published'</code> for anonymous visitors and tenant-admin management server-side.
                 </p>
               </div>
             </div>

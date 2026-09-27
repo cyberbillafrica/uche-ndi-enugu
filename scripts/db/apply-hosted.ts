@@ -125,6 +125,192 @@ const SIGNATURES: Record<string, string> = {
                            WHERE table_schema='politicore'
                              AND table_name='election_results_current'
                              AND column_name='votes')`,
+  "0020": `(SELECT count(*) FROM pg_views WHERE schemaname='public'
+           AND viewname IN ('election_cycles','election_contests','election_candidates',
+                            'election_settings','political_parties','pu_reports',
+                            'election_incidents','election_result_history')) = 8`,
+  "0021": `to_regclass('politicore.campaign_issues') IS NOT NULL`,
+  "0023": `to_regprocedure('public.set_campaign_activity_status(uuid,politicore.campaign_activity_status)') IS NOT NULL`,
+  "0022": `to_regprocedure('politicore.update_campaign_activity(uuid,text,text,politicore.campaign_activity_type,text,timestamptz,timestamptz,integer,uuid,politicore.scope_type_enum,text)') IS NOT NULL
+           AND EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+                       WHERE n.nspname='politicore' AND p.proname='can_view_campaign_activity_row')`,
+  "0024": `to_regprocedure('public.campaign_assignment_transition(uuid,text)') IS NOT NULL
+           AND to_regprocedure('public.campaign_assignable_members(politicore.scope_type_enum,text)') IS NOT NULL
+           AND to_regprocedure('public.create_campaign_assignment(text,text,uuid,politicore.scope_type_enum,text,politicore.campaign_assignment_priority,date,text)') IS NOT NULL
+           AND EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+                       WHERE n.nspname='politicore' AND p.proname='campaign_assignable_members')`,
+  "0025": `to_regprocedure('public.submit_campaign_report(politicore.campaign_report_type,text,text,politicore.scope_type_enum,text,text,integer,text,text,text,boolean,uuid)') IS NOT NULL
+           AND to_regprocedure('public.review_campaign_report(uuid,text,text)') IS NOT NULL
+           AND to_regprocedure('public.resubmit_campaign_report(uuid,text,uuid)') IS NOT NULL
+           AND to_regprocedure('public.campaign_issue_transition(uuid,text,uuid,text)') IS NOT NULL
+           AND EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+                       WHERE n.nspname='politicore' AND p.proname='submit_campaign_report')
+           AND EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+                       WHERE n.nspname='politicore' AND p.proname='campaign_issue_transition')`,
+  "0026": `to_regprocedure('public.campaign_coordination_summary()') IS NOT NULL
+           AND to_regprocedure('public.campaign_members_page(text,text,text,integer,integer)') IS NOT NULL
+           AND to_regprocedure('public.campaign_members_page_count(text,text,text)') IS NOT NULL
+           AND EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+                       WHERE n.nspname='politicore' AND p.proname='campaign_members_page')
+           AND EXISTS (SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+                       WHERE n.nspname='public' AND c.relname='organizational_assignments')
+           AND NOT EXISTS (SELECT 1 FROM information_schema.role_table_grants
+                           WHERE table_schema='public' AND table_name='organizational_assignments'
+                             AND grantee='anon' AND privilege_type IN ('INSERT','UPDATE','DELETE','TRUNCATE'))`,
+  "0027": `NOT EXISTS (SELECT 1 FROM information_schema.role_table_grants
+           WHERE table_schema='public' AND table_name='politicore_profiles'
+             AND grantee IN ('anon','authenticated')
+             AND privilege_type IN ('INSERT','UPDATE','DELETE','TRUNCATE'))
+           AND NOT EXISTS (SELECT 1 FROM information_schema.role_table_grants
+                           WHERE table_schema='public' AND table_name LIKE 'campaign%'
+                             AND grantee IN ('anon','authenticated')
+                             AND privilege_type IN ('TRUNCATE'))
+           AND NOT EXISTS (SELECT 1 FROM information_schema.role_table_grants
+                           WHERE table_schema='public' AND table_name='campaign_issues'
+                             AND grantee='anon'
+                             AND privilege_type IN ('INSERT','UPDATE','DELETE','TRUNCATE'))
+           AND NOT EXISTS (SELECT 1 FROM information_schema.role_table_grants
+                           WHERE table_schema='public'
+                             AND table_name IN ('campaign_activity_participants','campaign_field_reports')
+                             AND grantee IN ('anon','authenticated')
+                             AND privilege_type IN ('INSERT','UPDATE','DELETE','TRUNCATE'))
+           AND EXISTS (SELECT 1 FROM information_schema.role_table_grants
+                       WHERE table_schema='public' AND table_name='campaign_assignments'
+                         AND grantee='authenticated' AND privilege_type='DELETE')
+           AND NOT EXISTS (SELECT 1 FROM information_schema.role_table_grants
+                           WHERE table_schema='public' AND table_name='campaign_assignments'
+                             AND grantee='anon' AND privilege_type IN ('INSERT','UPDATE','DELETE','TRUNCATE'))`,
+  "0028": `EXISTS (SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+           WHERE n.nspname='politicore' AND c.relname='social_point_awards')
+           AND EXISTS (SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+           WHERE n.nspname='public' AND c.relname='social_leaderboard')
+           AND EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+           WHERE n.nspname='public' AND p.proname='verify_social_submission')
+           AND NOT EXISTS (SELECT 1 FROM information_schema.role_table_grants
+           WHERE table_schema='public' AND table_name='social_point_awards'
+             AND grantee IN ('anon','authenticated')
+             AND privilege_type IN ('INSERT','UPDATE','DELETE','TRUNCATE'))`,
+  "0029": `to_regprocedure('public.social_admin_award_history(uuid, integer)') IS NOT NULL
+           AND (SELECT count(*) FROM pg_get_viewdef('public.social_leaderboard'::regclass) d
+                WHERE d::text ILIKE '%module_enabled%') = 1
+           AND NOT EXISTS (SELECT 1 FROM information_schema.role_table_grants
+           WHERE table_schema='public' AND table_name='social_point_awards'
+             AND grantee IN ('anon','authenticated')
+             AND privilege_type IN ('INSERT','UPDATE','DELETE','TRUNCATE'))`,
+  "0030": `EXISTS (SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+           WHERE n.nspname='public' AND c.relname='permission_grants' AND c.relkind='v')
+           AND EXISTS (SELECT 1 FROM information_schema.role_table_grants
+           WHERE table_schema='public' AND table_name='permission_grants'
+             AND grantee='authenticated' AND privilege_type='SELECT')
+           AND NOT EXISTS (SELECT 1 FROM information_schema.role_table_grants
+           WHERE table_schema='public' AND table_name='permission_grants'
+             AND grantee='anon')`,
+  "0031": `EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+           WHERE n.nspname='politicore' AND p.proname='admin_enrich_member_profile')
+           AND EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+           WHERE n.nspname='public' AND p.proname='admin_enrich_member_profile')
+           AND NOT EXISTS (SELECT 1 FROM information_schema.role_table_grants
+           WHERE table_schema='public' AND table_name='politicore_profiles'
+             AND grantee IN ('anon','authenticated')
+             AND privilege_type IN ('INSERT','UPDATE','DELETE','TRUNCATE'))`,
+  "0032": `EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+           WHERE n.nspname='politicore' AND p.proname='admin_set_member_lifecycle')
+           AND EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+           WHERE n.nspname='public' AND p.proname='admin_set_member_lifecycle')
+           AND NOT EXISTS (SELECT 1 FROM information_schema.role_table_grants
+           WHERE table_schema='public' AND table_name='politicore_profiles'
+             AND grantee IN ('anon','authenticated')
+             AND privilege_type IN ('INSERT','UPDATE','DELETE','TRUNCATE'))`,
+  "0033": `EXISTS (SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+           WHERE n.nspname='politicore' AND c.relname='events' AND c.relkind='r')
+           AND EXISTS (SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+           WHERE n.nspname='politicore' AND c.relname='announcements' AND c.relkind='r')
+           AND EXISTS (SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+           WHERE n.nspname='politicore' AND c.relname='donations' AND c.relkind='r')
+           AND EXISTS (SELECT 1 FROM information_schema.columns
+           WHERE table_schema='politicore' AND table_name='tenants' AND column_name='config')
+           AND EXISTS (SELECT 1 FROM pg_policy p JOIN pg_class c ON c.oid=p.polrelid
+           JOIN pg_namespace n ON n.oid=c.relnamespace
+           WHERE n.nspname='politicore' AND c.relname='events' AND p.polname='events_read_published')
+           AND NOT EXISTS (SELECT 1 FROM information_schema.role_table_grants
+           WHERE table_schema='public' AND table_name='donations'
+             AND grantee='anon')`,
+  "0034": `EXISTS (SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+
+           WHERE n.nspname='politicore' AND c.relname='governance_requests' AND c.relkind='r')
+
+           AND EXISTS (SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+
+           WHERE n.nspname='politicore' AND c.relname='governance_participants' AND c.relkind='r')
+
+           AND EXISTS (SELECT 1 FROM politicore.permissions WHERE name='view_governance')
+
+           AND EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+
+           WHERE n.nspname='public' AND p.proname='submit_governance_request')
+
+           AND EXISTS (SELECT 1 FROM pg_policy p JOIN pg_class c ON c.oid=p.polrelid
+
+           JOIN pg_namespace n ON n.oid=c.relnamespace
+
+           WHERE n.nspname='politicore' AND c.relname='governance_requests' AND p.polname='governance_requests_read')
+
+           AND NOT EXISTS (SELECT 1 FROM information_schema.role_table_grants
+
+           WHERE table_schema='public' AND table_name='governance_requests'
+
+             AND grantee='anon')`,
+
+  "0035": `NOT EXISTS (SELECT 1 FROM information_schema.role_table_grants
+
+           WHERE table_schema='public' AND table_name='donations' AND grantee='anon')
+
+           AND (SELECT count(*)::int FROM information_schema.role_table_grants
+
+           WHERE table_schema='public' AND table_name='events' AND grantee='anon') = 1
+
+           AND NOT EXISTS (SELECT 1 FROM information_schema.role_table_grants
+
+           WHERE table_schema='public' AND table_name='governance_requests'
+
+             AND grantee='anon')`,
+
+  "0036": `to_regprocedure('politicore.governance_notify(uuid,uuid,text,text,text,uuid)') IS NOT NULL
+
+           AND to_regprocedure('politicore.governance_notify_participant(uuid,text,text,text,uuid)') IS NOT NULL`,
+
+  "0037": `to_regprocedure('public.governance_public_intake(text,text,text,text,text,text,text,text,text,boolean)') IS NOT NULL
+
+           AND to_regprocedure('public.governance_verify(text,text)') IS NOT NULL
+
+           AND to_regprocedure('public.governance_track(text,text)') IS NOT NULL
+
+           AND EXISTS (SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+
+           WHERE n.nspname='politicore' AND c.relname='governance_intake_staging' AND c.relkind='r')
+
+           AND EXISTS (SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+
+           WHERE n.nspname='politicore' AND c.relname='governance_tracking_credentials' AND c.relkind='r')
+
+           AND EXISTS (SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+
+           WHERE n.nspname='politicore' AND c.relname='core_delivery_intents' AND c.relkind='r')`,
+
+  "0038": `to_regprocedure('public.governance_public_categories(text)') IS NOT NULL`,
+
+  "0039": `position('BEFORE the throttle checks' in pg_get_functiondef(to_regproc('politicore.governance_submit_public_request'))) > 0
+
+           AND position('RETURN false' in pg_get_functiondef(to_regproc('politicore.governance_submit_public_request'))) > 0`,
+
+  "0040": `position('RETURN QUERY SELECT v_ref, v_secret' in pg_get_functiondef(to_regproc('politicore.governance_verify_public_request'))) > 0`,
+
+  "0041": `position('RETURN false' in pg_get_functiondef(to_regproc('politicore.governance_submit_public_request'))) > 0
+
+           AND (SELECT pg_get_function_result(to_regproc('public.governance_public_intake'))) = 'boolean'`,
+
+  "0042": `position('rejected: empty result' in pg_get_functiondef(to_regproc('politicore.governance_track_public_request'))) > 0`,
+
 };
 
 function migrationFiles(dir: string): { file: string; version: string; sql: string }[] {

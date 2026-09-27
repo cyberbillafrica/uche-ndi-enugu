@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { Menu, X, User, Bell, LogOut, ArrowUpRight } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { logOut } from "@/lib/firebase/auth";
+import { getSupabaseClient, logOut } from "@/lib/supabase";
 import Image from "next/image";
 
 export default function Header() {
@@ -12,7 +12,7 @@ export default function Header() {
   const { user } = useAuth();
 
   const handleLogout = async () => {
-    await logOut();
+    await logOut(getSupabaseClient());
     setIsOpen(false);
   };
 

@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import NextImage from "next/image";
 import { usePathname, useRouter } from "next/navigation";
-import { getUserAnnouncements } from "@/lib/firebase/firestore";
 
 import {
   LayoutDashboard,
@@ -12,6 +11,7 @@ import {
   UsersRound,
   CheckSquare,
   TrendingUp,
+  Star,
   Vote,
   FileText,
   AlertTriangle,
@@ -34,31 +34,26 @@ import {
   Bell,
   Check,
   ShieldCheck,
+  Landmark,
+  Inbox,
 } from "lucide-react";
 import {
-  subscribeUserNotifications,
-  markNotificationAsRead,
-  markAllNotificationsAsRead,
-} from "@/lib/firebase/notifications";
+  subscribeMyNotifications,
+  markNotificationsRead,
+  markAllRead,
+  resolveGovernanceAccess,
+} from "@/lib/supabase";
 import ContextualHelp from "@/components/help/ContextualHelp";
 import GlobalSearchModal from "@/components/search/GlobalSearchModal";
-import type { NotificationItem } from "@/types";
+import type { NotificationItem, UserProfile } from "@/types";
 
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
-import { logOut } from "@/lib/firebase/auth";
+import { getSupabaseClient, logOut } from "@/lib/supabase";
 import { getElectoralLocation } from "@/lib/constants";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 
 import type { Ward, PollingUnit } from "@/data/electoral";
-import type { Permission, Announcement } from "@/types";
+import type { Permission } from "@/types";
 
 type NavLeaf = {
   name: string;
@@ -70,6 +65,13 @@ type NavLeaf = {
 
   permission?: Permission;
   adminOnly?: boolean;
+
+  /** Governance staff surfaces (view/manage/assign cases). */
+  governanceStaff?: boolean;
+  /** Governance participant surfaces (my requests, submit). */
+  governanceParticipant?: boolean;
+  /** Governance admin surfaces (category administration). */
+  governanceAdminOnly?: boolean;
 };
 
 type NavChild = {
@@ -86,7 +88,7 @@ type NavChild = {
 type NavGroup = {
   name: string;
   icon: React.ComponentType<{ className?: string }>;
-  group: "campaign" | "election";
+  group: "campaign" | "election" | "governance";
   children: NavLeaf[];
 };
 
@@ -106,6 +108,43 @@ type ElectoralLocation = {
 
 const navigation: NavItem[] = [
   {
+    name: "Governance",
+    icon: Landmark,
+    group: "governance" as const,
+    children: [
+      {
+        name: "Overview",
+        href: "/portal/governance",
+        icon: Landmark,
+      },
+      {
+        name: "My Requests",
+        href: "/portal/governance/requests",
+        icon: FileText,
+        governanceParticipant: true,
+      },
+      {
+        name: "Submit a Request",
+        href: "/portal/governance/requests/new",
+        icon: Flag,
+        governanceParticipant: true,
+      },
+      {
+        name: "Case Queue",
+        href: "/portal/governance/cases",
+        icon: Inbox,
+        governanceStaff: true,
+      },
+      {
+        name: "Categories",
+        href: "/portal/governance/categories",
+        icon: Settings,
+        governanceAdminOnly: true,
+      },
+    ],
+  },
+
+  {
     name: "Dashboard",
     href: "/portal/dashboard",
     icon: LayoutDashboard,
@@ -121,6 +160,19 @@ const navigation: NavItem[] = [
     name: "Tasks",
     href: "/portal/tasks",
     icon: CheckSquare,
+  },
+
+  {
+    name: "Announcements",
+    href: "/portal/announcements",
+    icon: Megaphone,
+  },
+
+  {
+    name: "My Points",
+    href: "/portal/points",
+    icon: Star,
+    socialOnly: true,
   },
 
   {
@@ -262,6 +314,12 @@ const adminNavigation = [
   },
 
   {
+    name: "Events",
+    href: "/portal/admin/events",
+    icon: CalendarDays,
+  },
+
+  {
     name: "News",
     href: "/portal/admin/news",
     icon: Newspaper,
@@ -279,7 +337,7 @@ const adminNavigation = [
   },
 
   {
-    name: "Broadcast",
+    name: "Announcements",
     href: "/portal/admin/announcements",
     icon: Megaphone,
   },
@@ -336,6 +394,30 @@ export default function PortalLayout({
     isCampaignMember,
   } = useAuth();
 
+  // Governance access (module gate + staff authority) — resolved from the
+  // database per §3/§13; every Governance route re-derives its own guard
+  // server-side, so this state drives presentation only.
+  const [govAccess, setGovAccess] = useState<
+    Awaited<ReturnType<typeof resolveGovernanceAccess>> | null
+  >(null);
+  useEffect(() => {
+    if (loading || accessLoading || !user) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const access = await resolveGovernanceAccess();
+        if (!cancelled) setGovAccess(access);
+      } catch {
+        if (!cancelled) setGovAccess(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [loading, accessLoading, user]);
+
+  const governanceEnabled = Boolean(govAccess?.moduleEnabled);
+
   const role = profile?.access_role ?? null;
 
   const isAdmin =
@@ -367,10 +449,16 @@ export default function PortalLayout({
     pathname.startsWith("/portal/admin"),
   );
 
+  const [govOpen, setGovOpen] = useState(() =>
+    pathname.startsWith("/portal/governance"),
+  );
+
   const [previousPathname, setPreviousPathname] = useState(pathname);
 
   if (pathname !== previousPathname) {
     setPreviousPathname(pathname);
+
+    setGovOpen(pathname.startsWith("/portal/governance"));
 
     setCampaignOpen(pathname.startsWith("/portal/campaign"));
 
@@ -390,10 +478,10 @@ export default function PortalLayout({
     setLogoutError(null);
     setLoggingOut(true);
 
-    const { error } = await logOut();
+    const logoutError = await logOut(getSupabaseClient());
 
-    if (error) {
-      console.error("Logout failed:", error);
+    if (logoutError) {
+      console.error("Logout failed:", logoutError);
 
       setLogoutError("Unable to sign out. Please try again.");
 
@@ -512,6 +600,88 @@ export default function PortalLayout({
                         )}
                       >
                         <child.icon className="mr-3 h-4 w-4 shrink-0" />
+
+                        {child.name}
+                      </Link>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          );
+        }
+
+        if ("group" in item && item.group === "governance") {
+          // Governance is an independent peer module: navigation requires
+          // module_enabled('governance') AND the view_governance surface
+          // permission — never Campaign/Election state.
+          if (!governanceEnabled || !govAccess?.canViewGovernance) {
+            return null;
+          }
+
+          const visibleChildren = item.children.filter((child) => {
+            if (child.governanceStaff) {
+              return govAccess.isStaff;
+            }
+            if (child.governanceParticipant) {
+              return govAccess.isParticipant;
+            }
+            if (child.governanceAdminOnly) {
+              return govAccess.isAdmin;
+            }
+            return true;
+          });
+
+          if (visibleChildren.length === 0) {
+            return null;
+          }
+
+          return (
+            <div key={item.name} className="mt-2">
+              <button
+                type="button"
+                onClick={() => setGovOpen((open) => !open)}
+                className={cn(
+                  "flex w-full items-center rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+
+                  pathname.startsWith("/portal/governance")
+                    ? "bg-apc-primary/10 text-apc-primary"
+                    : "text-gray-700 hover:bg-gray-100",
+                )}
+              >
+                <item.icon className="mr-3 h-5 w-5" />
+
+                <span>{item.name}</span>
+
+                <ChevronDown
+                  className={cn(
+                    "ml-auto h-4 w-4 transition-transform",
+                    govOpen && "rotate-180",
+                  )}
+                />
+              </button>
+
+              {govOpen && (
+                <div className="ml-4 mt-1 space-y-1 border-l border-gray-200 pl-2">
+                  {visibleChildren.map((child) => {
+                    const active =
+                      pathname === child.href ||
+                      pathname.startsWith(`${child.href}/`);
+
+                    return (
+                      <Link
+                        key={child.name}
+                        href={child.href}
+                        onClick={() => setSidebarOpen(false)}
+                        className={cn(
+                          "flex items-center rounded-lg px-3 py-2 text-sm transition-colors",
+
+                          active
+                            ? "bg-apc-primary/10 font-medium text-apc-primary"
+                            : "text-gray-600 hover:bg-gray-50",
+                        )}
+                      >
+                        <child.icon className="mr-3 h-4 w-4" />
 
                         {child.name}
                       </Link>
@@ -734,7 +904,7 @@ export default function PortalLayout({
   );
 
   const userName =
-    profile?.full_name || user?.displayName || user?.email || "Portal Member";
+    profile?.full_name || user?.email || "Portal Member";
 
   const membershipLabels: string[] = [];
 
@@ -943,32 +1113,47 @@ export default function PortalLayout({
   );
 }
 
-function NotificationCenter({ profile }: { profile: any }) {
+function NotificationCenter({ profile }: { profile: UserProfile | null }) {
+  /*
+   * Shared Notifications Cutover: the bell is served by the canonical
+   * Supabase notification system (politicore.notifications via RLS —
+   * strictly per-user rows; read state via the 0007/0008 RPCs).
+   * Announcements remain on the legacy store until the portal-content
+   * phase (no canonical Supabase announcements model exists yet; §12
+   * forbids inventing one here) — the section renders empty until then.
+   */
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
-  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
     if (!profile) return;
-    const unsubscribe = subscribeUserNotifications(profile, setNotifications);
+    const unsubscribe = subscribeMyNotifications((rows) => {
+      setNotifications(
+        rows.map((n) => ({
+          id: n.id,
+          tenant_id: n.tenant_id,
+          // The canonical store's type vocabulary (0001 CHECK) is its own;
+          // the legacy UI type vocabulary is presentation-only.
+          type: n.type as unknown as NotificationItem["type"],
+          title: n.title,
+          message: n.message,
+          link_url: n.link_url,
+          target_type: "user" as const,
+          target_id: n.user_id,
+          read_by: n.read_at ? [n.user_id] : [],
+          created_at: n.created_at,
+        })),
+      );
+    });
     return () => unsubscribe();
-  }, [profile]);
-
-  useEffect(() => {
-    if (!profile) return;
-
-    getUserAnnouncements(profile)
-      .then(setAnnouncements)
-      .catch((error) => {
-        console.error("Failed to load announcements:", error);
-        setAnnouncements([]);
-      });
   }, [profile]);
 
   if (!profile) return null;
 
+  const viewerId = profile.id ?? "";
+
   const unreadCount = notifications.filter(
-    (n) => !n.read_by.includes(profile.id),
+    (n) => !n.read_by.includes(viewerId),
   ).length;
 
   return (
@@ -1005,7 +1190,14 @@ function NotificationCenter({ profile }: { profile: any }) {
             {unreadCount > 0 && (
               <button
                 onClick={() =>
-                  markAllNotificationsAsRead(notifications, profile.id)
+                  void markAllRead().then(() =>
+                    setNotifications((prev) =>
+                      prev.map((row) => ({
+                        ...row,
+                        read_by: row.read_by.length ? row.read_by : [viewerId],
+                      })),
+                    ),
+                  )
                 }
                 className="text-xs text-apc-primary hover:underline font-semibold flex items-center gap-1"
               >
@@ -1015,51 +1207,28 @@ function NotificationCenter({ profile }: { profile: any }) {
           </div>
 
           <div className="max-h-80 overflow-y-auto divide-y text-xs">
-            {notifications.length === 0 && announcements.length === 0 ? (
+            {notifications.length === 0 ? (
               <p className="p-6 text-center text-gray-400">
                 No notifications yet.
               </p>
             ) : (
               <>
-                {announcements.length > 0 && (
-                  <div className="border-b bg-apc-light/20 px-3.5 py-2 text-[10px] font-semibold uppercase tracking-wide text-gray-500">
-                    Announcements
-                  </div>
-                )}
-
-                {announcements.map((announcement) => (
-                  <Dialog key={announcement.id}>
-                    <DialogTrigger className="block w-full p-3.5 text-left transition-colors hover:bg-apc-light/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-apc-primary">
-                      <div className="flex items-start gap-3">
-                        <Megaphone className="mt-0.5 h-4 w-4 shrink-0 text-apc-primary" />
-                        <div className="min-w-0 flex-1 space-y-0.5">
-                          <span className="block font-bold text-gray-900">
-                            {announcement.title}
-                          </span>
-                          <p className="line-clamp-2 text-gray-600 leading-relaxed">
-                            {announcement.content}
-                          </p>
-                        </div>
-                      </div>
-                    </DialogTrigger>
-                    <DialogContent className="max-h-[80vh] overflow-y-auto sm:max-w-lg">
-                      <DialogHeader>
-                        <DialogTitle>{announcement.title}</DialogTitle>
-                        <DialogDescription className="whitespace-pre-wrap leading-6">
-                          {announcement.content}
-                        </DialogDescription>
-                      </DialogHeader>
-                    </DialogContent>
-                  </Dialog>
-                ))}
-
                 {notifications.map((n) => {
-                  const isUnread = !n.read_by.includes(profile.id);
+                  const isUnread = n.read_by.length === 0;
                   return (
                     <div
                       key={n.id}
                       onClick={() => {
-                        if (isUnread) markNotificationAsRead(n.id, profile.id);
+                        if (isUnread)
+                          void markNotificationsRead([n.id]).then(() =>
+                            setNotifications((prev) =>
+                              prev.map((row) =>
+                                row.id === n.id
+                                  ? { ...row, read_by: [viewerId] }
+                                  : row,
+                              ),
+                            ),
+                          );
                       }}
                       className={cn(
                         "p-3.5 transition-colors cursor-pointer flex items-start gap-3",
@@ -1112,7 +1281,7 @@ function UserPanel({
 }: {
   userName: string;
   roleLabel: string;
-  profile: any;
+  profile: UserProfile | null;
   electoralLocation: ElectoralLocation | null;
   onLogout: () => void;
   loggingOut: boolean;

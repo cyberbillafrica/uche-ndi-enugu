@@ -1,8 +1,8 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { createMemberByAdmin } from "@/lib/firebase/auth";
-import { getAllLGAs } from "@/lib/constants";
+import { createMemberByAdmin, getSupabaseClient } from "@/lib/supabase";
+import { listLgaTree } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/components/ui/toast";
 import { getErrorMessage } from "@/lib/errors";
@@ -23,7 +23,7 @@ export default function AddMemberPage() {
 
   useEffect(() => {
     async function loadLgas() {
-      const data = await getAllLGAs();
+      const data = await listLgaTree();
       setLgas(data);
     }
     loadLgas();
@@ -82,10 +82,11 @@ export default function AddMemberPage() {
     e.preventDefault();
     setLoading(true);
 
-    const { user, error: createError } = await createMemberByAdmin(
-      form.email,
-      form.password,
-      {
+    const { error: createError } = await createMemberByAdmin({
+      email: form.email,
+      password: form.password,
+      adminSessionClient: getSupabaseClient(),
+      profileData: {
         full_name: form.full_name,
         phone: form.phone,
         lga_id: form.lga_id,
@@ -99,7 +100,7 @@ export default function AddMemberPage() {
         ...(form.tiktok_username ? { tiktok_username: form.tiktok_username, tiktok_name: form.tiktok_username } : {}),
         ...(form.gender ? { gender: form.gender } : {}),
       },
-    );
+    });
 
     if (createError) {
       toast.error(getErrorMessage(createError));
@@ -128,12 +129,10 @@ export default function AddMemberPage() {
       <form
         onSubmit={handleSubmit}
         className="space-y-6 bg-white rounded-xl shadow p-8"
-      >
-        <div className="grid md:grid-cols-2 gap-6">
+      >        <div className="grid md:grid-cols-2 gap-6">
           <div>
             <label className="block text-sm font-medium mb-2">
-              Full Name *
-            </label>
+              Full Name *</label>
             <input
               required
               value={form.full_name}
@@ -292,12 +291,10 @@ export default function AddMemberPage() {
           <div className="border-t pt-6">
             <h3 className="font-semibold mb-4">
               Social Media (required for social members)
-            </h3>
-            <div className="grid md:grid-cols-2 gap-6">
+            </h3>            <div className="grid md:grid-cols-2 gap-6">
               <div>
                 <label className="block text-sm font-medium mb-2">
-                  Facebook Username *
-                </label>
+                  Facebook Username *</label>
                 <input
                   required
                   value={form.facebook_username}

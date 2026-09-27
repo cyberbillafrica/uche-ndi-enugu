@@ -6,7 +6,7 @@ import Link from "next/link";
 import { Eye, EyeOff, LogIn } from "lucide-react";
 import { useToast } from "@/components/ui/toast";
 
-import { signIn } from "@/lib/firebase/auth";
+import { getSupabaseClient, signIn } from "@/lib/supabase";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 
@@ -24,7 +24,7 @@ export default function LoginPage() {
 
     setLoading(true);
 
-    const { error: signInError } = await signIn(email, password);
+    const { error: signInError } = await signIn(email, password, getSupabaseClient());
 
     if (signInError) {
       toast.error(getLoginErrorMessage(signInError));
@@ -159,27 +159,23 @@ export default function LoginPage() {
 }
 
 /**
- * Convert Firebase's technical authentication errors
+ * Convert Supabase Auth's technical authentication errors
  * into messages that make sense to normal users.
  */
 function getLoginErrorMessage(error: string): string {
-  if (error.includes("auth/invalid-credential")) {
+  if (error.includes("Invalid login credentials")) {
     return "Incorrect email or password.";
   }
 
-  if (error.includes("auth/user-not-found")) {
-    return "No account was found with this email address.";
+  if (error.includes("Email not confirmed")) {
+    return "Please confirm your email address before signing in.";
   }
 
-  if (error.includes("auth/wrong-password")) {
-    return "Incorrect email or password.";
-  }
-
-  if (error.includes("auth/invalid-email")) {
+  if (error.includes("invalid")) {
     return "Please enter a valid email address.";
   }
 
-  if (error.includes("auth/too-many-requests")) {
+  if (error.includes("Too many requests") || error.includes("rate limit")) {
     return "Too many unsuccessful attempts. Please try again later.";
   }
 
