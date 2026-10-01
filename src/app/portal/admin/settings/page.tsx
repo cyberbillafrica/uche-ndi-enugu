@@ -53,7 +53,7 @@ export default function AdminSettingsPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
-        <Loader2 className="h-8 w-8 animate-spin text-apc-primary" />
+        <Loader2 className="h-8 w-8 animate-spin text-brand-primary" />
         <span className="ml-3 text-gray-500">Loading system settings...</span>
       </div>
     );
@@ -69,7 +69,7 @@ export default function AdminSettingsPage() {
           </p>
         </div>
         {saving && (
-          <div className="flex items-center gap-2 text-xs font-semibold text-apc-primary">
+          <div className="flex items-center gap-2 text-xs font-semibold text-brand-primary">
             <Loader2 className="h-4 w-4 animate-spin" /> Saving...
           </div>
         )}
@@ -79,7 +79,7 @@ export default function AdminSettingsPage() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center space-x-2 text-lg">
-              <Settings className="h-5 w-5 text-apc-primary" />
+              <Settings className="h-5 w-5 text-brand-primary" />
               <span>General System Toggles</span>
             </CardTitle>
           </CardHeader>
@@ -99,7 +99,7 @@ export default function AdminSettingsPage() {
                       election_mode_enabled: e.target.checked,
                     })
                   }
-                  className="rounded border-gray-300 text-apc-primary h-4 w-4"
+                  className="rounded border-gray-300 text-brand-primary h-4 w-4"
                 />
               </label>
 
@@ -114,7 +114,7 @@ export default function AdminSettingsPage() {
                       volunteer_registration_enabled: e.target.checked,
                     })
                   }
-                  className="rounded border-gray-300 text-apc-primary h-4 w-4"
+                  className="rounded border-gray-300 text-brand-primary h-4 w-4"
                 />
               </label>
             </div>
@@ -124,7 +124,7 @@ export default function AdminSettingsPage() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center space-x-2 text-lg">
-              <Bell className="h-5 w-5 text-apc-primary" />
+              <Bell className="h-5 w-5 text-brand-primary" />
               <span>Notifications & Alerts</span>
             </CardTitle>
           </CardHeader>
@@ -144,7 +144,7 @@ export default function AdminSettingsPage() {
                       new_member_alerts: e.target.checked,
                     })
                   }
-                  className="rounded border-gray-300 text-apc-primary h-4 w-4"
+                  className="rounded border-gray-300 text-brand-primary h-4 w-4"
                 />
               </label>
 
@@ -159,7 +159,7 @@ export default function AdminSettingsPage() {
                       task_verification_alerts: e.target.checked,
                     })
                   }
-                  className="rounded border-gray-300 text-apc-primary h-4 w-4"
+                  className="rounded border-gray-300 text-brand-primary h-4 w-4"
                 />
               </label>
             </div>
@@ -169,7 +169,7 @@ export default function AdminSettingsPage() {
         <Card className="md:col-span-2">
           <CardHeader>
             <CardTitle className="flex items-center space-x-2 text-lg">
-              <Shield className="h-5 w-5 text-apc-primary" />
+              <Shield className="h-5 w-5 text-brand-primary" />
               <span>Electoral Engine Management</span>
             </CardTitle>
           </CardHeader>
@@ -179,7 +179,7 @@ export default function AdminSettingsPage() {
             </p>
             <a
               href="/portal/admin/election"
-              className="inline-flex items-center gap-2 px-4 py-2.5 bg-apc-primary text-white text-xs font-bold rounded-lg hover:bg-apc-dark transition-colors"
+              className="inline-flex items-center gap-2 px-4 py-2.5 bg-brand-primary text-white text-xs font-bold rounded-lg hover:bg-brand-primary transition-colors"
             >
               Open Admin Election Configurator &rarr;
             </a>

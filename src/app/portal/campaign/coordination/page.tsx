@@ -206,13 +206,13 @@ export default function CampaignCoordinationPage() {
       <div>
         <Link
           href="/portal/dashboard"
-          className="mb-3 inline-flex items-center gap-2 text-sm font-medium text-gray-500 hover:text-apc-primary"
+          className="mb-3 inline-flex items-center gap-2 text-sm font-medium text-gray-500 hover:text-brand-primary"
         >
           <ArrowLeft className="h-4 w-4" />
           Campaign Dashboard
         </Link>
 
-        <p className="text-sm font-semibold text-apc-primary">Campaign Council</p>
+        <p className="text-sm font-semibold text-brand-primary">Campaign Council</p>
 
         <h1 className="mt-1 text-2xl font-bold text-gray-900 sm:text-3xl">
           Coordination
@@ -254,10 +254,10 @@ export default function CampaignCoordinationPage() {
 
       {/* FIELD REPORTS STRIP */}
       {summary && (
-        <Card className="border-apc-primary/10">
+        <Card className="border-brand-primary/10">
           <CardContent className="flex flex-col gap-2 p-5 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-apc-primary/10 text-apc-primary">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-primary/10 text-brand-primary">
                 <Flag className="h-5 w-5" />
               </div>
               <div>
@@ -270,7 +270,7 @@ export default function CampaignCoordinationPage() {
             </div>
             <Link
               href="/portal/campaign/reports"
-              className="text-xs font-bold text-apc-primary hover:underline"
+              className="text-xs font-bold text-brand-primary hover:underline"
             >
               Open Field Reports →
             </Link>
@@ -330,7 +330,7 @@ export default function CampaignCoordinationPage() {
                   className="flex flex-col gap-3 rounded-xl border p-4 sm:flex-row sm:items-center sm:justify-between"
                 >
                   <div className="flex items-start gap-3">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-apc-primary/10 text-apc-primary">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-primary/10 text-brand-primary">
                       <Building2 className="h-5 w-5" />
                     </div>
                     <div>
@@ -382,10 +382,10 @@ function SummaryTile({
   detail: string;
 }) {
   return (
-    <Card className="border-apc-primary/10">
+    <Card className="border-brand-primary/10">
       <CardContent className="p-5">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-apc-primary/10 text-apc-primary">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-primary/10 text-brand-primary">
             {icon}
           </div>
           <div className="min-w-0">

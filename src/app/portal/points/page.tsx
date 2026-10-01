@@ -124,8 +124,8 @@ export default function PointsPage() {
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-apc-light">
-                <Star className="h-6 w-6 text-apc-primary" />
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-brand-surface">
+                <Star className="h-6 w-6 text-brand-primary" />
               </div>
               <div>
                 <p className="text-sm text-gray-500">Current points</p>
@@ -140,8 +140,8 @@ export default function PointsPage() {
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-apc-light">
-                <span className="text-xl font-bold text-apc-primary">#</span>
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-brand-surface">
+                <span className="text-xl font-bold text-brand-primary">#</span>
               </div>
               <div>
                 <p className="text-sm text-gray-500">Leaderboard rank</p>
@@ -172,7 +172,7 @@ export default function PointsPage() {
               </p>
               <Link
                 href="/portal/tasks"
-                className="mt-4 inline-flex items-center rounded-lg bg-apc-green px-4 py-2 text-sm font-semibold text-white hover:bg-green-700"
+                className="mt-4 inline-flex items-center rounded-lg bg-brand-primary px-4 py-2 text-sm font-semibold text-white hover:bg-green-700"
               >
                 View Social Tasks
               </Link>

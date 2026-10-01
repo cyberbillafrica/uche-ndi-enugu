@@ -76,7 +76,7 @@ export default function ElectionOfficerDashboard() {
       {/* Header                                                              */}
       {/* ------------------------------------------------------------------ */}
 
-      <section className="rounded-2xl bg-gradient-to-r from-apc-primary to-apc-dark p-6 text-white shadow-sm sm:p-8">
+      <section className="rounded-2xl bg-gradient-to-r from-brand-primary to-brand-primary p-6 text-white shadow-sm sm:p-8">
         <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-white">
@@ -439,7 +439,7 @@ function ActionCard({
 
         <Link
           href={href}
-          className="mt-5 inline-flex items-center gap-1.5 text-sm font-semibold text-apc-primary hover:underline"
+          className="mt-5 inline-flex items-center gap-1.5 text-sm font-semibold text-brand-primary hover:underline"
         >
           {action}
           <ArrowRight className="h-4 w-4" />
@@ -467,9 +467,9 @@ function MonitoringLink({
   return (
     <Link
       href={href}
-      className="group flex items-center gap-4 rounded-xl border border-gray-100 bg-gray-50 p-4 transition hover:border-apc-primary/20 hover:bg-white hover:shadow-sm"
+      className="group flex items-center gap-4 rounded-xl border border-gray-100 bg-gray-50 p-4 transition hover:border-brand-primary/20 hover:bg-white hover:shadow-sm"
     >
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white text-gray-600 shadow-sm transition group-hover:text-apc-primary">
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white text-gray-600 shadow-sm transition group-hover:text-brand-primary">
         {icon}
       </div>
 
@@ -479,7 +479,7 @@ function MonitoringLink({
         <p className="mt-0.5 text-xs text-gray-500">{description}</p>
       </div>
 
-      <ArrowRight className="h-4 w-4 shrink-0 text-gray-400 transition group-hover:translate-x-0.5 group-hover:text-apc-primary" />
+      <ArrowRight className="h-4 w-4 shrink-0 text-gray-400 transition group-hover:translate-x-0.5 group-hover:text-brand-primary" />
     </Link>
   );
 }

@@ -62,7 +62,7 @@ export default async function ManifestoPage() {
       <main className="flex-1 max-w-5xl w-full mx-auto px-4 py-12 sm:px-6 lg:px-8">
         {/* ─── HERO ─── */}
         <section className="text-center mb-12">
-          <p className="text-sm font-semibold uppercase tracking-wider text-apc-primary">
+          <p className="text-sm font-semibold uppercase tracking-wider text-brand-primary">
             {candidate_title}
           </p>
 
@@ -81,7 +81,7 @@ export default async function ManifestoPage() {
               href={pdf_url}
               target="_blank"
               rel="noopener noreferrer"
-              className="mt-6 inline-flex items-center gap-2 rounded-lg bg-apc-primary px-6 py-3 text-sm font-semibold text-white hover:bg-apc-dark transition-colors"
+              className="mt-6 inline-flex items-center gap-2 rounded-lg bg-brand-primary px-6 py-3 text-sm font-semibold text-white hover:bg-brand-primary transition-colors"
             >
               <Download className="h-5 w-5" />
               Download Manifesto (PDF)
@@ -107,7 +107,7 @@ export default async function ManifestoPage() {
                 <div className="mb-3 text-3xl">{section.icon}</div>
               )}
 
-              <h2 className="text-xl font-semibold text-apc-primary">
+              <h2 className="text-xl font-semibold text-brand-primary">
                 {section.title}
               </h2>
 
@@ -121,7 +121,7 @@ export default async function ManifestoPage() {
                     key={index}
                     className="flex items-start gap-2 text-sm text-gray-700"
                   >
-                    <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-apc-green" />
+                    <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-brand-primary" />
                     <span>{point}</span>
                   </li>
                 ))}
@@ -131,7 +131,7 @@ export default async function ManifestoPage() {
         </div>
 
         {/* ─── CLOSING ─── */}
-        <section className="mt-12 rounded-2xl bg-apc-primary/5 border border-apc-primary/10 p-8 text-center">
+        <section className="mt-12 rounded-2xl bg-brand-primary/5 border border-brand-primary/10 p-8 text-center">
           <p className="mx-auto max-w-3xl text-lg font-medium text-gray-800">
             {closing}
           </p>
@@ -139,7 +139,7 @@ export default async function ManifestoPage() {
           {call_to_action_link && (
             <Link
               href={call_to_action_link}
-              className="mt-6 inline-flex items-center gap-2 rounded-lg bg-apc-green px-8 py-3 font-semibold text-white hover:bg-green-700 transition-colors"
+              className="mt-6 inline-flex items-center gap-2 rounded-lg bg-brand-primary px-8 py-3 font-semibold text-white hover:bg-green-700 transition-colors"
             >
               {call_to_action}
               <ArrowRight className="h-5 w-5" />
@@ -177,7 +177,7 @@ function ManifestoComingSoon() {
           </p>
           <Link
             href="/"
-            className="mt-6 inline-flex items-center gap-2 text-apc-primary font-semibold hover:underline"
+            className="mt-6 inline-flex items-center gap-2 text-brand-primary font-semibold hover:underline"
           >
             ← Back to Home
           </Link>

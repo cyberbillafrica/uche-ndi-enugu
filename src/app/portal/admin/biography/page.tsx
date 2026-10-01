@@ -179,7 +179,7 @@ export default function AdminBiographyPage() {
   if (authLoading || loading) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
-        <Loader2 className="h-8 w-8 animate-spin text-apc-primary" />
+        <Loader2 className="h-8 w-8 animate-spin text-brand-primary" />
         <span className="ml-3 text-gray-500">Loading biography editor...</span>
       </div>
     );
@@ -197,7 +197,7 @@ export default function AdminBiographyPage() {
           <p className="text-gray-500">Unable to load biography data.</p>
           <button
             onClick={loadBiography}
-            className="mt-4 text-apc-primary hover:underline"
+            className="mt-4 text-brand-primary hover:underline"
           >
             Retry
           </button>
@@ -254,7 +254,7 @@ export default function AdminBiographyPage() {
             className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg font-semibold transition-colors disabled:opacity-50 ${
               isPublished
                 ? "bg-yellow-500 text-white hover:bg-yellow-600"
-                : "bg-apc-primary text-white hover:bg-apc-dark"
+                : "bg-brand-primary text-white hover:bg-brand-primary"
             }`}
           >
             {isPublished ? (
@@ -293,7 +293,7 @@ export default function AdminBiographyPage() {
             value={bio.full_name}
             onChange={(e) => setBio({ ...bio, full_name: e.target.value })}
             placeholder="e.g. Ifeanyi Barth"
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-apc-primary focus:border-transparent"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-transparent"
           />
         </div>
 
@@ -306,7 +306,7 @@ export default function AdminBiographyPage() {
             value={bio.title}
             onChange={(e) => setBio({ ...bio, title: e.target.value })}
             placeholder="e.g. APC Candidate, Nkanu West"
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-apc-primary focus:border-transparent"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-transparent"
           />
         </div>
 
@@ -320,7 +320,7 @@ export default function AdminBiographyPage() {
             value={bio.about}
             onChange={(e) => setBio({ ...bio, about: e.target.value })}
             placeholder="Write a compelling biography..."
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-apc-primary focus:border-transparent"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-transparent"
           />
         </div>
 
@@ -348,7 +348,7 @@ export default function AdminBiographyPage() {
               </div>
             ) : (
               <div className="flex items-center gap-3">
-                <label className="cursor-pointer inline-flex items-center gap-2 rounded-lg bg-apc-primary px-4 py-2 text-sm font-semibold text-white hover:bg-apc-dark transition-colors">
+                <label className="cursor-pointer inline-flex items-center gap-2 rounded-lg bg-brand-primary px-4 py-2 text-sm font-semibold text-white hover:bg-brand-primary transition-colors">
                   <Upload className="h-4 w-4" />
                   {uploadingImage ? "Uploading..." : "Upload Image"}
                   <input

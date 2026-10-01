@@ -189,13 +189,13 @@ export default function CampaignAreaPage() {
       <div>
         <Link
           href="/portal/dashboard"
-          className="mb-3 inline-flex items-center gap-2 text-sm font-medium text-gray-500 hover:text-apc-primary"
+          className="mb-3 inline-flex items-center gap-2 text-sm font-medium text-gray-500 hover:text-brand-primary"
         >
           <ArrowLeft className="h-4 w-4" />
           Campaign Dashboard
         </Link>
 
-        <p className="text-sm font-semibold text-apc-primary">Campaign Council</p>
+        <p className="text-sm font-semibold text-brand-primary">Campaign Council</p>
 
         <h1 className="mt-1 text-2xl font-bold text-gray-900 sm:text-3xl">
           My Campaign Area
@@ -208,7 +208,7 @@ export default function CampaignAreaPage() {
       </div>
 
       {/* REGISTERED LOCATION (§16 — distinct from organizational assignment) */}
-      <Card className="border-apc-primary/10">
+      <Card className="border-brand-primary/10">
         <CardHeader>
           <CardTitle className="text-lg">Registered location</CardTitle>
           <p className="mt-1 text-sm text-gray-500">
@@ -263,7 +263,7 @@ export default function CampaignAreaPage() {
                   className="flex items-center justify-between rounded-xl border p-4"
                 >
                   <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-apc-primary/10 text-apc-primary">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-primary/10 text-brand-primary">
                       <ShieldCheck className="h-5 w-5" />
                     </div>
                     <div>
@@ -302,7 +302,7 @@ export default function CampaignAreaPage() {
         <CardContent>
           <div className="grid gap-3 sm:grid-cols-3">
             <div className="flex items-center gap-3 rounded-xl bg-gray-50 p-4">
-              <MapPin className="h-5 w-5 text-apc-primary" />
+              <MapPin className="h-5 w-5 text-brand-primary" />
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
                   LGAs
@@ -313,7 +313,7 @@ export default function CampaignAreaPage() {
               </div>
             </div>
             <div className="flex items-center gap-3 rounded-xl bg-gray-50 p-4">
-              <Vote className="h-5 w-5 text-apc-primary" />
+              <Vote className="h-5 w-5 text-brand-primary" />
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
                   Wards
@@ -324,7 +324,7 @@ export default function CampaignAreaPage() {
               </div>
             </div>
             <div className="flex items-center gap-3 rounded-xl bg-gray-50 p-4">
-              <Users className="h-5 w-5 text-apc-primary" />
+              <Users className="h-5 w-5 text-brand-primary" />
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
                   Polling Units

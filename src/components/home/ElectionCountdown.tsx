@@ -121,7 +121,7 @@ export default function ElectionCountdown() {
           rounded-2xl
           border
           border-white/20
-          bg-apc-dark/95
+          bg-brand-primary/95
           p-3
           text-green-500
           shadow-xl
@@ -133,7 +133,7 @@ export default function ElectionCountdown() {
       >
         {/* Election Date */}
         <div className="mb-3 flex items-center gap-2.5 border-b border-white/10 pb-3">
-          <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-apc-green/20">
+          <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-brand-primary/20">
             <Calendar className="h-4 w-4 text-shadow-green-300" />
           </div>
 
@@ -163,8 +163,8 @@ export default function ElectionCountdown() {
           </div>
         ) : electionReached ? (
           /* Election Day */
-          <div className="rounded-xl bg-apc-green/20 px-3 py-4 text-center">
-            <p className="text-sm font-bold text-apc-green">
+          <div className="rounded-xl bg-brand-primary/20 px-3 py-4 text-center">
+            <p className="text-sm font-bold text-brand-primary">
               Election Day is Here!
             </p>
           </div>

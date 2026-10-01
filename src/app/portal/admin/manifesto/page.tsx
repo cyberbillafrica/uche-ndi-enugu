@@ -305,7 +305,7 @@ export default function AdminManifestoPage() {
   if (authLoading || loading) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
-        <Loader2 className="h-8 w-8 animate-spin text-apc-primary" />
+        <Loader2 className="h-8 w-8 animate-spin text-brand-primary" />
         <span className="ml-3 text-gray-500">Loading manifesto editor...</span>
       </div>
     );
@@ -323,7 +323,7 @@ export default function AdminManifestoPage() {
           <p className="text-gray-500">Unable to load manifesto data.</p>
           <button
             onClick={loadManifesto}
-            className="mt-4 text-apc-primary hover:underline"
+            className="mt-4 text-brand-primary hover:underline"
           >
             Retry
           </button>
@@ -385,7 +385,7 @@ export default function AdminManifestoPage() {
             className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg font-semibold transition-colors disabled:opacity-50 ${
               isPublished
                 ? "bg-yellow-500 text-white hover:bg-yellow-600"
-                : "bg-apc-primary text-white hover:bg-apc-dark"
+                : "bg-brand-primary text-white hover:bg-brand-primary"
             }`}
           >
             {isPublished ? (
@@ -434,7 +434,7 @@ export default function AdminManifestoPage() {
                   setManifesto({ ...manifesto, title: e.target.value })
                 }
                 placeholder="e.g. Our Manifesto"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-apc-primary focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-transparent"
               />
             </div>
 
@@ -448,7 +448,7 @@ export default function AdminManifestoPage() {
                   setManifesto({ ...manifesto, subtitle: e.target.value })
                 }
                 placeholder="e.g. A blueprint for progress"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-apc-primary focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-transparent"
               />
             </div>
 
@@ -462,7 +462,7 @@ export default function AdminManifestoPage() {
                   setManifesto({ ...manifesto, candidate_name: e.target.value })
                 }
                 placeholder="e.g. Ifeanyi Barth"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-apc-primary focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-transparent"
               />
             </div>
 
@@ -479,7 +479,7 @@ export default function AdminManifestoPage() {
                   })
                 }
                 placeholder="e.g. APC Candidate, Nkanu West"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-apc-primary focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-transparent"
               />
             </div>
 
@@ -494,7 +494,7 @@ export default function AdminManifestoPage() {
                   setManifesto({ ...manifesto, introduction: e.target.value })
                 }
                 placeholder="A compelling introduction to your manifesto..."
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-apc-primary focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-transparent"
               />
             </div>
 
@@ -509,7 +509,7 @@ export default function AdminManifestoPage() {
                   setManifesto({ ...manifesto, closing: e.target.value })
                 }
                 placeholder="A powerful closing message..."
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-apc-primary focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-transparent"
               />
             </div>
 
@@ -523,7 +523,7 @@ export default function AdminManifestoPage() {
                   setManifesto({ ...manifesto, call_to_action: e.target.value })
                 }
                 placeholder="e.g. Join the Movement"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-apc-primary focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-transparent"
               />
             </div>
 
@@ -540,7 +540,7 @@ export default function AdminManifestoPage() {
                   })
                 }
                 placeholder="/volunteer"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-apc-primary focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-transparent"
               />
             </div>
           </div>
@@ -557,7 +557,7 @@ export default function AdminManifestoPage() {
             </div>
             <button
               onClick={addSection}
-              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-apc-primary/10 text-apc-primary text-sm font-medium hover:bg-apc-primary/20 transition-colors"
+              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-brand-primary/10 text-brand-primary text-sm font-medium hover:bg-brand-primary/20 transition-colors"
             >
               <Plus className="h-4 w-4" />
               Add Section
@@ -570,7 +570,7 @@ export default function AdminManifestoPage() {
               <p className="text-gray-500">No sections yet</p>
               <button
                 onClick={addSection}
-                className="mt-3 text-apc-primary hover:underline font-medium"
+                className="mt-3 text-brand-primary hover:underline font-medium"
               >
                 + Add your first section
               </button>
@@ -643,7 +643,7 @@ export default function AdminManifestoPage() {
                       </label>
                       <button
                         onClick={() => addPoint(section.id)}
-                        className="text-xs text-apc-primary hover:underline"
+                        className="text-xs text-brand-primary hover:underline"
                       >
                         + Add point
                       </button>
@@ -693,7 +693,7 @@ export default function AdminManifestoPage() {
                     href={manifesto.pdf_url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-xs text-apc-primary hover:underline"
+                    className="text-xs text-brand-primary hover:underline"
                   >
                     View PDF
                   </a>
@@ -714,7 +714,7 @@ export default function AdminManifestoPage() {
                 <p className="text-xs text-gray-400 mt-1">
                   PDF files up to 10MB
                 </p>
-                <label className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-apc-primary text-white text-sm font-medium cursor-pointer hover:bg-apc-dark transition-colors">
+                <label className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-brand-primary text-white text-sm font-medium cursor-pointer hover:bg-brand-primary transition-colors">
                   <Upload className="h-4 w-4" />
                   {uploadingPDF ? "Uploading..." : "Choose PDF"}
                   <input

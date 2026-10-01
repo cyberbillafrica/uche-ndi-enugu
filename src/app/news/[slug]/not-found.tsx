@@ -16,7 +16,7 @@ export default function NotFound() {
 
           <Link
             href="/news"
-            className="mt-6 inline-flex items-center rounded-lg bg-apc-primary px-6 py-2.5 text-sm font-semibold text-white hover:bg-apc-dark"
+            className="mt-6 inline-flex items-center rounded-lg bg-brand-primary px-6 py-2.5 text-sm font-semibold text-white hover:bg-brand-primary"
           >
             Return to News Updates
           </Link>

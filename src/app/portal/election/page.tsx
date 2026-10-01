@@ -419,7 +419,7 @@ export default function ElectionDashboard() {
   if (gate === "loading" || loading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[50vh] space-y-3">
-        <Loader2 className="h-8 w-8 animate-spin text-apc-primary" />
+        <Loader2 className="h-8 w-8 animate-spin text-brand-primary" />
         <span className="text-sm text-gray-500">
           Connecting to the election results engine...
         </span>
@@ -437,7 +437,7 @@ export default function ElectionDashboard() {
         </p>
         <button
           onClick={() => router.replace("/portal/auth/login")}
-          className="px-4 py-2 text-sm font-semibold rounded-lg bg-apc-primary text-white"
+          className="px-4 py-2 text-sm font-semibold rounded-lg bg-brand-primary text-white"
         >
           Go to sign in
         </button>
@@ -483,10 +483,10 @@ export default function ElectionDashboard() {
         {toastAlerts.map((a) => (
           <div
             key={a.id}
-            className="bg-white border-2 border-apc-primary rounded-xl shadow-xl p-4 pointer-events-auto animate-in slide-in-from-bottom-5 duration-300"
+            className="bg-white border-2 border-brand-primary rounded-xl shadow-xl p-4 pointer-events-auto animate-in slide-in-from-bottom-5 duration-300"
           >
             <div className="flex items-start justify-between">
-              <div className="flex items-center gap-2 text-apc-primary font-bold text-sm">
+              <div className="flex items-center gap-2 text-brand-primary font-bold text-sm">
                 <Bell className="h-4 w-4 animate-bounce" />
                 <span>New Official Result Approved</span>
               </div>
@@ -531,7 +531,7 @@ export default function ElectionDashboard() {
       {/* Contest Selector & Active Election Header (§7/§8) */}
       <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2 text-apc-primary font-semibold text-xs tracking-wide uppercase mb-1">
+          <div className="flex items-center gap-2 text-brand-primary font-semibold text-xs tracking-wide uppercase mb-1">
             <Vote className="w-4 h-4" />
             <span>CONTEST-AWARE ELECTION DASHBOARD</span>
           </div>
@@ -572,12 +572,12 @@ export default function ElectionDashboard() {
             </select>
           </div>
 
-          <div className="flex items-center gap-1.5 bg-apc-light/40 p-2 rounded-xl border border-apc-primary/30 max-w-full min-w-0">
-            <Vote className="w-4 h-4 text-apc-primary shrink-0" />
+          <div className="flex items-center gap-1.5 bg-brand-surface/40 p-2 rounded-xl border border-brand-primary/30 max-w-full min-w-0">
+            <Vote className="w-4 h-4 text-brand-primary shrink-0" />
             <select
               value={selectedContestId}
               onChange={(e) => setSelectedContestId(e.target.value)}
-              className="text-xs font-bold text-apc-primary bg-transparent border-0 focus:ring-0 cursor-pointer truncate max-w-[160px] sm:max-w-xs"
+              className="text-xs font-bold text-brand-primary bg-transparent border-0 focus:ring-0 cursor-pointer truncate max-w-[160px] sm:max-w-xs"
             >
               {contests.map((c) => (
                 <option key={c.id} value={c.id}>
@@ -624,14 +624,14 @@ export default function ElectionDashboard() {
                 </p>
                 <p className="text-xs text-slate-500 mt-1">
                   Leading:{" "}
-                  <span className="font-bold text-apc-primary">
+                  <span className="font-bold text-brand-primary">
                     {(aggregate?.party_totals ?? [])
                       .slice()
                       .sort((a, b) => b.total_votes - a.total_votes)[0]?.acronym ?? "None"}
                   </span>
                 </p>
               </div>
-              <Upload className="h-8 w-8 text-apc-primary shrink-0" />
+              <Upload className="h-8 w-8 text-brand-primary shrink-0" />
             </div>
           </CardContent>
         </Card>
@@ -863,7 +863,7 @@ export default function ElectionDashboard() {
                           {r.evidence_asset_id ? (
                             <button
                               onClick={() => void openInspect(r)}
-                              className="inline-flex items-center gap-1 text-xs font-semibold text-apc-primary hover:underline"
+                              className="inline-flex items-center gap-1 text-xs font-semibold text-brand-primary hover:underline"
                             >
                               <Eye className="h-3.5 w-3.5" />
                               Inspect EC8
@@ -877,7 +877,7 @@ export default function ElectionDashboard() {
                             <button
                               onClick={() => void openInspect(r)}
                               title="View audit history"
-                              className="p-1 text-gray-400 hover:text-apc-primary"
+                              className="p-1 text-gray-400 hover:text-brand-primary"
                             >
                               <History className="h-4 w-4" />
                             </button>
@@ -896,7 +896,7 @@ export default function ElectionDashboard() {
                                   );
                                   setEditReason("");
                                 }}
-                                className="px-2.5 py-1 text-xs font-semibold rounded bg-apc-primary/10 text-apc-primary hover:bg-apc-primary hover:text-white transition-colors"
+                                className="px-2.5 py-1 text-xs font-semibold rounded bg-brand-primary/10 text-brand-primary hover:bg-brand-primary hover:text-white transition-colors"
                               >
                                 <Edit3 className="inline h-3 w-3 mr-1" />
                                 Correct
@@ -918,7 +918,7 @@ export default function ElectionDashboard() {
       {inspectResult && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
           <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full overflow-hidden animate-in fade-in zoom-in-95 duration-200 max-h-[90vh] flex flex-col">
-            <div className="bg-apc-primary text-white p-5 flex items-center justify-between">
+            <div className="bg-brand-primary text-white p-5 flex items-center justify-between">
               <div>
                 <h2 className="font-bold text-lg">Form EC8 Result Evidence</h2>
                 <p className="text-xs text-white/80">
@@ -958,7 +958,7 @@ export default function ElectionDashboard() {
               {inspectHistory.length > 0 && (
                 <div className="border-t pt-4">
                   <h3 className="font-bold text-sm text-gray-900 mb-3 flex items-center gap-1.5">
-                    <History className="h-4 w-4 text-apc-primary" />
+                    <History className="h-4 w-4 text-brand-primary" />
                     Audit History (append-only, database-recorded)
                   </h3>
                   <div className="space-y-3">
@@ -1007,7 +1007,7 @@ export default function ElectionDashboard() {
       {editingResult && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
           <div className="bg-white rounded-2xl shadow-xl max-w-md w-full overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-            <div className="bg-apc-primary text-white p-5 flex items-center justify-between">
+            <div className="bg-brand-primary text-white p-5 flex items-center justify-between">
               <div>
                 <h2 className="font-bold text-lg">Correct Election Result</h2>
                 <p className="text-xs text-white/80">
@@ -1078,7 +1078,7 @@ export default function ElectionDashboard() {
               <button
                 onClick={handleSaveCorrection}
                 disabled={savingEdit}
-                className="inline-flex items-center gap-2 px-5 py-2 text-sm font-semibold rounded-lg bg-apc-primary text-white hover:bg-apc-dark disabled:opacity-50"
+                className="inline-flex items-center gap-2 px-5 py-2 text-sm font-semibold rounded-lg bg-brand-primary text-white hover:bg-brand-primary disabled:opacity-50"
               >
                 {savingEdit ? "Saving..." : "Save Correction"}
               </button>

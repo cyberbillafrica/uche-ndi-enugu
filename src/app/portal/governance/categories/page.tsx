@@ -149,7 +149,7 @@ export default function GovernanceCategoriesPage() {
   if (authLoading || !guardDone) {
     return (
       <div className="flex min-h-[50vh] items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-apc-primary" />
+        <Loader2 className="h-8 w-8 animate-spin text-brand-primary" />
       </div>
     );
   }
@@ -210,7 +210,7 @@ export default function GovernanceCategoriesPage() {
             <button
               type="submit"
               disabled={creating || !newName.trim()}
-              className="inline-flex items-center justify-center gap-2 rounded-lg bg-apc-primary px-4 py-2 text-sm font-semibold text-white hover:bg-apc-primary/90 disabled:opacity-50"
+              className="inline-flex items-center justify-center gap-2 rounded-lg bg-brand-primary px-4 py-2 text-sm font-semibold text-white hover:bg-brand-primary/90 disabled:opacity-50"
             >
               {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
               Add
@@ -256,7 +256,7 @@ export default function GovernanceCategoriesPage() {
                           type="button"
                           disabled={acting || !editName.trim()}
                           onClick={() => handleUpdate(c.id)}
-                          className="inline-flex items-center gap-1.5 rounded-lg bg-apc-primary px-3 py-1.5 text-xs font-semibold text-white hover:bg-apc-primary/90 disabled:opacity-50"
+                          className="inline-flex items-center gap-1.5 rounded-lg bg-brand-primary px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-primary/90 disabled:opacity-50"
                         >
                           <Save className="h-3.5 w-3.5" />
                           Save
@@ -305,7 +305,7 @@ export default function GovernanceCategoriesPage() {
                           className={`rounded-lg px-3 py-1.5 text-xs font-semibold disabled:opacity-50 ${
                             c.is_active
                               ? "border border-gray-300 text-gray-700 hover:bg-gray-50"
-                              : "bg-apc-primary text-white hover:bg-apc-primary/90"
+                              : "bg-brand-primary text-white hover:bg-brand-primary/90"
                           }`}
                         >
                           {c.is_active ? "Deactivate" : "Activate"}

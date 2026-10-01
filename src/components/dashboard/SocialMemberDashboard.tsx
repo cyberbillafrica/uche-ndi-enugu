@@ -79,7 +79,7 @@ function getPlatformStyle(platform?: string) {
       return "bg-gray-100 text-gray-900";
 
     default:
-      return "bg-apc-primary/10 text-apc-primary";
+      return "bg-brand-primary/10 text-brand-primary";
   }
 }
 
@@ -289,7 +289,7 @@ export default function MemberDashboard() {
 
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="text-sm font-medium text-apc-primary">
+          <p className="text-sm font-medium text-brand-primary">
             Member Dashboard
           </p>
 
@@ -303,7 +303,7 @@ export default function MemberDashboard() {
           </p>
         </div>
 
-        <div className="flex w-fit items-center gap-2 rounded-lg bg-apc-primary px-4 py-2 text-white shadow-sm">
+        <div className="flex w-fit items-center gap-2 rounded-lg bg-brand-primary px-4 py-2 text-white shadow-sm">
           <ShieldCheck className="h-5 w-5" />
 
           <span className="font-semibold">{roleLabel}</span>
@@ -331,7 +331,7 @@ export default function MemberDashboard() {
                   Total Points
                 </p>
 
-                <p className="mt-1 text-3xl font-bold text-apc-primary">
+                <p className="mt-1 text-3xl font-bold text-brand-primary">
                   {authoritativePoints === null
                     ? formatNumber(profile.points ?? 0)
                     : formatNumber(authoritativePoints)}
@@ -342,8 +342,8 @@ export default function MemberDashboard() {
                 </p>
               </div>
 
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-apc-primary/10">
-                <Star className="h-6 w-6 text-apc-primary" />
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-brand-primary/10">
+                <Star className="h-6 w-6 text-brand-primary" />
               </div>
             </div>
           </CardContent>
@@ -463,7 +463,7 @@ export default function MemberDashboard() {
                     href={profile.facebook_profile_url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="shrink-0 text-gray-400 transition hover:text-apc-primary"
+                    className="shrink-0 text-gray-400 transition hover:text-brand-primary"
                     title="Open Facebook profile"
                   >
                     <ExternalLink className="h-4 w-4" />
@@ -496,7 +496,7 @@ export default function MemberDashboard() {
                     href={profile.instagram_profile_url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="shrink-0 text-gray-400 transition hover:text-apc-primary"
+                    className="shrink-0 text-gray-400 transition hover:text-brand-primary"
                     title="Open Instagram profile"
                   >
                     <ExternalLink className="h-4 w-4" />
@@ -527,7 +527,7 @@ export default function MemberDashboard() {
                     href={profile.x_profile_url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="shrink-0 text-gray-400 transition hover:text-apc-primary"
+                    className="shrink-0 text-gray-400 transition hover:text-brand-primary"
                     title="Open X profile"
                   >
                     <ExternalLink className="h-4 w-4" />
@@ -560,7 +560,7 @@ export default function MemberDashboard() {
                     href={profile.tiktok_profile_url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="shrink-0 text-gray-400 transition hover:text-apc-primary"
+                    className="shrink-0 text-gray-400 transition hover:text-brand-primary"
                     title="Open TikTok profile"
                   >
                     <ExternalLink className="h-4 w-4" />
@@ -570,7 +570,7 @@ export default function MemberDashboard() {
             </div>
           </div>
 
-          <div className="mt-4 rounded-lg bg-apc-primary/5 px-4 py-3">
+          <div className="mt-4 rounded-lg bg-brand-primary/5 px-4 py-3">
             <p className="text-xs leading-5 text-gray-600">
               Keep your social handles updated so administrators can correctly
               verify your social media task submissions.
@@ -583,7 +583,7 @@ export default function MemberDashboard() {
           Primary Task CTA
       ───────────────────────────────────────────── */}
 
-      <Card className="overflow-hidden border-0 bg-gradient-to-r from-apc-primary to-apc-dark text-white shadow-md">
+      <Card className="overflow-hidden border-0 bg-gradient-to-r from-brand-primary to-brand-primary text-white shadow-md">
         <CardContent className="p-6">
           <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
             <div>
@@ -612,7 +612,7 @@ export default function MemberDashboard() {
 
             <a
               href="/portal/tasks"
-              className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-white px-5 py-3 text-sm font-semibold text-apc-primary transition hover:bg-gray-100"
+              className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-white px-5 py-3 text-sm font-semibold text-brand-primary transition hover:bg-gray-100"
             >
               View Tasks
               <ArrowRight className="h-4 w-4" />
@@ -642,7 +642,7 @@ export default function MemberDashboard() {
 
             <a
               href="/portal/tasks"
-              className="hidden items-center gap-1 text-sm font-medium text-apc-primary hover:underline sm:flex"
+              className="hidden items-center gap-1 text-sm font-medium text-brand-primary hover:underline sm:flex"
             >
               View all
               <ArrowRight className="h-4 w-4" />
@@ -675,7 +675,7 @@ export default function MemberDashboard() {
                   return (
                     <div
                       key={task.id}
-                      className="rounded-lg border bg-white p-4 transition hover:border-apc-primary/40 hover:shadow-sm"
+                      className="rounded-lg border bg-white p-4 transition hover:border-brand-primary/40 hover:shadow-sm"
                     >
                       <div className="flex items-start gap-3">
                         <div
@@ -694,7 +694,7 @@ export default function MemberDashboard() {
                               {task.action || "Task"}
                             </p>
 
-                            <span className="rounded-full bg-apc-primary/10 px-2 py-1 text-xs font-semibold text-apc-primary">
+                            <span className="rounded-full bg-brand-primary/10 px-2 py-1 text-xs font-semibold text-brand-primary">
                               {formatNumber(task.points ?? 0)} pts
                             </span>
                           </div>
@@ -711,7 +711,7 @@ export default function MemberDashboard() {
                             href={task.url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="shrink-0 rounded-md p-2 text-gray-400 transition hover:bg-gray-100 hover:text-apc-primary"
+                            className="shrink-0 rounded-md p-2 text-gray-400 transition hover:bg-gray-100 hover:text-brand-primary"
                             title="Open post"
                           >
                             <ExternalLink className="h-4 w-4" />
@@ -724,7 +724,7 @@ export default function MemberDashboard() {
 
                 <a
                   href="/portal/tasks"
-                  className="flex w-full items-center justify-center gap-2 rounded-lg bg-gray-50 py-3 text-sm font-semibold text-apc-primary transition hover:bg-apc-primary/5"
+                  className="flex w-full items-center justify-center gap-2 rounded-lg bg-gray-50 py-3 text-sm font-semibold text-brand-primary transition hover:bg-brand-primary/5"
                 >
                   View all tasks
                   <ArrowRight className="h-4 w-4" />
@@ -769,7 +769,7 @@ export default function MemberDashboard() {
                     className={cn(
                       "flex items-center gap-3 rounded-lg p-3",
                       member.id === profile.id
-                        ? "bg-apc-primary/5 ring-1 ring-apc-primary/10"
+                        ? "bg-brand-primary/5 ring-1 ring-brand-primary/10"
                         : "bg-gray-50",
                     )}
                   >
@@ -797,7 +797,7 @@ export default function MemberDashboard() {
                         {member.full_name || "Member"}
 
                         {member.id === profile.id && (
-                          <span className="ml-2 text-xs font-medium text-apc-primary">
+                          <span className="ml-2 text-xs font-medium text-brand-primary">
                             You
                           </span>
                         )}
@@ -811,7 +811,7 @@ export default function MemberDashboard() {
                     </div>
 
                     <div className="text-right">
-                      <p className="text-sm font-bold text-apc-primary">
+                      <p className="text-sm font-bold text-brand-primary">
                         {formatNumber(member.points ?? 0)}
                       </p>
 
@@ -882,7 +882,7 @@ export default function MemberDashboard() {
 
               <a
                 href="/portal/tasks"
-                className="mt-4 inline-flex items-center gap-2 rounded-lg bg-apc-primary px-4 py-2 text-sm font-semibold text-white hover:bg-apc-dark"
+                className="mt-4 inline-flex items-center gap-2 rounded-lg bg-brand-primary px-4 py-2 text-sm font-semibold text-white hover:bg-brand-primary"
               >
                 View Tasks
                 <ArrowRight className="h-4 w-4" />

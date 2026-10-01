@@ -36,6 +36,8 @@ import {
   ShieldCheck,
   Landmark,
   Inbox,
+  FolderKanban,
+  MessageSquareText,
 } from "lucide-react";
 import {
   subscribeMyNotifications,
@@ -116,6 +118,35 @@ const navigation: NavItem[] = [
         name: "Overview",
         href: "/portal/governance",
         icon: Landmark,
+      },
+      {
+        name: "Projects",
+        href: "/portal/governance/projects",
+        icon: FolderKanban,
+      },
+      {
+        name: "Participation",
+        href: "/portal/governance/participation",
+        icon: MessageSquareText,
+        governanceStaff: true,
+      },
+      {
+        name: "Engagements",
+        href: "/portal/governance/engagements",
+        icon: UsersRound,
+        governanceStaff: true,
+      },
+      {
+        name: "Analytics",
+        href: "/portal/governance/analytics",
+        icon: BarChart3,
+        governanceStaff: true,
+      },
+      {
+        name: "Open Instruments",
+        href: "/portal/governance/participate",
+        icon: Vote,
+        governanceParticipant: true,
       },
       {
         name: "My Requests",
@@ -289,6 +320,12 @@ const navigation: NavItem[] = [
 ];
 
 const adminNavigation = [
+  {
+    name: "Control Center",
+    href: "/portal/control-center",
+    icon: Settings,
+  },
+
   {
     name: "Admin Dashboard",
     href: "/portal/admin",
@@ -503,7 +540,7 @@ export default function PortalLayout({
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-50">
         <div className="text-center">
-          <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-4 border-apc-primary/20 border-t-apc-primary" />
+          <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-4 border-brand-primary/20 border-t-brand-primary" />
 
           <p className="text-sm text-gray-500">
             {loading ? "Loading your portal..." : "Redirecting to login..."}
@@ -553,7 +590,7 @@ export default function PortalLayout({
                   "flex w-full items-center rounded-lg px-3 py-2 text-sm font-medium transition-colors",
 
                   pathname.startsWith("/portal/campaign")
-                    ? "bg-apc-primary/10 text-apc-primary"
+                    ? "bg-brand-primary/10 text-brand-primary"
                     : "text-gray-700 hover:bg-gray-100",
                 )}
               >
@@ -595,7 +632,7 @@ export default function PortalLayout({
                           "flex items-center rounded-lg px-3 py-2 text-sm transition-colors",
 
                           finalActive
-                            ? "bg-apc-primary/10 font-medium text-apc-primary"
+                            ? "bg-brand-primary/10 font-medium text-brand-primary"
                             : "text-gray-600 hover:bg-gray-50",
                         )}
                       >
@@ -645,7 +682,7 @@ export default function PortalLayout({
                   "flex w-full items-center rounded-lg px-3 py-2 text-sm font-medium transition-colors",
 
                   pathname.startsWith("/portal/governance")
-                    ? "bg-apc-primary/10 text-apc-primary"
+                    ? "bg-brand-primary/10 text-brand-primary"
                     : "text-gray-700 hover:bg-gray-100",
                 )}
               >
@@ -677,7 +714,7 @@ export default function PortalLayout({
                           "flex items-center rounded-lg px-3 py-2 text-sm transition-colors",
 
                           active
-                            ? "bg-apc-primary/10 font-medium text-apc-primary"
+                            ? "bg-brand-primary/10 font-medium text-brand-primary"
                             : "text-gray-600 hover:bg-gray-50",
                         )}
                       >
@@ -729,7 +766,7 @@ export default function PortalLayout({
                   "flex w-full items-center rounded-lg px-3 py-2 text-sm font-medium transition-colors",
 
                   pathname.startsWith("/portal/election")
-                    ? "bg-apc-primary/10 text-apc-primary"
+                    ? "bg-brand-primary/10 text-brand-primary"
                     : "text-gray-700 hover:bg-gray-100",
                 )}
               >
@@ -792,7 +829,7 @@ export default function PortalLayout({
                           "flex items-center rounded-lg px-3 py-2 text-sm transition-colors",
 
                           active
-                            ? "bg-apc-primary/10 font-medium text-apc-primary"
+                            ? "bg-brand-primary/10 font-medium text-brand-primary"
                             : "text-gray-600 hover:bg-gray-50",
                         )}
                       >
@@ -836,7 +873,7 @@ export default function PortalLayout({
               "flex items-center rounded-lg px-3 py-2 text-sm font-medium transition-colors",
 
               active
-                ? "bg-apc-primary/10 text-apc-primary"
+                ? "bg-brand-primary/10 text-brand-primary"
                 : "text-gray-700 hover:bg-gray-100",
             )}
           >
@@ -856,7 +893,7 @@ export default function PortalLayout({
               "flex w-full items-center rounded-lg px-3 py-2 text-xs font-semibold uppercase tracking-wider transition-colors",
 
               pathname.startsWith("/portal/admin")
-                ? "bg-apc-primary/5 text-apc-primary"
+                ? "bg-brand-primary/5 text-brand-primary"
                 : "text-gray-400 hover:bg-gray-50 hover:text-gray-600",
             )}
           >
@@ -886,7 +923,7 @@ export default function PortalLayout({
                       "flex items-center rounded-lg px-3 py-2 text-sm font-medium transition-colors",
 
                       active
-                        ? "bg-apc-primary/10 text-apc-primary"
+                        ? "bg-brand-primary/10 text-brand-primary"
                         : "text-gray-700 hover:bg-gray-100",
                     )}
                   >
@@ -1161,7 +1198,7 @@ function NotificationCenter({ profile }: { profile: UserProfile | null }) {
       <button
         type="button"
         onClick={() => setOpen((prev) => !prev)}
-        className="relative p-2 text-gray-600 hover:text-apc-primary rounded-full hover:bg-gray-100 transition-colors"
+        className="relative p-2 text-gray-600 hover:text-brand-primary rounded-full hover:bg-gray-100 transition-colors"
         aria-label="Notifications"
       >
         <Bell className="h-5 w-5" />
@@ -1176,12 +1213,12 @@ function NotificationCenter({ profile }: { profile: UserProfile | null }) {
         <div className="absolute right-0 mt-2 w-80 sm:w-96 rounded-2xl bg-white shadow-xl border border-gray-200 z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
           <div className="flex items-center justify-between p-4 border-b bg-gray-50">
             <div className="flex items-center gap-2">
-              <Bell className="h-4 w-4 text-apc-primary" />
+              <Bell className="h-4 w-4 text-brand-primary" />
               <span className="font-bold text-sm text-gray-900">
                 Notifications
               </span>
               {unreadCount > 0 && (
-                <span className="bg-apc-primary/10 text-apc-primary text-xs font-semibold px-2 py-0.5 rounded-full">
+                <span className="bg-brand-primary/10 text-brand-primary text-xs font-semibold px-2 py-0.5 rounded-full">
                   {unreadCount} unread
                 </span>
               )}
@@ -1199,7 +1236,7 @@ function NotificationCenter({ profile }: { profile: UserProfile | null }) {
                     ),
                   )
                 }
-                className="text-xs text-apc-primary hover:underline font-semibold flex items-center gap-1"
+                className="text-xs text-brand-primary hover:underline font-semibold flex items-center gap-1"
               >
                 <Check className="h-3 w-3" /> Mark all read
               </button>
@@ -1233,7 +1270,7 @@ function NotificationCenter({ profile }: { profile: UserProfile | null }) {
                       className={cn(
                         "p-3.5 transition-colors cursor-pointer flex items-start gap-3",
                         isUnread
-                          ? "bg-apc-primary/5 hover:bg-apc-primary/10"
+                          ? "bg-brand-primary/5 hover:bg-brand-primary/10"
                           : "hover:bg-gray-50",
                       )}
                     >
@@ -1243,7 +1280,7 @@ function NotificationCenter({ profile }: { profile: UserProfile | null }) {
                             {n.title}
                           </span>
                           {isUnread && (
-                            <span className="h-2 w-2 rounded-full bg-apc-primary" />
+                            <span className="h-2 w-2 rounded-full bg-brand-primary" />
                           )}
                         </div>
                         <p className="text-gray-600 leading-relaxed">
@@ -1252,7 +1289,7 @@ function NotificationCenter({ profile }: { profile: UserProfile | null }) {
                         {n.link_url && (
                           <a
                             href={n.link_url}
-                            className="inline-block text-apc-primary font-semibold hover:underline pt-1"
+                            className="inline-block text-brand-primary font-semibold hover:underline pt-1"
                           >
                             View Details &rarr;
                           </a>
@@ -1290,7 +1327,7 @@ function UserPanel({
   return (
     <div>
       <div className="mb-3 flex items-center gap-3">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-apc-primary">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-primary">
           <span className="text-sm font-semibold text-white">
             {userName.charAt(0).toUpperCase()}
           </span>
@@ -1310,7 +1347,7 @@ function UserPanel({
           <div className="mb-3 space-y-2 rounded-lg bg-gray-50 p-3">
             {electoralLocation.ward && (
               <div className="flex items-start gap-2">
-                <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-apc-primary" />
+                <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-brand-primary" />
 
                 <div className="min-w-0">
                   <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">
@@ -1326,7 +1363,7 @@ function UserPanel({
 
             {electoralLocation.pollingUnit && (
               <div className="flex items-start gap-2">
-                <Map className="mt-0.5 h-4 w-4 shrink-0 text-apc-primary" />
+                <Map className="mt-0.5 h-4 w-4 shrink-0 text-brand-primary" />
 
                 <div className="min-w-0">
                   <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">

@@ -40,7 +40,7 @@ export function HelpLink({
     <button
       type="button"
       onClick={() => openHelpArticle(article)}
-      className={`inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-2.5 py-1 text-xs font-semibold text-gray-600 transition-colors hover:border-apc-primary/40 hover:text-apc-primary focus:outline-none focus:ring-2 focus:ring-apc-primary/40 ${className}`}
+      className={`inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-2.5 py-1 text-xs font-semibold text-gray-600 transition-colors hover:border-brand-primary/40 hover:text-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-primary/40 ${className}`}
       title={`Help: ${label}`}
       aria-label={`Help: ${label}`}
     >

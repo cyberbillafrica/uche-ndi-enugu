@@ -121,7 +121,7 @@ export default function CaseQueuePage() {
   if (authLoading || !guardDone || (guardDone && access?.isStaff && loading && cases.length === 0 && !loadError)) {
     return (
       <div className="flex min-h-[50vh] items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-apc-primary" />
+        <Loader2 className="h-8 w-8 animate-spin text-brand-primary" />
       </div>
     );
   }
@@ -174,7 +174,7 @@ export default function CaseQueuePage() {
                 onChange={(e) =>
                   setStatus(e.target.value as "" | GovernanceRequestStatus)
                 }
-                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-apc-primary focus:outline-none"
+                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-brand-primary focus:outline-none"
               >
                 <option value="">All statuses</option>
                 {STATUS_OPTIONS.map((s) => (
@@ -191,7 +191,7 @@ export default function CaseQueuePage() {
                 id="govq-category"
                 value={categoryId}
                 onChange={(e) => setCategoryId(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-apc-primary focus:outline-none"
+                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-brand-primary focus:outline-none"
               >
                 <option value="">All categories</option>
                 {categories.map((c) => (
@@ -208,7 +208,7 @@ export default function CaseQueuePage() {
                   type="checkbox"
                   checked={assignedToMe}
                   onChange={(e) => setAssignedToMe(e.target.checked)}
-                  className="h-4 w-4 rounded border-gray-300 text-apc-primary focus:ring-apc-primary"
+                  className="h-4 w-4 rounded border-gray-300 text-brand-primary focus:ring-brand-primary"
                 />
                 Assigned to me
               </label>
@@ -251,7 +251,7 @@ export default function CaseQueuePage() {
                       <td className="py-2.5 pr-4">
                         <Link
                           href={`/portal/governance/cases/${c.id}`}
-                          className="font-medium text-gray-900 hover:text-apc-primary"
+                          className="font-medium text-gray-900 hover:text-brand-primary"
                         >
                           {c.title}
                         </Link>

@@ -311,6 +311,109 @@ const SIGNATURES: Record<string, string> = {
 
   "0042": `position('rejected: empty result' in pg_get_functiondef(to_regproc('politicore.governance_track_public_request'))) > 0`,
 
+  "0043": `to_regproc('politicore.create_governance_project') IS NOT NULL`,
+
+  "0044": `position('visibility_rpc' in coalesce(pg_get_functiondef(to_regproc('politicore.set_governance_project_visibility')), '')) > 0`,
+
+  "0045": `position('scope within your authority' in coalesce(pg_get_functiondef(to_regproc('politicore.create_governance_project')), '')) > 0`,
+
+  "0046": `position('scope being attached' in coalesce(pg_get_functiondef(to_regproc('politicore.add_governance_project_scope')), '')) > 0 OR position('bootstrap-correct' in coalesce(pg_get_functiondef(to_regproc('politicore.add_governance_project_scope')), '')) > 0`,
+
+  "0047": `to_regclass('public.governance_projects') IS NOT NULL AND to_regprocedure('public.set_governance_project_visibility(uuid,boolean)') IS NOT NULL`,
+
+  "0048": `to_regproc('politicore.create_governance_commitment') IS NOT NULL
+
+           AND position('commitment_id' in coalesce((SELECT pg_get_viewdef('public.governance_updates'::regclass, true)), '')) > 0`,
+
+  "0049": `position('jsonb_typeof(p_scopes::jsonb)' in coalesce(pg_get_functiondef(to_regproc('politicore.create_governance_commitment')), '')) > 0`,
+
+  "0050": `position('end loop' in lower(coalesce(pg_get_functiondef(to_regproc('politicore.make_governance_commitment_reference')), ''))) < position('new.reference_code := v_ref' in lower(coalesce(pg_get_functiondef(to_regproc('politicore.make_governance_commitment_reference')), '')))`,
+
+  "0051": `to_regproc('politicore.submit_governance_consultation_response') IS NOT NULL
+
+           AND position('politicore.governance_authority' in coalesce(pg_get_functiondef(to_regproc('politicore.guard_governance_consultation_identity')), '')) > 0`,
+
+  "0052": `to_regproc('politicore.sign_governance_petition') IS NOT NULL
+
+           AND position('governance_petitions_origin_proposer' in coalesce(pg_get_functiondef(to_regproc('politicore.guard_governance_petition_status')), '')) = 0
+
+           AND (SELECT count(*) FROM pg_constraint WHERE conname = 'governance_updates_single_subject') = 1`,
+
+  "0053": `position('ward_id IS NOT NULL) AND (polling_unit_id IS NULL' in
+           (SELECT coalesce(pg_get_constraintdef(oid), '') FROM pg_constraint WHERE conname = 'governance_petition_scope_shape')) > 0`,
+
+  "0054": `position('permission_grants' in coalesce(pg_get_functiondef(to_regproc('politicore.governance_notify_petition_submitted')), '')) > 0
+
+           AND position('access_role = ''admin''' in coalesce(pg_get_functiondef(to_regproc('politicore.governance_notify_petition_submitted')), '')) > 0`,
+
+  "0055": `to_regproc('politicore.vote_governance_poll') IS NOT NULL
+
+           AND to_regproc('politicore.guard_governance_poll_options') IS NOT NULL
+
+           AND position('only editable while draft' in coalesce(pg_get_functiondef(to_regproc('politicore.guard_governance_poll_content')), '')) > 0
+
+           AND (SELECT count(*) FROM pg_constraint WHERE conname = 'governance_polls_results_require_closed') = 1`,
+
+  "0056": `to_regproc('politicore.create_governance_engagement_update') IS NOT NULL
+
+           AND position('sealed once concluded' in coalesce(pg_get_functiondef(to_regproc('politicore.guard_governance_engagement_content')), '')) > 0
+
+           AND position('engagement_id IS NOT NULL' in (SELECT coalesce(pg_get_constraintdef(oid), '') FROM pg_constraint WHERE conname = 'governance_updates_single_subject')) > 0`,
+
+  "0057": `to_regproc('politicore.public_governance_request_stats') IS NOT NULL
+
+           AND position('publish_accountability' in coalesce(pg_get_functiondef(to_regproc('politicore.set_governance_project_visibility')), '')) > 0
+
+           AND to_regproc('politicore.governance_privacy_bucket') IS NOT NULL`,
+
+  "0059": `to_regproc('public.governance_analytics_requests') IS NOT NULL
+
+           AND coalesce(pg_get_functiondef(to_regproc('politicore.governance_analytics_tenant_wide')),'') like '%EXPLICIT UNSCOPED grant%'
+
+           AND position('FROM PUBLIC, anon, authenticated' in coalesce(pg_get_functiondef(to_regproc('politicore.governance_analytics_tenant_wide')),'')) = 0
+
+           AND (select not(coalesce(array_to_string(proacl, ','), '') like '%authenticated=X%'))
+               from pg_proc where oid = to_regproc('politicore.governance_analytics_tenant_wide')
+
+           AND position('deny-wins: an unscoped deny suppresses' in coalesce(pg_get_functiondef(to_regproc('politicore.governance_analytics_tenant_wide')),'')) > 0`,
+  "0058": `to_regproc('politicore.governance_analytics_requests') IS NOT NULL
+
+           AND to_regproc('politicore.governance_memory_timeline') IS NOT NULL
+
+           AND position('view_governance required for analytics' in coalesce(pg_get_functiondef(to_regproc('politicore.governance_analytics_requests')), '')) > 0`,
+
+  "0061": `to_regproc('politicore.cc_validate_branding') IS NOT NULL
+           AND to_regproc('politicore.cc_validate_seo') IS NOT NULL
+           AND to_regproc('public.get_public_site_chrome') IS NOT NULL
+           AND to_regproc('public.get_public_brand_asset') IS NOT NULL
+           AND to_regproc('public.get_site_config_preview') IS NOT NULL
+           AND position('cc_validate_branding' in pg_get_functiondef(to_regproc('politicore.save_site_config_draft'))) > 0
+           AND position('cc_validate_branding' in pg_get_functiondef(to_regproc('politicore.publish_site_config'))) > 0
+           AND (SELECT provolatile = 'v' FROM pg_proc WHERE oid = to_regproc('public.get_site_config_preview'))`,
+
+  "0062": `to_regproc('politicore.cc_validate_homepage') IS NOT NULL
+           AND to_regproc('politicore.rollback_site_config') IS NOT NULL
+           AND to_regproc('public.get_published_homepage') IS NOT NULL
+           AND to_regproc('public.get_site_config_history') IS NOT NULL
+           AND position('cc_validate_homepage' in pg_get_functiondef(to_regproc('politicore.publish_site_config'))) > 0
+           AND (SELECT provolatile = 'v' FROM pg_proc WHERE oid = to_regproc('public.rollback_site_config'))`,
+
+  "0060": `to_regproc('politicore.set_tenant_module_enabled') IS NOT NULL
+
+           AND to_regproc('politicore.control_center_overview') IS NOT NULL
+
+           AND to_regproc('public.get_published_site_config') IS NOT NULL
+
+           AND (SELECT provolatile = 'v' FROM pg_proc WHERE oid = to_regproc('public.set_tenant_module_enabled'))
+
+           AND (SELECT provolatile = 'v' FROM pg_proc WHERE oid = to_regproc('public.save_site_config_draft'))
+
+           AND position('Tenant administration authority is required for service activation' in coalesce(pg_get_functiondef(to_regproc('politicore.set_tenant_module_enabled')), '')) > 0
+
+           AND position('service_entitlements' in coalesce(pg_get_functiondef(to_regproc('politicore.service_entitled')), '')) > 0
+
+           AND position('not entitled' in coalesce(pg_get_functiondef(to_regproc('politicore.set_tenant_module_enabled')), '')) > 0`,
+
 };
 
 function migrationFiles(dir: string): { file: string; version: string; sql: string }[] {

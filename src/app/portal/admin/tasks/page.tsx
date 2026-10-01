@@ -303,7 +303,7 @@ export default function AdminTasksPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
-        <Loader2 className="h-8 w-8 animate-spin text-apc-primary" />
+        <Loader2 className="h-8 w-8 animate-spin text-brand-primary" />
         <span className="ml-3 text-gray-500">Loading tasks...</span>
       </div>
     );
@@ -331,7 +331,7 @@ export default function AdminTasksPage() {
 
         <button
           onClick={handleOpenCreateModal}
-          className="inline-flex items-center gap-2 bg-apc-primary text-white px-4 py-2.5 rounded-xl font-bold text-sm hover:bg-apc-dark transition-colors shadow-sm"
+          className="inline-flex items-center gap-2 bg-brand-primary text-white px-4 py-2.5 rounded-xl font-bold text-sm hover:bg-brand-primary transition-colors shadow-sm"
         >
           <Plus className="h-4 w-4" />
           <span>Create New Task</span>
@@ -374,7 +374,7 @@ export default function AdminTasksPage() {
                       </div>
 
                       <p className="text-xs text-gray-500">
-                        Platform: <span className="font-semibold uppercase text-gray-700">{task.platform}</span> · Action: <span className="font-semibold uppercase text-gray-700">{task.action}</span> · Award: <span className="font-bold text-apc-primary">{task.points} pts</span>
+                        Platform: <span className="font-semibold uppercase text-gray-700">{task.platform}</span> · Action: <span className="font-semibold uppercase text-gray-700">{task.action}</span> · Award: <span className="font-bold text-brand-primary">{task.points} pts</span>
                         {task.expiration_date ? (
                           <span className={isPastDeadline ? "text-red-600 font-bold ml-1" : "ml-1"}>
                             · Deadline: {task.expiration_date} {isPastDeadline ? "(Expired)" : ""}
@@ -389,7 +389,7 @@ export default function AdminTasksPage() {
                           href={task.target_url}
                           target="_blank"
                           rel="noreferrer"
-                          className="inline-flex items-center gap-1 text-xs text-apc-primary font-semibold hover:underline"
+                          className="inline-flex items-center gap-1 text-xs text-brand-primary font-semibold hover:underline"
                         >
                           <ExternalLink className="h-3 w-3" /> Open Task Link
                         </a>
@@ -402,7 +402,7 @@ export default function AdminTasksPage() {
                           href={task.target_url}
                           target="_blank"
                           rel="noreferrer"
-                          className="px-3 py-1.5 bg-apc-primary/10 text-apc-primary hover:bg-apc-primary/20 rounded-lg text-xs font-bold flex items-center gap-1"
+                          className="px-3 py-1.5 bg-brand-primary/10 text-brand-primary hover:bg-brand-primary/20 rounded-lg text-xs font-bold flex items-center gap-1"
                         >
                           <ExternalLink className="h-3.5 w-3.5" /> Open Task
                         </a>
@@ -581,7 +581,7 @@ export default function AdminTasksPage() {
                       type="checkbox"
                       checked={form.proof_required}
                       onChange={(e) => setForm({ ...form, proof_required: e.target.checked })}
-                      className="rounded text-apc-primary"
+                      className="rounded text-brand-primary"
                     />
                     Proof Link Required
                   </label>
@@ -599,7 +599,7 @@ export default function AdminTasksPage() {
                 <button
                   type="submit"
                   disabled={saving}
-                  className="px-5 py-2 bg-apc-primary text-white font-bold rounded-lg hover:bg-apc-dark disabled:opacity-50"
+                  className="px-5 py-2 bg-brand-primary text-white font-bold rounded-lg hover:bg-brand-primary disabled:opacity-50"
                 >
                   {saving ? "Saving..." : "Save Task"}
                 </button>
@@ -649,7 +649,7 @@ export default function AdminTasksPage() {
                           href={sub.proof_url}
                           target="_blank"
                           rel="noreferrer"
-                          className="text-apc-primary font-semibold hover:underline inline-flex items-center gap-1"
+                          className="text-brand-primary font-semibold hover:underline inline-flex items-center gap-1"
                         >
                           View Proof Link <ExternalLink className="h-3 w-3" />
                         </a>
@@ -662,7 +662,7 @@ export default function AdminTasksPage() {
                           href={reviewTask.target_url}
                           target="_blank"
                           rel="noreferrer"
-                          className="px-2.5 py-1 bg-apc-primary/10 text-apc-primary rounded text-xs font-bold hover:bg-apc-primary/20 flex items-center gap-1"
+                          className="px-2.5 py-1 bg-brand-primary/10 text-brand-primary rounded text-xs font-bold hover:bg-brand-primary/20 flex items-center gap-1"
                         >
                           <ExternalLink className="h-3 w-3" /> Open Task
                         </a>

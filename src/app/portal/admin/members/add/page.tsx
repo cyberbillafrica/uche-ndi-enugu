@@ -264,7 +264,7 @@ export default function AddMemberPage() {
                   type="checkbox"
                   checked={form.membership_types.includes(type)}
                   onChange={() => handleRoleToggle(type)}
-                  className="rounded border-gray-300 text-apc-primary focus:ring-apc-primary"
+                  className="rounded border-gray-300 text-brand-primary focus:ring-brand-primary"
                 />
                 <span className="capitalize">{type.replace("_", " ")}</span>
               </label>
@@ -346,7 +346,7 @@ export default function AddMemberPage() {
         <button
           type="submit"
           disabled={loading}
-          className="w-full bg-apc-primary text-white py-3 rounded-lg font-semibold hover:bg-apc-dark disabled:opacity-50"
+          className="w-full bg-brand-primary text-white py-3 rounded-lg font-semibold hover:bg-brand-primary disabled:opacity-50"
         >
           {loading ? "Creating..." : "Create Member"}
         </button>

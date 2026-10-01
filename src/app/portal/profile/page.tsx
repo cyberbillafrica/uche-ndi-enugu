@@ -49,7 +49,7 @@ export default function ProfilePage() {
   if (loading) {
     return (
       <div className="flex min-h-[50vh] items-center justify-center gap-3">
-        <div className="h-12 w-12 animate-spin rounded-full border-b-2 border-apc-primary" />
+        <div className="h-12 w-12 animate-spin rounded-full border-b-2 border-brand-primary" />
 
         <p className="text-gray-500">Checking authentication…</p>
       </div>
@@ -129,7 +129,7 @@ export default function ProfilePage() {
       ───────────────────────────────────────────── */}
 
       <div>
-        <p className="text-sm font-medium text-apc-primary">Account</p>
+        <p className="text-sm font-medium text-brand-primary">Account</p>
 
         <h1 className="mt-1 text-2xl font-bold text-gray-900 sm:text-3xl">
           My Profile
@@ -148,8 +148,8 @@ export default function ProfilePage() {
       <Card className="border-0 shadow-sm">
         <CardHeader>
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-apc-primary/10">
-              <User className="h-5 w-5 text-apc-primary" />
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand-primary/10">
+              <User className="h-5 w-5 text-brand-primary" />
             </div>
 
             <div>
@@ -324,7 +324,7 @@ export default function ProfilePage() {
               </p>
             </div>
 
-            <ShieldCheck className="h-6 w-6 text-apc-primary" />
+            <ShieldCheck className="h-6 w-6 text-brand-primary" />
           </div>
         </CardContent>
       </Card>
@@ -391,7 +391,7 @@ function SocialProfile({
                 href={url!}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-apc-primary hover:underline"
+                className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-brand-primary hover:underline"
               >
                 View Profile
                 <ExternalLink className="h-3.5 w-3.5" />

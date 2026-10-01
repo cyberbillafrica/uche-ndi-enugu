@@ -256,7 +256,7 @@ export default function PUReportsPage() {
   if (gate === "loading" || loading) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
-        <Loader2 className="h-8 w-8 animate-spin text-apc-primary" />
+        <Loader2 className="h-8 w-8 animate-spin text-brand-primary" />
         <span className="ml-3 text-gray-500">Loading PU reports...</span>
       </div>
     );
@@ -269,7 +269,7 @@ export default function PUReportsPage() {
         <h2 className="text-lg font-bold text-gray-900">Sign in required</h2>
         <button
           onClick={() => router.replace("/portal/auth/login")}
-          className="px-4 py-2 text-sm font-semibold rounded-lg bg-apc-primary text-white"
+          className="px-4 py-2 text-sm font-semibold rounded-lg bg-brand-primary text-white"
         >
           Go to sign in
         </button>
@@ -309,7 +309,7 @@ export default function PUReportsPage() {
 
         <button
           onClick={() => setShowForm((prev) => !prev)}
-          className="inline-flex items-center gap-2 rounded-lg bg-apc-primary px-4 py-2.5 text-sm font-semibold text-white hover:bg-apc-dark transition-colors"
+          className="inline-flex items-center gap-2 rounded-lg bg-brand-primary px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-primary transition-colors"
         >
           <Plus className="h-4 w-4" />
           {showForm ? "Cancel" : "Submit PU Report"}
@@ -318,7 +318,7 @@ export default function PUReportsPage() {
 
       {/* Form */}
       {showForm && (
-        <Card className="border-apc-primary/20">
+        <Card className="border-brand-primary/20">
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle className="text-lg">Submit Polling Unit Report</CardTitle>
@@ -396,7 +396,7 @@ export default function PUReportsPage() {
                     </div>
                   </>
                 ) : (
-                  <div className="md:col-span-3 p-3 bg-apc-light/40 border border-apc-primary/20 rounded-lg text-xs text-apc-primary font-semibold">
+                  <div className="md:col-span-3 p-3 bg-brand-surface/40 border border-brand-primary/20 rounded-lg text-xs text-brand-primary font-semibold">
                     Submitting for your registered Polling Unit: {registered.puId}
                   </div>
                 )}
@@ -460,7 +460,7 @@ export default function PUReportsPage() {
                     type="file"
                     accept="image/jpeg,image/png,image/webp,application/pdf"
                     onChange={handleImageChange}
-                    className="text-xs text-gray-600 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-apc-primary file:text-white"
+                    className="text-xs text-gray-600 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-brand-primary file:text-white"
                   />
                   {evidencePreview && (
                     // eslint-disable-next-line @next/next/no-img-element
@@ -485,7 +485,7 @@ export default function PUReportsPage() {
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="inline-flex items-center gap-2 rounded-lg bg-apc-primary px-5 py-2 text-sm font-semibold text-white hover:bg-apc-dark disabled:opacity-50"
+                  className="inline-flex items-center gap-2 rounded-lg bg-brand-primary px-5 py-2 text-sm font-semibold text-white hover:bg-brand-primary disabled:opacity-50"
                 >
                   {submitting ? (
                     <>
@@ -523,7 +523,7 @@ export default function PUReportsPage() {
                 <div key={r.id} className="bg-white border rounded-xl p-5 space-y-2">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
-                      <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-apc-primary/10 text-apc-primary uppercase">
+                      <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-brand-primary/10 text-brand-primary uppercase">
                         {r.report_type}
                       </span>
                       <h3 className="font-bold text-gray-900">{r.title}</h3>
@@ -544,7 +544,7 @@ export default function PUReportsPage() {
                         href={`/api/election/evidence/${r.evidence_asset_id}`}
                         target="_blank"
                         rel="noreferrer"
-                        className="inline-flex items-center gap-1 text-xs font-semibold text-apc-primary hover:underline"
+                        className="inline-flex items-center gap-1 text-xs font-semibold text-brand-primary hover:underline"
                       >
                         <Upload className="h-3.5 w-3.5" /> View Photo Evidence (signed)
                       </a>

@@ -228,7 +228,7 @@ export default function CaseDetailPage() {
   if (authLoading || !guardDone) {
     return (
       <div className="flex min-h-[50vh] items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-apc-primary" />
+        <Loader2 className="h-8 w-8 animate-spin text-brand-primary" />
       </div>
     );
   }
@@ -257,7 +257,7 @@ export default function CaseDetailPage() {
         </p>
         <Link
           href="/portal/governance/cases"
-          className="mt-4 inline-block text-sm font-medium text-apc-primary hover:underline"
+          className="mt-4 inline-block text-sm font-medium text-brand-primary hover:underline"
         >
           ← Back to Case Queue
         </Link>
@@ -268,7 +268,7 @@ export default function CaseDetailPage() {
   if (loading || !request) {
     return (
       <div className="flex min-h-[50vh] items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-apc-primary" />
+        <Loader2 className="h-8 w-8 animate-spin text-brand-primary" />
       </div>
     );
   }
@@ -408,14 +408,14 @@ export default function CaseDetailPage() {
                     onChange={(e) => setNote(e.target.value)}
                     rows={3}
                     placeholder="Operational note, response to the participant, or transition reason…"
-                    className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-apc-primary focus:outline-none"
+                    className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-brand-primary focus:outline-none"
                   />
                   <div className="flex flex-wrap items-center gap-2">
                     <button
                       type="button"
                       disabled={acting || !note.trim()}
                       onClick={() => handleRespond(true)}
-                      className="inline-flex items-center gap-2 rounded-lg border border-apc-primary px-3 py-2 text-sm font-semibold text-apc-primary hover:bg-apc-primary/5 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="inline-flex items-center gap-2 rounded-lg border border-brand-primary px-3 py-2 text-sm font-semibold text-brand-primary hover:bg-brand-primary/5 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       <MessageSquare className="h-4 w-4" />
                       Public response
@@ -450,7 +450,7 @@ export default function CaseDetailPage() {
                     type="button"
                     disabled={acting}
                     onClick={handleAcknowledge}
-                    className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-apc-primary px-4 py-2 text-sm font-semibold text-white hover:bg-apc-primary/90 disabled:opacity-50"
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-brand-primary px-4 py-2 text-sm font-semibold text-white hover:bg-brand-primary/90 disabled:opacity-50"
                   >
                     {acting ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
                     Acknowledge
@@ -462,7 +462,7 @@ export default function CaseDetailPage() {
                     type="button"
                     disabled={acting}
                     onClick={openAssign}
-                    className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-apc-primary px-4 py-2 text-sm font-semibold text-apc-primary hover:bg-apc-primary/5 disabled:opacity-50"
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-brand-primary px-4 py-2 text-sm font-semibold text-brand-primary hover:bg-brand-primary/5 disabled:opacity-50"
                   >
                     <UserCheck className="h-4 w-4" />
                     {status === "resolved" ? "Reassign" : "Assign"}
@@ -495,7 +495,7 @@ export default function CaseDetailPage() {
                       type="checkbox"
                       checked={makePublic}
                       onChange={(e) => setMakePublic(e.target.checked)}
-                      className="h-4 w-4 rounded border-gray-300 text-apc-primary focus:ring-apc-primary"
+                      className="h-4 w-4 rounded border-gray-300 text-brand-primary focus:ring-brand-primary"
                     />
                     Publish resolution publicly
                   </label>
@@ -559,7 +559,7 @@ export default function CaseDetailPage() {
                     id="gov-assignee"
                     value={assigneeId}
                     onChange={(e) => setAssigneeId(e.target.value)}
-                    className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-apc-primary focus:outline-none"
+                    className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-brand-primary focus:outline-none"
                     required
                   >
                     <option value="">Select a staff member…</option>
@@ -580,7 +580,7 @@ export default function CaseDetailPage() {
                         setAssignScopeType(e.target.value);
                         setAssignScopeId("");
                       }}
-                      className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-apc-primary focus:outline-none"
+                      className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-brand-primary focus:outline-none"
                     >
                       <option value="">None</option>
                       <option value="lga">LGA</option>
@@ -619,7 +619,7 @@ export default function CaseDetailPage() {
                   <button
                     type="submit"
                     disabled={acting || !assigneeId}
-                    className="inline-flex items-center gap-2 rounded-lg bg-apc-primary px-4 py-2 text-sm font-semibold text-white hover:bg-apc-primary/90 disabled:opacity-50"
+                    className="inline-flex items-center gap-2 rounded-lg bg-brand-primary px-4 py-2 text-sm font-semibold text-white hover:bg-brand-primary/90 disabled:opacity-50"
                   >
                     {acting ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserCheck className="h-4 w-4" />}
                     Assign

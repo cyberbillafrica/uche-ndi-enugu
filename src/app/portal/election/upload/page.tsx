@@ -347,7 +347,7 @@ export default function ElectionUploadPage() {
   if (gate === "loading" || loadingConfig) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[50vh] space-y-3">
-        <Loader2 className="h-8 w-8 animate-spin text-apc-primary" />
+        <Loader2 className="h-8 w-8 animate-spin text-brand-primary" />
         <p className="text-sm text-gray-500">Loading Election Configuration...</p>
       </div>
     );
@@ -360,7 +360,7 @@ export default function ElectionUploadPage() {
         <h2 className="text-lg font-bold text-gray-900">Sign in required</h2>
         <button
           onClick={() => router.replace("/portal/auth/login")}
-          className="px-4 py-2 text-sm font-semibold rounded-lg bg-apc-primary text-white"
+          className="px-4 py-2 text-sm font-semibold rounded-lg bg-brand-primary text-white"
         >
           Go to sign in
         </button>
@@ -411,7 +411,7 @@ export default function ElectionUploadPage() {
         </p>
         <button
           onClick={() => setSubmittedState(null)}
-          className="px-4 py-2 text-sm font-semibold rounded-lg bg-apc-primary text-white"
+          className="px-4 py-2 text-sm font-semibold rounded-lg bg-brand-primary text-white"
         >
           Submit another result
         </button>
@@ -422,7 +422,7 @@ export default function ElectionUploadPage() {
   return (
     <div className="max-w-3xl mx-auto space-y-6 pb-12">
       <div>
-        <div className="flex items-center gap-2 text-apc-primary font-semibold text-xs tracking-wide uppercase mb-1">
+        <div className="flex items-center gap-2 text-brand-primary font-semibold text-xs tracking-wide uppercase mb-1">
           <Vote className="w-4 h-4" />
           <span>ELECTION OPERATIONS DESK</span>
         </div>
@@ -448,7 +448,7 @@ export default function ElectionUploadPage() {
           </div>
           <div>
             <span className="text-xs uppercase text-slate-400 block">Active Contest</span>
-            <span className="font-bold text-base text-apc-light">
+            <span className="font-bold text-base text-brand-surface">
               {currentContest?.name || "Select Contest"}
             </span>
           </div>
@@ -495,7 +495,7 @@ export default function ElectionUploadPage() {
       </div>
 
       {!tenantWide && (
-        <div className="p-4 bg-apc-light text-apc-primary rounded-xl border border-apc-primary/20 text-xs space-y-1">
+        <div className="p-4 bg-brand-surface text-brand-primary rounded-xl border border-brand-primary/20 text-xs space-y-1">
           <p className="font-bold text-sm">Your Registered Polling Unit Scope</p>
           <p>
             <span className="font-semibold">Ward:</span> {registered.wardId ?? "Not set"} |{" "}
@@ -522,7 +522,7 @@ export default function ElectionUploadPage() {
                   setWards([]);
                   setPollingUnitId("");
                 }}
-                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-apc-primary text-xs"
+                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-primary text-xs"
                 required
               >
                 <option value="">Select LGA</option>
@@ -543,7 +543,7 @@ export default function ElectionUploadPage() {
                   setPollingUnitId("");
                 }}
                 disabled={!lgaId}
-                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-apc-primary disabled:bg-gray-100 text-xs"
+                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-primary disabled:bg-gray-100 text-xs"
                 required
               >
                 <option value="">{lgaId ? "Select ward" : "Select an LGA first"}</option>
@@ -563,7 +563,7 @@ export default function ElectionUploadPage() {
                 value={pollingUnitId}
                 onChange={(e) => setPollingUnitId(e.target.value)}
                 disabled={!wardId}
-                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-apc-primary disabled:bg-gray-100 text-xs"
+                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-primary disabled:bg-gray-100 text-xs"
                 required
               >
                 <option value="">{wardId ? "Select polling unit" : "Select a ward first"}</option>
@@ -629,7 +629,7 @@ export default function ElectionUploadPage() {
               accept="image/jpeg,image/png,image/webp,application/pdf"
               onChange={handleImageChange}
               required={!evidenceFile}
-              className="text-xs text-gray-600 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-apc-primary file:text-white hover:file:bg-apc-dark cursor-pointer"
+              className="text-xs text-gray-600 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-brand-primary file:text-white hover:file:bg-brand-primary cursor-pointer"
             />
           </div>
         </div>
@@ -637,7 +637,7 @@ export default function ElectionUploadPage() {
         {/* Party Vote Inputs — the contest BALLOT (candidates, party_id identity §6) */}
         <div className="border-t pt-6">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-base font-bold text-apc-primary">
+            <h3 className="text-base font-bold text-brand-primary">
               Party Vote Input Fields ({ballot.length} Contest Candidates)
             </h3>
             <span className="text-xs text-gray-500">Loaded from the contest ballot</span>
@@ -672,7 +672,7 @@ export default function ElectionUploadPage() {
                         )
                       )
                     }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-apc-primary text-sm font-mono font-bold"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-primary text-sm font-mono font-bold"
                     placeholder="0"
                   />
                 </div>
@@ -684,7 +684,7 @@ export default function ElectionUploadPage() {
         <button
           type="submit"
           disabled={submitting || ballot.length === 0}
-          className="w-full bg-apc-primary text-white py-3 rounded-xl font-bold hover:bg-apc-dark transition-colors disabled:opacity-50 flex items-center justify-center gap-2 text-sm"
+          className="w-full bg-brand-primary text-white py-3 rounded-xl font-bold hover:bg-brand-primary transition-colors disabled:opacity-50 flex items-center justify-center gap-2 text-sm"
         >
           {submitting ? (
             <>

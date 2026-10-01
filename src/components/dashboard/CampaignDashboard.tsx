@@ -228,7 +228,7 @@ export default function CampaignDashboard() {
           ====================================================== */}
 
       <section className="overflow-hidden rounded-2xl border bg-white shadow-sm">
-        <div className="bg-apc-primary px-6 py-7 text-white sm:px-8">
+        <div className="bg-brand-primary px-6 py-7 text-white sm:px-8">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
             <div className="min-w-0">
               <div className="mb-2 flex items-center gap-2">
@@ -444,7 +444,7 @@ export default function CampaignDashboard() {
 
               <div className="mt-5 rounded-xl border bg-gray-50 p-4">
                 <div className="mb-3 flex items-center gap-2">
-                  <Network className="h-4 w-4 text-apc-primary" />
+                  <Network className="h-4 w-4 text-brand-primary" />
 
                   <p className="text-sm font-semibold text-gray-900">
                     Organizational Coverage
@@ -567,7 +567,7 @@ export default function CampaignDashboard() {
           ====================================================== */}
 
       {authority.canManageArea && (
-        <Card className="border-apc-primary/10">
+        <Card className="border-brand-primary/10">
           <CardHeader>
             <CardTitle className="text-lg">Area Management</CardTitle>
 
@@ -943,7 +943,7 @@ function formatPosition(position: OrganizationalPosition): string {
 function LocationStrip({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-center gap-3 px-6 py-4">
-      <MapPin className="h-4 w-4 shrink-0 text-apc-primary" />
+      <MapPin className="h-4 w-4 shrink-0 text-brand-primary" />
 
       <div className="min-w-0">
         <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
@@ -1074,7 +1074,7 @@ function DashboardCard({
 
         <Link
           href={href}
-          className="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-apc-primary hover:underline"
+          className="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-brand-primary hover:underline"
         >
           {action}
 
@@ -1105,10 +1105,10 @@ function ManagementLink({
   return (
     <Link
       href={href}
-      className="group rounded-xl border bg-white p-4 transition hover:border-apc-primary/30 hover:bg-gray-50"
+      className="group rounded-xl border bg-white p-4 transition hover:border-brand-primary/30 hover:bg-gray-50"
     >
       <div className="flex items-center gap-3">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-apc-primary/10 text-apc-primary">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-primary/10 text-brand-primary">
           {icon}
         </div>
 
@@ -1119,7 +1119,7 @@ function ManagementLink({
         </div>
       </div>
 
-      <div className="mt-3 flex items-center justify-end gap-1 text-xs font-semibold text-apc-primary">
+      <div className="mt-3 flex items-center justify-end gap-1 text-xs font-semibold text-brand-primary">
         Open
         <ArrowRight className="h-3.5 w-3.5 transition group-hover:translate-x-0.5" />
       </div>
@@ -1149,7 +1149,7 @@ function PriorityRow({
       href={href}
       className="group flex items-center gap-3 rounded-xl border p-4 transition-colors hover:bg-gray-50"
     >
-      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-apc-primary/10 text-apc-primary">
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-primary/10 text-brand-primary">
         {icon}
       </div>
 
@@ -1186,7 +1186,7 @@ function ElectionFunction({
       href={href}
       className={`rounded-xl border p-4 transition ${
         primary
-          ? "border-apc-primary bg-apc-primary text-white shadow-sm hover:opacity-95"
+          ? "border-brand-primary bg-brand-primary text-white shadow-sm hover:opacity-95"
           : "border-gray-200 bg-white hover:bg-gray-50"
       }`}
     >
@@ -1237,7 +1237,7 @@ function InfoBox({
   return (
     <div className="rounded-xl border bg-gray-50 p-4">
       <div className="flex items-center gap-2">
-        {icon && <span className="text-apc-primary">{icon}</span>}
+        {icon && <span className="text-brand-primary">{icon}</span>}
 
         <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
           {label}

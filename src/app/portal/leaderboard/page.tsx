@@ -137,7 +137,7 @@ export default function LeaderboardPage() {
                       </p>
                     </div>
                     <div className="text-right">
-                      <p className="font-bold text-apc-primary">
+                      <p className="font-bold text-brand-primary">
                         {formatNumber(user.points ?? 0)} pts
                       </p>
                     </div>

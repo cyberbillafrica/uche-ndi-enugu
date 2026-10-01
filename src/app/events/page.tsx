@@ -56,7 +56,7 @@ export default function EventsPage() {
 
       <main className="flex-1 max-w-5xl w-full mx-auto px-4 py-12 sm:px-6 lg:px-8">
         <div className="mb-10 text-center sm:text-left">
-          <h1 className="text-3xl font-bold text-apc-primary sm:text-4xl">Upcoming Events</h1>
+          <h1 className="text-3xl font-bold text-brand-primary sm:text-4xl">Upcoming Events</h1>
           <p className="mt-2 text-gray-600 text-lg">
             Town halls, ward engagements and campaign activities you can join.
           </p>
@@ -64,7 +64,7 @@ export default function EventsPage() {
 
         {loading ? (
           <div className="flex justify-center py-20">
-            <Loader2 className="h-8 w-8 animate-spin text-apc-primary" />
+            <Loader2 className="h-8 w-8 animate-spin text-brand-primary" />
           </div>
         ) : events.length === 0 ? (
           <div className="text-center py-20 text-gray-500">
@@ -78,7 +78,7 @@ export default function EventsPage() {
                 key={event.id}
                 className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow"
               >
-                <div className="flex items-center gap-2 text-sm text-apc-primary font-semibold">
+                <div className="flex items-center gap-2 text-sm text-brand-primary font-semibold">
                   <Calendar className="h-4 w-4" />
                   <time dateTime={`${event.event_date}T${event.event_time}`}>
                     {formatDate(event.event_date)}

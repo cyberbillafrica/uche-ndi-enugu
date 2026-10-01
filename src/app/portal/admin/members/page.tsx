@@ -189,7 +189,7 @@ export default function AdminMembersPage() {
             onClick={handleExportCSV}
             className="inline-flex items-center gap-1.5 px-3 py-2 bg-white border rounded-lg text-xs font-semibold text-gray-700 hover:bg-gray-50 shadow-sm"
           >
-            <Download className="h-3.5 w-3.5 text-apc-primary" /> CSV
+            <Download className="h-3.5 w-3.5 text-brand-primary" /> CSV
           </button>
           <button
             onClick={handleExportExcel}
@@ -199,7 +199,7 @@ export default function AdminMembersPage() {
           </button>
           <Link
             href="/portal/admin/members/add"
-            className="inline-flex items-center gap-1.5 bg-apc-primary text-white px-4 py-2 rounded-lg text-xs font-bold hover:bg-apc-dark transition-colors shadow-sm"
+            className="inline-flex items-center gap-1.5 bg-brand-primary text-white px-4 py-2 rounded-lg text-xs font-bold hover:bg-brand-primary transition-colors shadow-sm"
           >
             <Plus className="h-4 w-4" />
             <span>Add Member</span>
@@ -315,7 +315,7 @@ export default function AdminMembersPage() {
                         </td>
                         <td className="py-3 px-4">
                           {(m.membership_types || []).map((r: string) => (
-                            <span key={r} className="inline-block bg-apc-light text-apc-primary text-[10px] font-bold px-2 py-0.5 rounded mr-1">
+                            <span key={r} className="inline-block bg-brand-surface text-brand-primary text-[10px] font-bold px-2 py-0.5 rounded mr-1">
                               {r.replace('_', ' ')}
                             </span>
                           ))}
@@ -419,7 +419,7 @@ export default function AdminMembersPage() {
               <button
                 onClick={handleUpdateStatus}
                 disabled={updatingId === actionModal.user.id}
-                className="px-5 py-2 bg-apc-primary text-white font-bold rounded-lg text-xs hover:bg-apc-dark disabled:opacity-50"
+                className="px-5 py-2 bg-brand-primary text-white font-bold rounded-lg text-xs hover:bg-brand-primary disabled:opacity-50"
               >
                 {updatingId === actionModal.user.id ? 'Updating...' : 'Confirm Status Update'}
               </button>

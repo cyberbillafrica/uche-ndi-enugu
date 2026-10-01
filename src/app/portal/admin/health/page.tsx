@@ -111,7 +111,7 @@ export default function AdminHealthPage() {
     <div className="space-y-6 pb-12 max-w-6xl mx-auto">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-apc-primary mb-1">
+          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-brand-primary mb-1">
             <Activity className="h-4 w-4" />
             <span>Infrastructure Diagnostics</span>
           </div>
@@ -127,7 +127,7 @@ export default function AdminHealthPage() {
         <button
           onClick={checkHealth}
           disabled={loading}
-          className="inline-flex items-center gap-2 bg-apc-primary text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-apc-dark transition-colors shadow-sm disabled:opacity-50"
+          className="inline-flex items-center gap-2 bg-brand-primary text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-brand-primary transition-colors shadow-sm disabled:opacity-50"
         >
           <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
           <span>Run Diagnostics</span>
@@ -190,7 +190,7 @@ export default function AdminHealthPage() {
               </p>
               <p className="text-[11px] text-gray-500">Active Campaign Tasks</p>
             </div>
-            <Server className="h-7 w-7 text-apc-primary shrink-0" />
+            <Server className="h-7 w-7 text-brand-primary shrink-0" />
           </CardContent>
         </Card>
 

@@ -56,7 +56,7 @@ export default function AdminAuditLogsPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
-        <Loader2 className="h-8 w-8 animate-spin text-apc-primary" />
+        <Loader2 className="h-8 w-8 animate-spin text-brand-primary" />
         <span className="ml-3 text-gray-500">Loading system audit logs...</span>
       </div>
     );
@@ -66,7 +66,7 @@ export default function AdminAuditLogsPage() {
     <div className="space-y-6 pb-12 max-w-7xl mx-auto">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-apc-primary mb-1">
+          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-brand-primary mb-1">
             <ShieldAlert className="h-4 w-4" />
             <span>Centralized Compliance Audit Trail</span>
           </div>
@@ -151,7 +151,7 @@ export default function AdminAuditLogsPage() {
                         <p className="font-bold text-gray-900">{log.actor_name || log.actor_id}</p>
                         <p className="text-[11px] text-gray-500">{log.actor_email || ""}</p>
                       </td>
-                      <td className="py-3 px-4 font-bold text-apc-primary uppercase">
+                      <td className="py-3 px-4 font-bold text-brand-primary uppercase">
                         {log.action}
                       </td>
                       <td className="py-3 px-4 capitalize font-semibold text-gray-700">
@@ -201,7 +201,7 @@ export default function AdminAuditLogsPage() {
               <div className="grid grid-cols-2 gap-2">
                 <div className="p-3 bg-gray-50 rounded-xl border">
                   <p className="text-gray-500 font-semibold">Action:</p>
-                  <p className="font-bold text-apc-primary uppercase">{selectedLog.action}</p>
+                  <p className="font-bold text-brand-primary uppercase">{selectedLog.action}</p>
                 </div>
                 <div className="p-3 bg-gray-50 rounded-xl border">
                   <p className="text-gray-500 font-semibold">Resource:</p>

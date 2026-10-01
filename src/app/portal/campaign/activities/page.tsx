@@ -330,7 +330,7 @@ export default function CampaignActivitiesPage() {
         <div>
           <Link
             href="/portal/campaign"
-            className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-apc-primary mb-3"
+            className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-brand-primary mb-3"
           >
             <ChevronLeft className="h-4 w-4" />
             Campaign Dashboard
@@ -348,7 +348,7 @@ export default function CampaignActivitiesPage() {
           <button
             type="button"
             onClick={() => setShowCreateForm(true)}
-            className="inline-flex items-center justify-center gap-2 rounded-lg bg-apc-primary px-4 py-2.5 text-sm font-semibold text-white hover:bg-apc-dark transition-colors"
+            className="inline-flex items-center justify-center gap-2 rounded-lg bg-brand-primary px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-primary transition-colors"
           >
             <Plus className="h-4 w-4" />
             Create Activity
@@ -367,11 +367,11 @@ export default function CampaignActivitiesPage() {
               {activeAssignments.map((assignment) => (
                 <span
                   key={assignment.id}
-                  className="inline-flex items-center gap-2 rounded-full bg-apc-primary/10 px-3 py-1.5 text-xs font-medium text-apc-primary"
+                  className="inline-flex items-center gap-2 rounded-full bg-brand-primary/10 px-3 py-1.5 text-xs font-medium text-brand-primary"
                 >
                   <MapPin className="h-3.5 w-3.5" />
                   {formatScopeType(assignment.scope_type as CampaignScopeType)}
-                  <span className="text-apc-primary/60">•</span>
+                  <span className="text-brand-primary/60">•</span>
                   {assignment.scope_id}
                 </span>
               ))}
@@ -462,7 +462,7 @@ export default function CampaignActivitiesPage() {
                 type="button"
                 onClick={() => void loadActivities()}
                 disabled={loading}
-                className="text-xs font-semibold text-apc-primary hover:underline disabled:opacity-50 border px-3 py-1.5 rounded-lg bg-gray-50"
+                className="text-xs font-semibold text-brand-primary hover:underline disabled:opacity-50 border px-3 py-1.5 rounded-lg bg-gray-50"
               >
                 Refresh
               </button>
@@ -486,7 +486,7 @@ export default function CampaignActivitiesPage() {
               <button
                 type="button"
                 onClick={() => void loadActivities()}
-                className="mt-5 inline-flex items-center gap-2 rounded-lg bg-apc-primary px-4 py-2 text-sm font-medium text-white hover:bg-apc-dark"
+                className="mt-5 inline-flex items-center gap-2 rounded-lg bg-brand-primary px-4 py-2 text-sm font-medium text-white hover:bg-brand-primary"
               >
                 Try again
               </button>
@@ -506,7 +506,7 @@ export default function CampaignActivitiesPage() {
                 <button
                   type="button"
                   onClick={() => setShowCreateForm(true)}
-                  className="mt-5 inline-flex items-center gap-2 rounded-lg bg-apc-primary px-4 py-2 text-sm font-medium text-white hover:bg-apc-dark"
+                  className="mt-5 inline-flex items-center gap-2 rounded-lg bg-brand-primary px-4 py-2 text-sm font-medium text-white hover:bg-brand-primary"
                 >
                   <Plus className="h-4 w-4" />
                   Create First Activity
@@ -605,7 +605,7 @@ function CreateActivityForm({
   };
 
   return (
-    <Card className="border-apc-primary/20">
+    <Card className="border-brand-primary/20">
       <CardHeader>
         <div className="flex items-center justify-between">
           <CardTitle>Create Campaign Activity</CardTitle>
@@ -633,7 +633,7 @@ function CreateActivityForm({
                 value={title}
                 onChange={(event) => setTitle(event.target.value)}
                 placeholder="e.g. Ward 3 Volunteer Meeting"
-                className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-apc-primary focus:ring-1 focus:ring-apc-primary"
+                className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm outline-none focus:border-brand-primary focus:ring-1 focus:ring-brand-primary"
               />
             </div>
 
@@ -809,7 +809,7 @@ function CreateActivityForm({
               disabled={
                 creating || (isAdmin ? !adminScopeId.trim() : !selectedAssignment)
               }
-              className="inline-flex items-center justify-center gap-2 rounded-lg bg-apc-primary px-5 py-2.5 text-sm font-semibold text-white hover:bg-apc-dark disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex items-center justify-center gap-2 rounded-lg bg-brand-primary px-5 py-2.5 text-sm font-semibold text-white hover:bg-brand-primary disabled:cursor-not-allowed disabled:opacity-50"
             >
               {creating && <Loader2 className="h-4 w-4 animate-spin" />}
               {creating ? "Creating..." : "Create Activity"}
@@ -1045,7 +1045,7 @@ function ActivityCard({
                   type="button"
                   onClick={() => void handleSave()}
                   disabled={busy}
-                  className="rounded-lg bg-apc-primary px-3 py-2 text-sm font-semibold text-white disabled:opacity-50"
+                  className="rounded-lg bg-brand-primary px-3 py-2 text-sm font-semibold text-white disabled:opacity-50"
                 >
                   Save
                 </button>
@@ -1075,12 +1075,12 @@ function ActivityCard({
 
               <div className="mt-4 grid gap-2 text-sm text-gray-500 sm:grid-cols-2">
                 <div className="flex items-center gap-2">
-                  <CalendarDays className="h-4 w-4 text-apc-primary" />
+                  <CalendarDays className="h-4 w-4 text-brand-primary" />
                   <span>{formatDay(activity.scheduled_start)}</span>
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <Clock className="h-4 w-4 text-apc-primary" />
+                  <Clock className="h-4 w-4 text-brand-primary" />
                   <span>
                     {formatTime(activity.scheduled_start)}
                     {activity.scheduled_end
@@ -1091,14 +1091,14 @@ function ActivityCard({
 
                 {activity.venue && (
                   <div className="flex items-center gap-2">
-                    <MapPin className="h-4 w-4 text-apc-primary" />
+                    <MapPin className="h-4 w-4 text-brand-primary" />
                     <span className="truncate">{activity.venue}</span>
                   </div>
                 )}
 
                 {activity.expected_attendance !== null && (
                   <div className="flex items-center gap-2">
-                    <Users className="h-4 w-4 text-apc-primary" />
+                    <Users className="h-4 w-4 text-brand-primary" />
                     <span>
                       Expected attendance:{" "}
                       {activity.expected_attendance.toLocaleString()}
@@ -1140,7 +1140,7 @@ function ActivityCard({
                   onClick={() => void handleRsvp(value)}
                   className={`px-2.5 py-1 rounded-lg border font-semibold transition-colors disabled:opacity-50 ${
                     isSelected
-                      ? "bg-apc-primary text-white font-bold"
+                      ? "bg-brand-primary text-white font-bold"
                       : "bg-gray-50 text-gray-700 hover:bg-gray-100"
                   }`}
                 >

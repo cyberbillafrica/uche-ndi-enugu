@@ -456,13 +456,13 @@ export default function CampaignAssignmentsPage() {
         <div>
           <Link
             href="/portal/dashboard"
-            className="mb-3 inline-flex items-center gap-2 text-sm font-medium text-gray-500 hover:text-apc-primary"
+            className="mb-3 inline-flex items-center gap-2 text-sm font-medium text-gray-500 hover:text-brand-primary"
           >
             <ArrowLeft className="h-4 w-4" />
             Campaign Dashboard
           </Link>
 
-          <p className="text-sm font-semibold text-apc-primary">Campaign Council</p>
+          <p className="text-sm font-semibold text-brand-primary">Campaign Council</p>
 
           <h1 className="mt-1 text-2xl font-bold text-gray-900 sm:text-3xl">
             Campaign Assignments
@@ -484,11 +484,11 @@ export default function CampaignAssignmentsPage() {
         </button>
       </div>
 
-      <Card className="border-apc-primary/10">
+      <Card className="border-brand-primary/10">
         <CardContent className="p-5">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-start gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-apc-primary/10 text-apc-primary">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-primary/10 text-brand-primary">
                 <ShieldCheck className="h-5 w-5" />
               </div>
 
@@ -517,7 +517,7 @@ export default function CampaignAssignmentsPage() {
               <button
                 type="button"
                 onClick={openCreateForm}
-                className="inline-flex items-center justify-center gap-2 rounded-lg bg-apc-primary px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-apc-dark"
+                className="inline-flex items-center justify-center gap-2 rounded-lg bg-brand-primary px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-brand-primary"
               >
                 <Plus className="h-4 w-4" />
                 Create Assignment
@@ -556,7 +556,7 @@ export default function CampaignAssignmentsPage() {
                   <input
                     value={formTitle}
                     onChange={(event) => setFormTitle(event.target.value)}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-apc-primary"
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-brand-primary"
                     placeholder="Roadshow visibility update"
                     required
                   />
@@ -570,7 +570,7 @@ export default function CampaignAssignmentsPage() {
                     rows={3}
                     value={formDescription}
                     onChange={(event) => setFormDescription(event.target.value)}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-apc-primary"
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-brand-primary"
                     placeholder="What needs to be done?"
                   />
                 </div>
@@ -589,7 +589,7 @@ export default function CampaignAssignmentsPage() {
                     <select
                       value={formAssignedTo}
                       onChange={(event) => setFormAssignedTo(event.target.value)}
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-apc-primary"
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-brand-primary"
                       required
                     >
                       <option value="">Select an eligible campaign member</option>
@@ -612,7 +612,7 @@ export default function CampaignAssignmentsPage() {
                     onChange={(event) =>
                       setFormPriority(event.target.value as CampaignAssignmentPriority)
                     }
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-apc-primary"
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-brand-primary"
                   >
                     {PRIORITIES.map((p) => (
                       <option key={p.value} value={p.value}>
@@ -634,7 +634,7 @@ export default function CampaignAssignmentsPage() {
                         formScopeId,
                       )
                     }
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-apc-primary"
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-brand-primary"
                   >
                     {SCOPE_TYPES.map((s) => (
                       <option key={s.value} value={s.value}>
@@ -653,7 +653,7 @@ export default function CampaignAssignmentsPage() {
                     onChange={(event) =>
                       handleScopeChange(formScopeType, event.target.value)
                     }
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-apc-primary"
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-brand-primary"
                     placeholder="ward-01"
                     required
                   />
@@ -667,7 +667,7 @@ export default function CampaignAssignmentsPage() {
                     type="date"
                     value={formDueDate}
                     onChange={(event) => setFormDueDate(event.target.value)}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-apc-primary"
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-brand-primary"
                   />
                 </div>
 
@@ -678,7 +678,7 @@ export default function CampaignAssignmentsPage() {
                   <input
                     value={formLocation}
                     onChange={(event) => setFormLocation(event.target.value)}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-apc-primary"
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-brand-primary"
                     placeholder="Ward office or meeting venue"
                   />
                 </div>
@@ -702,7 +702,7 @@ export default function CampaignAssignmentsPage() {
                 <button
                   type="submit"
                   disabled={saving}
-                  className="rounded-lg bg-apc-primary px-4 py-2.5 text-sm font-semibold text-white hover:bg-apc-dark disabled:opacity-50"
+                  className="rounded-lg bg-brand-primary px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-primary disabled:opacity-50"
                 >
                   {saving
                     ? "Saving..."
@@ -749,7 +749,7 @@ export default function CampaignAssignmentsPage() {
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
                 placeholder="Filter assignments..."
-                className="w-full rounded-lg border border-gray-300 bg-white py-2.5 pl-9 pr-3 text-sm outline-none focus:border-apc-primary"
+                className="w-full rounded-lg border border-gray-300 bg-white py-2.5 pl-9 pr-3 text-sm outline-none focus:border-brand-primary"
               />
             </div>
           </div>
@@ -863,7 +863,7 @@ function AssignmentRow({
     actions.push({
       label: "Start",
       action: "start",
-      style: "border-apc-primary/30 text-apc-primary hover:bg-apc-primary/5",
+      style: "border-brand-primary/30 text-brand-primary hover:bg-brand-primary/5",
       icon: <Play className="h-3 w-3" />,
     });
   }
@@ -871,7 +871,7 @@ function AssignmentRow({
     actions.push({
       label: "Submit",
       action: "submit",
-      style: "border-apc-primary bg-apc-primary text-white hover:bg-apc-dark",
+      style: "border-brand-primary bg-brand-primary text-white hover:bg-brand-primary",
       icon: <Send className="h-3 w-3" />,
     });
   }
@@ -879,7 +879,7 @@ function AssignmentRow({
     actions.push({
       label: "Resubmit",
       action: "resubmit",
-      style: "border-apc-primary bg-apc-primary text-white hover:bg-apc-dark",
+      style: "border-brand-primary bg-brand-primary text-white hover:bg-brand-primary",
       icon: <Undo2 className="h-3 w-3" />,
     });
   }
@@ -1007,7 +1007,7 @@ function SummaryCard({
     <Card>
       <CardContent className="p-4">
         <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-apc-primary/10 text-apc-primary">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-primary/10 text-brand-primary">
             {icon}
           </div>
 

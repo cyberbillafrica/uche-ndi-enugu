@@ -30,7 +30,7 @@ export default async function GalleryPage() {
 
       <main className="flex-1 max-w-6xl w-full mx-auto px-4 py-12 sm:px-6 lg:px-8">
         <div className="mb-10">
-          <h1 className="text-4xl font-bold text-apc-primary">Gallery</h1>
+          <h1 className="text-4xl font-bold text-brand-primary">Gallery</h1>
           <p className="mt-2 text-lg text-gray-600">
             Photos from campaign events, community visits, and volunteer
             activities.

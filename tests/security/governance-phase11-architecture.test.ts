@@ -156,19 +156,25 @@ describe("B. phase 6–10 substrate remains valid", () => {
 // ─────────────────────────────────────────────────────────────────────
 
 describe("C. permission and role freeze", () => {
-  it("C1. exactly the four governance permissions exist — Phase 11 added none", async () => {
+  it("C1. governance permission catalog matches the authorized state (Phase 12 manage_projects; Phase 14 manage_participation + publish_accountability)", async () => {
     const res = await db.query<{ name: string }>(
       `SELECT name FROM politicore.permissions WHERE domain = 'governance' ORDER BY name`
     );
+    // Phase 11 froze four; Phase 12 (Projects) added 'manage_projects';
+    // Phase 14 (Consultations & Surveys) added the two remaining §16
+    // permissions — 'manage_participation' and 'publish_accountability' —
+    // through the existing grant architecture. Anything beyond these
+    // seven is a violation.
     expect(res.rows.map((r) => String(r.name))).toEqual(
-      ["assign_cases", "manage_cases", "view_cases", "view_governance"]
+      ["assign_cases", "manage_cases", "manage_participation", "manage_projects",
+       "publish_accountability", "view_cases", "view_governance"]
     );  });
 
-  it("C2. no participation/publication permissions were introduced", async () => {
+  it("C2. no future-cluster permissions were introduced", async () => {
     const res = await db.query<{ n: string }>(
       `SELECT count(*)::text n FROM politicore.permissions
-        WHERE name IN ('manage_projects', 'manage_participation',
-                       'publish_accountability', 'manage_governance')`
+        WHERE name IN ('manage_governance', 'manage_polls', 'manage_petitions',
+                       'manage_engagements', 'manage_commitments')`
     );
     expect(Number(res.rows[0].n)).toBe(0);
   });
@@ -201,14 +207,32 @@ describe("C. permission and role freeze", () => {
 // ─────────────────────────────────────────────────────────────────────
 
 describe("D. locked modules untouched by phase 11", () => {
-  it("D1. Phase 11 introduced no migration files (architecture-only phase)", () => {
+  it("D1. migration count matches the authorized state (Phase 14 shipped Consultations & Surveys)", () => {
     const dir = path.join(ROOT, "supabase", "migrations");
     const files = fs.readdirSync(dir).filter((f) => /^\d{4}_.*\.sql$/.test(f)).sort();
-    // The highest migration remains the Phase 10 track restatement; the
-    // total count is pinned so ANY new migration in an architecture-only
-    // phase is a violation.
-    expect(files.length).toBe(43);
-    expect(files[files.length - 1]).toMatch(/^0042_/);
+    // Phase 11 (architecture-only) ended at 0042. Phase 12 (Projects)
+    // shipped 0043–0047. Phase 13 (Commitments) shipped 0048–0050.
+    // Phase 14 (Consultations & Surveys) shipped 0051. Phase 15
+    // (Petitions & Community Proposals) shipped 0052 plus the disclosed
+    // 0053/0054 convergences (ward branch of the petition scope-shape
+    // CHECK; data-driven moderation-notice recipients). Phase 16
+    // (Governance Polls) shipped 0055. Phase 17 (Governance Engagements)
+    // shipped 0056. Phase 18 (Accountability) shipped 0057 — its own
+    // implementation gate (publication authority + public projections +
+    // privacy-bucketed request statistics). Phase 19 (Analytics &
+    // Institutional Memory) shipped 0058 plus the disclosed 0059
+    // convergence (§7 scope hardening: per-row geographic coverage on
+    // every analytics/memory RPC; position defaults never confer
+    // tenant-wide analytics). Phase 22 (Control Center Core) shipped 0060
+    // — the authorized Phase 21 gate's first implementation phase
+    // (activation + configuration RPCs over existing substrate).
+    // Phase 23 (Website Experience: Branding/Theme/SEO) shipped 0061 —
+    // validators + validated restatement + public chrome/brand-asset
+    // projections, still zero new tables. Phase 24 (Homepage Builder)
+    // shipped 0062 — the homepage validator + rollback + public published
+    // composition projection, still zero new tables.
+    expect(files.length).toBe(63);
+    expect(files[files.length - 1]).toMatch(/^0062_/);
   });
 
   it("D2. the Phase 10 intake migrations exist unchanged (hash check against recorded sizes)", () => {
@@ -218,26 +242,40 @@ describe("D. locked modules untouched by phase 11", () => {
     }
   });
 
-  it("D3. no TRACKED locked-module migration carries uncommitted modifications", () => {
+  it("D3. no TRACKED locked-module migration carries uncommitted modifications (0016 exception disclosed)", () => {
     // Migrations since 0020 are untracked (pre-existing repo state); the
     // integrity property this phase must preserve is that no migration
     // ALREADY IN GIT was modified by Phase 11.
+    // DISCLOSED EXCEPTION: 0016_election_seed.sql received an external
+    // amendment (NDC party, APM rename, 18-party floor) that arrived
+    // syntactically broken and was repaired in place during Phase 14 —
+    // content preserved, no Phase 14 policy carried in it.
     const modified = execSync(
       `git status --porcelain -- supabase/migrations/`,
       { cwd: ROOT }
     ).toString().split(/\r?\n/).filter((l) => l.trim() !== "" && !l.startsWith("??"));
-    expect(modified).toEqual([]);
+    expect(modified).toEqual([" M supabase/migrations/0016_election_seed.sql"]);
   });
 
-  it("D4. no governance UI routes were created under src/app for future clusters", () => {
+  it("D4. no future-cluster UI routes exist (Projects + Participation + Engagements + the Phase 18 public hub are authorized; the rest are not)", () => {
+    // Phase 14 (Consultations & Surveys) authorized the portal
+    // Participation surfaces; Phase 17 (Governance Engagements)
+    // authorized /portal/governance/engagements; Phase 18
+    // (Accountability) authorized the PUBLIC hub — /governance,
+    // /governance/participate + instrument detail, /governance/projects,
+    // /governance/commitments, /governance/engagements,
+    // /governance/statistics (all narrow-projection consumers). Portal
+    // accountability console and later-cluster routes stay prohibited.
     const prohibited = [
-      "src/app/governance/projects", "src/app/governance/commitments",
-      "src/app/governance/participate", "src/app/governance/consultations",
-      "src/app/governance/petitions", "src/app/portal/governance/projects",
+      "src/app/governance/consultations",
+      "src/app/governance/petitions", "src/app/portal/governance/commitments",
+      "src/app/portal/governance/accountability",
     ];
     for (const rel of prohibited) {
       expect(fs.existsSync(path.join(ROOT, rel)), `${rel} must not exist yet`).toBe(false);
     }
+    // The Phase 12 Projects portal route is authorized and must exist.
+    expect(fs.existsSync(path.join(ROOT, "src/app/portal/governance/projects"))).toBe(true);
   });
 });
 

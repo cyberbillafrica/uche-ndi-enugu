@@ -19,6 +19,8 @@ export * from "./campaign";
 export * from "./socialForce";
 export * from "./governance";
 export * from "./governance-public";
+export * from "./controlCenter";
+export * from "./websiteExperience";
 export * from "./access";
 export * from "./session";
 export * from "./auth";

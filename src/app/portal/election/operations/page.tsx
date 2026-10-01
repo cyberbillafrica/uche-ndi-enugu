@@ -328,7 +328,7 @@ export default function ElectionOperationsPage() {
         <h2 className="text-lg font-bold text-gray-900">Sign in required</h2>
         <button
           onClick={() => router.replace("/portal/auth/login")}
-          className="px-4 py-2 text-sm font-semibold rounded-lg bg-apc-primary text-white"
+          className="px-4 py-2 text-sm font-semibold rounded-lg bg-brand-primary text-white"
         >
           Go to sign in
         </button>

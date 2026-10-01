@@ -385,13 +385,13 @@ export default function CampaignIssuesPage() {
         <div>
           <Link
             href="/portal/dashboard"
-            className="mb-3 inline-flex items-center gap-2 text-sm font-medium text-gray-500 hover:text-apc-primary"
+            className="mb-3 inline-flex items-center gap-2 text-sm font-medium text-gray-500 hover:text-brand-primary"
           >
             <ArrowLeft className="h-4 w-4" />
             Campaign Dashboard
           </Link>
 
-          <p className="text-sm font-semibold text-apc-primary">Campaign Operations</p>
+          <p className="text-sm font-semibold text-brand-primary">Campaign Operations</p>
 
           <h1 className="mt-1 text-2xl font-bold text-gray-900 sm:text-3xl">
             Scoped Issues
@@ -417,7 +417,7 @@ export default function CampaignIssuesPage() {
             <button
               type="button"
               onClick={() => setShowForm((value) => !value)}
-              className="inline-flex items-center gap-2 rounded-lg bg-apc-primary px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-apc-dark"
+              className="inline-flex items-center gap-2 rounded-lg bg-brand-primary px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-brand-primary"
             >
               <Plus className="h-4 w-4" />
               Report Issue
@@ -426,10 +426,10 @@ export default function CampaignIssuesPage() {
         </div>
       </div>
 
-      <Card className="border-apc-primary/10">
+      <Card className="border-brand-primary/10">
         <CardContent className="p-5">
           <div className="flex items-start gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-apc-primary/10 text-apc-primary">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-primary/10 text-brand-primary">
               <ShieldCheck className="h-5 w-5" />
             </div>
 
@@ -497,7 +497,7 @@ export default function CampaignIssuesPage() {
                     required
                     value={formTitle}
                     onChange={(event) => setFormTitle(event.target.value)}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-apc-primary"
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-brand-primary"
                     placeholder="Briefly describe the issue"
                   />
                 </div>
@@ -509,7 +509,7 @@ export default function CampaignIssuesPage() {
                   <select
                     value={formType}
                     onChange={(event) => setFormType(event.target.value as CampaignIssueType)}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-apc-primary"
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-brand-primary"
                   >
                     {ISSUE_TYPES.map((t) => (
                       <option key={t.value} value={t.value}>
@@ -528,7 +528,7 @@ export default function CampaignIssuesPage() {
                     onChange={(event) =>
                       setFormPriority(event.target.value as CampaignIssuePriority)
                     }
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-apc-primary"
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-brand-primary"
                   >
                     <option value="low">Low</option>
                     <option value="medium">Medium</option>
@@ -544,7 +544,7 @@ export default function CampaignIssuesPage() {
                   <input
                     value={formLocation}
                     onChange={(event) => setFormLocation(event.target.value)}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-apc-primary"
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-brand-primary"
                     placeholder="Community, venue or other location"
                   />
                 </div>
@@ -570,7 +570,7 @@ export default function CampaignIssuesPage() {
                         onChange={(event) =>
                           setAdminScopeType(event.target.value as CampaignScopeType)
                         }
-                        className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-apc-primary"
+                        className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-brand-primary"
                       >
                         <option value="campaign">Campaign</option>
                         <option value="state">State</option>
@@ -588,7 +588,7 @@ export default function CampaignIssuesPage() {
                         required
                         value={adminScopeId}
                         onChange={(event) => setAdminScopeId(event.target.value)}
-                        className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-apc-primary"
+                        className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-brand-primary"
                         placeholder="enugu-state"
                       />
                     </div>
@@ -604,7 +604,7 @@ export default function CampaignIssuesPage() {
                     rows={4}
                     value={formDescription}
                     onChange={(event) => setFormDescription(event.target.value)}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-apc-primary"
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-brand-primary"
                     placeholder="Describe what happened, where it happened and what assistance is required."
                   />
                 </div>
@@ -622,7 +622,7 @@ export default function CampaignIssuesPage() {
                 <button
                   type="submit"
                   disabled={saving}
-                  className="rounded-lg bg-apc-primary px-4 py-2.5 text-sm font-semibold text-white hover:bg-apc-dark disabled:opacity-50"
+                  className="rounded-lg bg-brand-primary px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-primary disabled:opacity-50"
                 >
                   {saving ? "Submitting..." : "Submit Issue"}
                 </button>
@@ -649,7 +649,7 @@ export default function CampaignIssuesPage() {
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
                 placeholder="Filter issues..."
-                className="w-full rounded-lg border border-gray-300 bg-white py-2.5 pl-9 pr-3 text-sm outline-none focus:border-apc-primary"
+                className="w-full rounded-lg border border-gray-300 bg-white py-2.5 pl-9 pr-3 text-sm outline-none focus:border-brand-primary"
               />
             </div>
           </div>
@@ -732,7 +732,7 @@ function IssueRow({
     actions.push({
       label: "Acknowledge",
       action: "acknowledge",
-      style: "border-apc-primary/30 text-apc-primary hover:bg-apc-primary/5",
+      style: "border-brand-primary/30 text-brand-primary hover:bg-brand-primary/5",
     });
   }
   if (canManage && (issue.status === "reported" || issue.status === "acknowledged")) {
@@ -746,7 +746,7 @@ function IssueRow({
     actions.push({
       label: issue.status === "assigned" ? "Start Work" : "Resolve",
       action: issue.status === "assigned" ? "start" : "resolve",
-      style: "border-apc-primary bg-apc-primary text-white hover:bg-apc-dark",
+      style: "border-brand-primary bg-brand-primary text-white hover:bg-brand-primary",
       needsNotes: issue.status === "in_progress",
     });
   }
@@ -843,7 +843,7 @@ function IssueRow({
               <button
                 type="button"
                 onClick={() => void openPicker()}
-                className="inline-flex items-center gap-1 rounded-md border border-apc-primary/30 px-2 py-1.5 text-xs font-medium text-apc-primary hover:bg-apc-primary/5"
+                className="inline-flex items-center gap-1 rounded-md border border-brand-primary/30 px-2 py-1.5 text-xs font-medium text-brand-primary hover:bg-brand-primary/5"
               >
                 <UserPlus className="h-3 w-3" />
                 {picking ? "Cancel" : "Assign"}
@@ -860,7 +860,7 @@ function IssueRow({
                       rows={2}
                       value={resolutionNotes}
                       onChange={(event) => setResolutionNotes(event.target.value)}
-                      className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-xs outline-none focus:border-apc-primary"
+                      className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-xs outline-none focus:border-brand-primary"
                       placeholder="Resolution notes (optional)..."
                     />
                     <button
@@ -870,7 +870,7 @@ function IssueRow({
                         onAction(issue, a.action, resolutionNotes.trim() || undefined);
                         setResolutionNotes("");
                       }}
-                      className="self-end rounded-md bg-apc-primary px-2 py-1 text-xs font-medium text-white hover:bg-apc-dark"
+                      className="self-end rounded-md bg-brand-primary px-2 py-1 text-xs font-medium text-white hover:bg-brand-primary"
                     >
                       Confirm
                     </button>

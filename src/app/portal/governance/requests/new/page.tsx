@@ -207,7 +207,7 @@ export default function SubmitRequestPage() {
         <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
           <Link
             href={`/portal/governance/requests/${requestId}`}
-            className="inline-flex items-center justify-center rounded-lg bg-apc-primary px-4 py-2.5 text-sm font-semibold text-white hover:bg-apc-primary/90"
+            className="inline-flex items-center justify-center rounded-lg bg-brand-primary px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-primary/90"
           >
             Track this request
           </Link>
@@ -225,7 +225,7 @@ export default function SubmitRequestPage() {
   if (authLoading || loading) {
     return (
       <div className="flex min-h-[50vh] items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-apc-primary" />
+        <Loader2 className="h-8 w-8 animate-spin text-brand-primary" />
       </div>
     );
   }
@@ -268,7 +268,7 @@ export default function SubmitRequestPage() {
                 id="gov-category"
                 value={categoryId}
                 onChange={(e) => setCategoryId(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-apc-primary focus:outline-none"
+                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-brand-primary focus:outline-none"
               >
                 <option value="">General (no category)</option>
                 {categories.map((c) => (
@@ -299,7 +299,7 @@ export default function SubmitRequestPage() {
                 onChange={(e) => setDetails(e.target.value)}
                 rows={6}
                 placeholder="What is happening, where, and what is needed?"
-                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-apc-primary focus:outline-none"
+                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-brand-primary focus:outline-none"
                 required
               />
             </div>
@@ -315,7 +315,7 @@ export default function SubmitRequestPage() {
                   id="gov-lga"
                   value={lgaId}
                   onChange={(e) => handleLgaChange(e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-apc-primary focus:outline-none"
+                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-brand-primary focus:outline-none"
                 >
                   <option value="">Not specified</option>
                   {lgas.map((l) => (
@@ -333,7 +333,7 @@ export default function SubmitRequestPage() {
                   value={wardId}
                   onChange={(e) => handleWardChange(e.target.value)}
                   disabled={!lgaId}
-                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-apc-primary focus:outline-none disabled:bg-gray-100"
+                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-brand-primary focus:outline-none disabled:bg-gray-100"
                 >
                   <option value="">Not specified</option>
                   {wards.map((w) => (
@@ -351,7 +351,7 @@ export default function SubmitRequestPage() {
                   value={pollingUnitId}
                   onChange={(e) => setPollingUnitId(e.target.value)}
                   disabled={!wardId}
-                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-apc-primary focus:outline-none disabled:bg-gray-100"
+                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-brand-primary focus:outline-none disabled:bg-gray-100"
                 >
                   <option value="">Not specified</option>
                   {pus.map((p) => (
@@ -366,7 +366,7 @@ export default function SubmitRequestPage() {
             <button
               type="submit"
               disabled={!canSubmit}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-apc-primary px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-apc-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-brand-primary px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {submitting ? (
                 <Loader2 className="h-4 w-4 animate-spin" />

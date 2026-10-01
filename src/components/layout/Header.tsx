@@ -22,9 +22,9 @@ export default function Header() {
     <header className="sticky top-0 z-50 bg-white shadow-[0_2px_20px_rgba(0,0,0,0.06)]">
       {/* Campaign accent */}
       <div className="flex h-1 w-full">
-        <div className="w-1/3 bg-[#008751]" />
+        <div className="w-1/3 bg-[var(--color-brand-primary)]" />
         <div className="w-1/3 bg-white" />
-        <div className="w-1/3 bg-[#008751]" />
+        <div className="w-1/3 bg-[var(--color-brand-primary)]" />
       </div>
 
       <nav className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -52,10 +52,10 @@ export default function Header() {
               {/* Campaign Name */}
               <div className="leading-none">
                 <div className="flex items-center gap-1">
-                  <span className="text-lg font-extrabold tracking-tight text-[#008751] sm:text-xl">
+                  <span className="text-lg font-extrabold tracking-tight text-[var(--color-brand-primary)] sm:text-xl">
                     Uche
                   </span>
-                  <span className="text-lg font-extrabold text-[#d71920] sm:text-xl">
+                  <span className="text-lg font-extrabold text-[var(--color-brand-secondary)] sm:text-xl">
                     Ndi
                   </span>
                   <span className="text-lg font-extrabold text-gray-800 sm:text-xl">
@@ -76,44 +76,51 @@ export default function Header() {
           <div className="hidden items-center gap-7 md:flex">
             <Link
               href="/"
-              className="text-sm font-medium text-gray-600 transition-colors hover:text-[#008751]"
+              className="text-sm font-medium text-gray-600 transition-colors hover:text-[var(--color-brand-primary)]"
             >
               Home
             </Link>
 
             <Link
               href="/biography"
-              className="text-sm font-medium text-gray-600 transition-colors hover:text-[#008751]"
+              className="text-sm font-medium text-gray-600 transition-colors hover:text-[var(--color-brand-primary)]"
             >
               Biography
             </Link>
 
             <Link
               href="/manifesto"
-              className="text-sm font-medium text-gray-600 transition-colors hover:text-[#008751]"
+              className="text-sm font-medium text-gray-600 transition-colors hover:text-[var(--color-brand-primary)]"
             >
               Our Agenda
             </Link>
 
             <Link
               href="/news"
-              className="text-sm font-medium text-gray-600 transition-colors hover:text-[#008751]"
+              className="text-sm font-medium text-gray-600 transition-colors hover:text-[var(--color-brand-primary)]"
             >
               News
             </Link>
 
             <Link
               href="/gallery"
-              className="text-sm font-medium text-gray-600 transition-colors hover:text-[#008751]"
+              className="text-sm font-medium text-gray-600 transition-colors hover:text-[var(--color-brand-primary)]"
             >
               Gallery
             </Link>
 
             <Link
               href="/contact"
-              className="text-sm font-medium text-gray-600 transition-colors hover:text-[#008751]"
+              className="text-sm font-medium text-gray-600 transition-colors hover:text-[var(--color-brand-primary)]"
             >
               Contact
+            </Link>
+
+            <Link
+              href="/governance"
+              className="text-sm font-medium text-gray-600 transition-colors hover:text-[var(--color-brand-primary)]"
+            >
+              Governance
             </Link>
           </div>
 
@@ -126,11 +133,11 @@ export default function Header() {
                 {/* Notifications */}
                 <button
                   aria-label="Notifications"
-                  className="relative rounded-full p-2 text-gray-500 transition-colors hover:bg-green-50 hover:text-[#008751]"
+                  className="relative rounded-full p-2 text-gray-500 transition-colors hover:bg-green-50 hover:text-[var(--color-brand-primary)]"
                 >
                   <Bell className="h-5 w-5" />
 
-                  <span className="absolute right-0.5 top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-[#008751] text-[9px] font-bold text-white">
+                  <span className="absolute right-0.5 top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-[var(--color-brand-primary)] text-[9px] font-bold text-white">
                     3
                   </span>
                 </button>
@@ -138,7 +145,7 @@ export default function Header() {
                 {/* Portal */}
                 <Link
                   href="/portal/dashboard"
-                  className="flex items-center gap-2 rounded-full bg-[#008751] px-5 py-2.5 text-sm font-bold text-white shadow-sm transition-all hover:bg-[#007744] hover:shadow-md"
+                  className="flex items-center gap-2 rounded-full bg-[var(--color-brand-primary)] px-5 py-2.5 text-sm font-bold text-white shadow-sm transition-all hover:bg-[color-mix(in_srgb,var(--color-brand-primary)_88%,black)] hover:shadow-md"
                 >
                   <User className="h-4 w-4" />
                   <span>Portal</span>
@@ -157,14 +164,14 @@ export default function Header() {
               <>
                 <Link
                   href="/login"
-                  className="text-sm font-semibold text-[#008751] transition-colors hover:text-[#006b40]"
+                  className="text-sm font-semibold text-[var(--color-brand-primary)] transition-colors hover:text-[color-mix(in_srgb,var(--color-brand-primary)_85%,black)]"
                 >
                   Log In
                 </Link>
 
                 <Link
                   href="/volunteer"
-                  className="group flex items-center gap-2 rounded-full bg-[#008751] px-5 py-2.5 text-sm font-bold text-white shadow-sm transition-all hover:bg-[#007744] hover:shadow-md"
+                  className="group flex items-center gap-2 rounded-full bg-[var(--color-brand-primary)] px-5 py-2.5 text-sm font-bold text-white shadow-sm transition-all hover:bg-[color-mix(in_srgb,var(--color-brand-primary)_88%,black)] hover:shadow-md"
                 >
                   Get Involved
                   <ArrowUpRight className="h-4 w-4 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
@@ -181,7 +188,7 @@ export default function Header() {
               onClick={() => setIsOpen(!isOpen)}
               aria-label={isOpen ? "Close menu" : "Open menu"}
               aria-expanded={isOpen}
-              className="rounded-xl p-2 text-gray-600 transition-colors hover:bg-green-50 hover:text-[#008751]"
+              className="rounded-xl p-2 text-gray-600 transition-colors hover:bg-green-50 hover:text-[var(--color-brand-primary)]"
             >
               {isOpen ? (
                 <X className="h-6 w-6" />
@@ -210,11 +217,11 @@ export default function Header() {
                   key={href}
                   href={href}
                   onClick={closeMenu}
-                  className="group flex items-center justify-between rounded-xl px-4 py-3 text-sm font-medium text-gray-700 transition-colors hover:bg-green-50 hover:text-[#008751]"
+                  className="group flex items-center justify-between rounded-xl px-4 py-3 text-sm font-medium text-gray-700 transition-colors hover:bg-green-50 hover:text-[var(--color-brand-primary)]"
                 >
                   <span>{label}</span>
 
-                  <ArrowUpRight className="h-4 w-4 text-gray-300 transition-colors group-hover:text-[#008751]" />
+                  <ArrowUpRight className="h-4 w-4 text-gray-300 transition-colors group-hover:text-[var(--color-brand-primary)]" />
                 </Link>
               ))}
 
@@ -225,7 +232,7 @@ export default function Header() {
                     <Link
                       href="/portal/dashboard"
                       onClick={closeMenu}
-                      className="flex items-center justify-center gap-2 rounded-xl bg-[#008751] px-4 py-3 text-sm font-bold text-white transition-colors hover:bg-[#007744]"
+                      className="flex items-center justify-center gap-2 rounded-xl bg-[var(--color-brand-primary)] px-4 py-3 text-sm font-bold text-white transition-colors hover:bg-[color-mix(in_srgb,var(--color-brand-primary)_88%,black)]"
                     >
                       <User className="h-4 w-4" />
                       Member Portal
@@ -244,7 +251,7 @@ export default function Header() {
                     <Link
                       href="/login"
                       onClick={closeMenu}
-                      className="block rounded-xl border border-[#008751]/20 px-4 py-3 text-center text-sm font-semibold text-[#008751] transition-colors hover:bg-green-50"
+                      className="block rounded-xl border border-[var(--color-brand-primary)]/20 px-4 py-3 text-center text-sm font-semibold text-[var(--color-brand-primary)] transition-colors hover:bg-green-50"
                     >
                       Sign In
                     </Link>
@@ -252,7 +259,7 @@ export default function Header() {
                     <Link
                       href="/volunteer"
                       onClick={closeMenu}
-                      className="flex items-center justify-center gap-2 rounded-xl bg-[#008751] px-4 py-3 text-sm font-bold text-white transition-colors hover:bg-[#007744]"
+                      className="flex items-center justify-center gap-2 rounded-xl bg-[var(--color-brand-primary)] px-4 py-3 text-sm font-bold text-white transition-colors hover:bg-[color-mix(in_srgb,var(--color-brand-primary)_88%,black)]"
                     >
                       Get Involved
                       <ArrowUpRight className="h-4 w-4" />

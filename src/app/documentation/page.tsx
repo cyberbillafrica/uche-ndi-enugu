@@ -27,7 +27,7 @@ export default function DocumentationPage() {
       <main className="flex-1 max-w-5xl w-full mx-auto px-4 py-12 sm:px-6 lg:px-8">
         {/* Title */}
         <div className="mb-10 text-center sm:text-left border-b pb-8">
-          <div className="inline-flex items-center gap-2 rounded-full bg-apc-primary/10 px-4 py-1.5 text-xs font-semibold text-apc-primary mb-3">
+          <div className="inline-flex items-center gap-2 rounded-full bg-brand-primary/10 px-4 py-1.5 text-xs font-semibold text-brand-primary mb-3">
             <BookOpen className="h-4 w-4" />
             Campaign Portal Documentation & User Manual
           </div>
@@ -42,7 +42,7 @@ export default function DocumentationPage() {
         <div className="space-y-12">
           {/* SECTION 1: NON-TECHNICAL USER MANUAL FOR SITE ADMINISTRATORS */}
           <section className="bg-white rounded-2xl p-6 sm:p-10 shadow-sm border border-gray-100">
-            <div className="flex items-center gap-3 text-apc-primary mb-6">
+            <div className="flex items-center gap-3 text-brand-primary mb-6">
               <FileText className="h-7 w-7 shrink-0" />
               <h2 className="text-2xl font-bold text-gray-900">
                 User Manual: Campaign News Management
@@ -54,7 +54,7 @@ export default function DocumentationPage() {
               <div>
                 <h3 className="text-base font-bold text-gray-900 mb-2">1. What the News System Does</h3>
                 <p>
-                  The News system allows authorized campaign administrators to compose, preview, schedule, and publish official news updates, press releases, rally announcements, and candidate statements. Published articles automatically sync to the public <Link href="/news" className="text-apc-primary font-semibold hover:underline">News Page</Link>, the candidate <Link href="/" className="text-apc-primary font-semibold hover:underline">Homepage</Link>, and dedicated shareable article URLs.
+                  The News system allows authorized campaign administrators to compose, preview, schedule, and publish official news updates, press releases, rally announcements, and candidate statements. Published articles automatically sync to the public <Link href="/news" className="text-brand-primary font-semibold hover:underline">News Page</Link>, the candidate <Link href="/" className="text-brand-primary font-semibold hover:underline">Homepage</Link>, and dedicated shareable article URLs.
                 </p>
               </div>
 
@@ -62,8 +62,8 @@ export default function DocumentationPage() {
               <div>
                 <h3 className="text-base font-bold text-gray-900 mb-2">2. How to Access the News Admin CMS</h3>
                 <ol className="list-decimal pl-5 space-y-1.5">
-                  <li>Log in to your administrator account at <Link href="/login" className="text-apc-primary font-semibold hover:underline">/login</Link>.</li>
-                  <li>From the portal dashboard sidebar, open <strong>Administration</strong> &rarr; <strong>News</strong> (or navigate directly to <Link href="/portal/admin/news" className="text-apc-primary font-semibold hover:underline">/portal/admin/news</Link>).</li>
+                  <li>Log in to your administrator account at <Link href="/login" className="text-brand-primary font-semibold hover:underline">/login</Link>.</li>
+                  <li>From the portal dashboard sidebar, open <strong>Administration</strong> &rarr; <strong>News</strong> (or navigate directly to <Link href="/portal/admin/news" className="text-brand-primary font-semibold hover:underline">/portal/admin/news</Link>).</li>
                   <li>You will see the News management console with tabs for <em>All, Drafts, Published, Scheduled, and Archived</em> articles.</li>
                 </ol>
               </div>
@@ -75,7 +75,7 @@ export default function DocumentationPage() {
                 <div className="grid gap-4 sm:grid-cols-2 bg-gray-50 p-5 rounded-xl border">
                   <div>
                     <h4 className="font-semibold text-gray-900 flex items-center gap-1.5">
-                      <PlusCircle className="h-4 w-4 text-apc-primary" /> Article Title & Slug
+                      <PlusCircle className="h-4 w-4 text-brand-primary" /> Article Title & Slug
                     </h4>
                     <p className="text-xs text-gray-600 mt-1">
                       Enter the headline. The system auto-generates a clean URL slug (e.g. <code>/news/candidate-visits-agbani</code>). You can also customize the slug manually.
@@ -84,7 +84,7 @@ export default function DocumentationPage() {
 
                   <div>
                     <h4 className="font-semibold text-gray-900 flex items-center gap-1.5">
-                      <Tag className="h-4 w-4 text-apc-primary" /> Category & Author
+                      <Tag className="h-4 w-4 text-brand-primary" /> Category & Author
                     </h4>
                     <p className="text-xs text-gray-600 mt-1">
                       Specify a category (e.g., <em>Rally, Press Release, Statement, Community Visit</em>) and author byline.
@@ -93,7 +93,7 @@ export default function DocumentationPage() {
 
                   <div>
                     <h4 className="font-semibold text-gray-900 flex items-center gap-1.5">
-                      <FileText className="h-4 w-4 text-apc-primary" /> Excerpt & Full Content
+                      <FileText className="h-4 w-4 text-brand-primary" /> Excerpt & Full Content
                     </h4>
                     <p className="text-xs text-gray-600 mt-1">
                       Write a 2-sentence summary for card previews, followed by the complete article body in the main text area.
@@ -102,7 +102,7 @@ export default function DocumentationPage() {
 
                   <div>
                     <h4 className="font-semibold text-gray-900 flex items-center gap-1.5">
-                      <ImageIcon className="h-4 w-4 text-apc-primary" /> Featured Image
+                      <ImageIcon className="h-4 w-4 text-brand-primary" /> Featured Image
                     </h4>
                     <p className="text-xs text-gray-600 mt-1">
                       Upload an image file (JPG, PNG, WebP up to 5MB) via Cloudinary or paste a direct external image URL.
@@ -117,7 +117,7 @@ export default function DocumentationPage() {
                 <p className="mb-2">
                   When you select an image file and click <strong>Upload</strong>, the file is automatically uploaded to the campaign Cloudinary storage under the folder path:
                 </p>
-                <code className="block bg-gray-100 p-2 rounded text-xs text-apc-primary font-mono mb-2">
+                <code className="block bg-gray-100 p-2 rounded text-xs text-brand-primary font-mono mb-2">
                   ifeanyi-2027/news/
                 </code>
                 <p>
@@ -169,15 +169,15 @@ export default function DocumentationPage() {
                 <h3 className="text-base font-bold text-gray-900 mb-2">8. Troubleshooting: What to Check if News Doesn't Appear</h3>
                 <div className="space-y-2 bg-gray-50 p-4 rounded-xl border text-xs">
                   <div className="flex items-start gap-2">
-                    <CheckCircle className="h-4 w-4 text-apc-primary shrink-0 mt-0.5" />
+                    <CheckCircle className="h-4 w-4 text-brand-primary shrink-0 mt-0.5" />
                     <p><strong>Check Publication Status:</strong> Verify the article status is set to <span className="text-green-700 font-semibold">Published</span> and not <em>Draft</em> or <em>Archived</em>.</p>
                   </div>
                   <div className="flex items-start gap-2">
-                    <CheckCircle className="h-4 w-4 text-apc-primary shrink-0 mt-0.5" />
+                    <CheckCircle className="h-4 w-4 text-brand-primary shrink-0 mt-0.5" />
                     <p><strong>Check Image URL:</strong> If a custom image URL was entered, ensure it begins with <code>https://</code> or <code>http://</code>.</p>
                   </div>
                   <div className="flex items-start gap-2">
-                    <CheckCircle className="h-4 w-4 text-apc-primary shrink-0 mt-0.5" />
+                    <CheckCircle className="h-4 w-4 text-brand-primary shrink-0 mt-0.5" />
                     <p><strong>Check Duplicate Slugs:</strong> Ensure the article URL slug is unique across all published articles.</p>
                   </div>
                 </div>
@@ -187,7 +187,7 @@ export default function DocumentationPage() {
 
           {/* SECTION 2: TECHNICAL IMPLEMENTATION OVERVIEW */}
           <section className="bg-white rounded-2xl p-6 sm:p-10 shadow-sm border border-gray-100">
-            <div className="flex items-center gap-3 text-apc-primary mb-6">
+            <div className="flex items-center gap-3 text-brand-primary mb-6">
               <Globe className="h-7 w-7 shrink-0" />
               <h2 className="text-2xl font-bold text-gray-900">
                 Technical Architecture & Implementation Overview
@@ -202,7 +202,7 @@ export default function DocumentationPage() {
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="bg-gray-50 p-4 rounded-xl border text-xs font-mono">
                   <p className="font-bold text-gray-900 mb-2 font-sans flex items-center gap-1.5">
-                    <FolderTree className="h-4 w-4 text-apc-primary" /> Cloudinary Folder Architecture:
+                    <FolderTree className="h-4 w-4 text-brand-primary" /> Cloudinary Folder Architecture:
                   </p>
                   <ul className="space-y-1 text-gray-700">
                     <li>ifeanyi-2027/news</li>
@@ -214,7 +214,7 @@ export default function DocumentationPage() {
 
                 <div className="bg-gray-50 p-4 rounded-xl border text-xs">
                   <p className="font-bold text-gray-900 mb-2 flex items-center gap-1.5">
-                    <Globe className="h-4 w-4 text-apc-primary" /> Image Pipeline & Next.js:
+                    <Globe className="h-4 w-4 text-brand-primary" /> Image Pipeline & Next.js:
                   </p>
                   <p className="text-gray-600 leading-relaxed">
                     <code>next.config.ts</code> configures <code>remotePatterns</code> to allow external hostnames. <code>&lt;Image unoptimized&gt;</code> is applied to render Cloudinary and user-specified external URLs seamlessly.

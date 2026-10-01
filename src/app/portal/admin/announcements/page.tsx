@@ -168,7 +168,7 @@ export default function AdminAnnouncementsPage() {
   if (authLoading || loading) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
-        <Loader2 className="h-8 w-8 animate-spin text-apc-primary" />
+        <Loader2 className="h-8 w-8 animate-spin text-brand-primary" />
         <span className="ml-3 text-gray-500">Loading...</span>
       </div>
     );
@@ -198,7 +198,7 @@ export default function AdminAnnouncementsPage() {
               setEditingId(null);
               setAnnouncementForm(DEFAULT_ANNOUNCEMENT);
             }}
-            className="inline-flex items-center gap-2 rounded-lg bg-apc-primary px-4 py-2.5 text-sm font-semibold text-white hover:bg-apc-dark transition-colors"
+            className="inline-flex items-center gap-2 rounded-lg bg-brand-primary px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-primary transition-colors"
           >
             <Megaphone className="h-4 w-4" />
             New Announcement
@@ -227,7 +227,7 @@ export default function AdminAnnouncementsPage() {
                 value={announcementForm.title}
                 onChange={(e) => setAnnouncementForm({ ...announcementForm, title: e.target.value })}
                 placeholder="e.g. Volunteer Meeting Saturday"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-apc-primary focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-transparent"
                 required
               />
             </div>
@@ -241,7 +241,7 @@ export default function AdminAnnouncementsPage() {
                 value={announcementForm.content}
                 onChange={(e) => setAnnouncementForm({ ...announcementForm, content: e.target.value })}
                 placeholder="Write the announcement details..."
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-apc-primary focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-transparent"
                 required
               />
             </div>
@@ -272,7 +272,7 @@ export default function AdminAnnouncementsPage() {
                       status: e.target.checked ? "published" : "draft",
                     })
                   }
-                  className="rounded border-gray-300 text-apc-primary focus:ring-apc-primary"
+                  className="rounded border-gray-300 text-brand-primary focus:ring-brand-primary"
                 />
                 <span className="text-sm text-gray-700">Publish to eligible members</span>
               </label>
@@ -281,7 +281,7 @@ export default function AdminAnnouncementsPage() {
             <button
               type="submit"
               disabled={saving}
-              className="inline-flex items-center gap-2 rounded-lg bg-apc-primary px-6 py-2.5 text-sm font-semibold text-white hover:bg-apc-dark transition-colors disabled:opacity-50"
+              className="inline-flex items-center gap-2 rounded-lg bg-brand-primary px-6 py-2.5 text-sm font-semibold text-white hover:bg-brand-primary transition-colors disabled:opacity-50"
             >
               <Save className="h-4 w-4" />
               {saving ? "Saving..." : editingId ? "Update Announcement" : "Create Announcement"}
@@ -344,7 +344,7 @@ export default function AdminAnnouncementsPage() {
                 ) : null}
                 <button
                   onClick={() => startEdit(item)}
-                  className="p-2 text-gray-500 hover:text-apc-primary hover:bg-apc-primary/10 rounded-lg transition-colors"
+                  className="p-2 text-gray-500 hover:text-brand-primary hover:bg-brand-primary/10 rounded-lg transition-colors"
                 >
                   <Edit2 className="h-4 w-4" />
                 </button>

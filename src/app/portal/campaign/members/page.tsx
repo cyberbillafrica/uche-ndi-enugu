@@ -251,13 +251,13 @@ export default function CampaignMembersPage() {
       <div>
         <Link
           href="/portal/dashboard"
-          className="mb-3 inline-flex items-center gap-2 text-sm font-medium text-gray-500 hover:text-apc-primary"
+          className="mb-3 inline-flex items-center gap-2 text-sm font-medium text-gray-500 hover:text-brand-primary"
         >
           <ArrowLeft className="h-4 w-4" />
           Campaign Dashboard
         </Link>
 
-        <p className="text-sm font-semibold text-apc-primary">Campaign Council</p>
+        <p className="text-sm font-semibold text-brand-primary">Campaign Council</p>
 
         <h1 className="mt-1 text-2xl font-bold text-gray-900 sm:text-3xl">
           Member Directory
@@ -270,11 +270,11 @@ export default function CampaignMembersPage() {
       </div>
 
       {/* SCOPE SUMMARY */}
-      <Card className="border-apc-primary/10">
+      <Card className="border-brand-primary/10">
         <CardContent className="p-6">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex items-start gap-4">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-apc-primary/10 text-apc-primary">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-brand-primary/10 text-brand-primary">
                 <ShieldCheck className="h-6 w-6" />
               </div>
 
@@ -361,7 +361,7 @@ export default function CampaignMembersPage() {
               value={searchInput}
               onChange={(event) => setSearchInput(event.target.value)}
               placeholder="Search members by name, email or phone..."
-              className="w-full rounded-xl border bg-white py-3 pl-10 pr-4 text-sm outline-none transition focus:border-apc-primary focus:ring-2 focus:ring-apc-primary/10"
+              className="w-full rounded-xl border bg-white py-3 pl-10 pr-4 text-sm outline-none transition focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/10"
             />
           </form>
 
@@ -449,7 +449,7 @@ function MemberRow({
     <div className="rounded-xl border p-4 transition-colors hover:bg-gray-50">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex items-start gap-3 min-w-[200px]">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-apc-primary/10 font-bold text-apc-primary">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-brand-primary/10 font-bold text-brand-primary">
             {member.full_name?.charAt(0)?.toUpperCase() ?? "M"}
           </div>
 
@@ -459,7 +459,7 @@ function MemberRow({
             </p>
 
             {member.position_name && (
-              <p className="mt-0.5 text-xs font-semibold text-apc-primary">
+              <p className="mt-0.5 text-xs font-semibold text-brand-primary">
                 {formatScopeType(member.scope_type)} ·{" "}
                 {member.position_name.replace(/_/g, " ")}
               </p>
@@ -469,7 +469,7 @@ function MemberRow({
 
         <div className="space-y-1 text-sm text-gray-700 min-w-[180px]">
           <div className="flex items-center gap-2">
-            <Phone className="h-4 w-4 text-apc-primary shrink-0" />
+            <Phone className="h-4 w-4 text-brand-primary shrink-0" />
             <span className="font-semibold text-gray-900">
               {member.phone || "No phone listed"}
             </span>

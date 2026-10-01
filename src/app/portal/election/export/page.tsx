@@ -176,7 +176,7 @@ export default function ElectionExportPage() {
   if (gate === "loading" || loading) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
-        <Loader2 className="h-8 w-8 animate-spin text-apc-primary" />
+        <Loader2 className="h-8 w-8 animate-spin text-brand-primary" />
         <span className="ml-3 text-gray-500">Loading result export engine...</span>
       </div>
     );
@@ -201,7 +201,7 @@ export default function ElectionExportPage() {
     <div className="space-y-6 pb-12 max-w-6xl mx-auto">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-apc-primary mb-1">
+          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-brand-primary mb-1">
             <Vote className="h-4 w-4" />
             <span>Official Election Operations Export Package</span>
           </div>
@@ -268,7 +268,7 @@ export default function ElectionExportPage() {
                 onClick={() => handleExport("csv")}
                 className="px-3 py-2 bg-white border rounded-lg font-bold text-gray-700 hover:bg-gray-100 flex items-center gap-1.5 shadow-sm"
               >
-                <Download className="h-4 w-4 text-apc-primary" /> Export CSV
+                <Download className="h-4 w-4 text-brand-primary" /> Export CSV
               </button>
 
               <button
@@ -280,7 +280,7 @@ export default function ElectionExportPage() {
 
               <button
                 onClick={() => handleExport("pdf")}
-                className="px-3 py-2 bg-apc-primary text-white rounded-lg font-bold hover:bg-apc-dark flex items-center gap-1.5 shadow-sm"
+                className="px-3 py-2 bg-brand-primary text-white rounded-lg font-bold hover:bg-brand-primary flex items-center gap-1.5 shadow-sm"
               >
                 <Printer className="h-4 w-4" /> Print / PDF
               </button>

@@ -83,7 +83,7 @@ export default function AdminContactMessagesPage() {
   if (authLoading || loading) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
-        <Loader2 className="h-8 w-8 animate-spin text-apc-primary" />
+        <Loader2 className="h-8 w-8 animate-spin text-brand-primary" />
         <span className="ml-3 text-gray-500">Loading messages...</span>
       </div>
     );
@@ -119,7 +119,7 @@ export default function AdminContactMessagesPage() {
             onClick={() => setFilter("all")}
             className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
               filter === "all"
-                ? "bg-apc-primary text-white"
+                ? "bg-brand-primary text-white"
                 : "bg-gray-100 text-gray-600 hover:bg-gray-200"
             }`}
           >
@@ -129,7 +129,7 @@ export default function AdminContactMessagesPage() {
             onClick={() => setFilter("unread")}
             className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
               filter === "unread"
-                ? "bg-apc-primary text-white"
+                ? "bg-brand-primary text-white"
                 : "bg-gray-100 text-gray-600 hover:bg-gray-200"
             }`}
           >
@@ -139,7 +139,7 @@ export default function AdminContactMessagesPage() {
             onClick={() => setFilter("read")}
             className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
               filter === "read"
-                ? "bg-apc-primary text-white"
+                ? "bg-brand-primary text-white"
                 : "bg-gray-100 text-gray-600 hover:bg-gray-200"
             }`}
           >
@@ -169,7 +169,7 @@ export default function AdminContactMessagesPage() {
                 onClick={() => handleOpenModal(msg)}
                 className={`bg-white rounded-xl border p-5 cursor-pointer transition-all hover:shadow-md ${
                   isUnread
-                    ? "border-apc-primary/40 bg-blue-50/20"
+                    ? "border-brand-primary/40 bg-blue-50/20"
                     : "border-gray-200"
                 }`}
               >
@@ -177,7 +177,7 @@ export default function AdminContactMessagesPage() {
                   <div className="flex items-center gap-2">
                     <span
                       className={`h-2.5 w-2.5 rounded-full ${
-                        isUnread ? "bg-apc-primary" : "bg-gray-300"
+                        isUnread ? "bg-brand-primary" : "bg-gray-300"
                       }`}
                     />
                     <h3 className="font-semibold text-gray-900">{msg.name}</h3>
@@ -210,7 +210,7 @@ export default function AdminContactMessagesPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="bg-white rounded-2xl shadow-xl max-w-lg w-full overflow-hidden animate-in fade-in zoom-in-95 duration-200">
             {/* Modal Header */}
-            <div className="bg-apc-primary text-white p-6 flex items-center justify-between">
+            <div className="bg-brand-primary text-white p-6 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-lg bg-white/10">
                   <MailOpen className="h-6 w-6" />
@@ -249,7 +249,7 @@ export default function AdminContactMessagesPage() {
                   </p>
                   <a
                     href={`mailto:${selectedMessage.email}`}
-                    className="font-semibold text-apc-primary hover:underline mt-0.5 block truncate"
+                    className="font-semibold text-brand-primary hover:underline mt-0.5 block truncate"
                   >
                     {selectedMessage.email}
                   </a>
@@ -262,7 +262,7 @@ export default function AdminContactMessagesPage() {
                     </p>
                     <a
                       href={`tel:${selectedMessage.phone}`}
-                      className="font-semibold text-gray-900 hover:text-apc-primary mt-0.5 block"
+                      className="font-semibold text-gray-900 hover:text-brand-primary mt-0.5 block"
                     >
                       {selectedMessage.phone}
                     </a>
@@ -284,7 +284,7 @@ export default function AdminContactMessagesPage() {
             <div className="border-t px-6 py-4 bg-gray-50 flex items-center justify-between">
               <a
                 href={`mailto:${selectedMessage.email}?subject=RE: Inquiry from Campaign Website`}
-                className="inline-flex items-center gap-2 rounded-lg bg-apc-primary px-4 py-2 text-sm font-semibold text-white hover:bg-apc-dark transition-colors"
+                className="inline-flex items-center gap-2 rounded-lg bg-brand-primary px-4 py-2 text-sm font-semibold text-white hover:bg-brand-primary transition-colors"
               >
                 <Mail className="h-4 w-4" />
                 Reply via Email

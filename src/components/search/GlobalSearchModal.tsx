@@ -290,7 +290,7 @@ export default function GlobalSearchModal() {
         onClick={() => setOpen(true)}
         className="flex items-center gap-2 px-3 py-1.5 rounded-xl border bg-gray-50 text-gray-500 hover:bg-gray-100 transition-colors text-xs font-medium"
       >
-        <Search className="h-4 w-4 text-apc-primary" />
+        <Search className="h-4 w-4 text-brand-primary" />
         <span className="hidden sm:inline">Search platform...</span>
         <kbd className="hidden sm:inline-block px-1.5 py-0.5 text-[10px] font-mono bg-white border rounded shadow-xs text-gray-400">
           ⌘K
@@ -303,7 +303,7 @@ export default function GlobalSearchModal() {
           <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col max-h-[80vh]">
             {/* Search Input Bar */}
             <div className="p-4 border-b flex items-center gap-3 bg-gray-50">
-              <Search className="h-5 w-5 text-apc-primary shrink-0" />
+              <Search className="h-5 w-5 text-brand-primary shrink-0" />
               <input
                 type="text"
                 autoFocus
@@ -327,7 +327,7 @@ export default function GlobalSearchModal() {
             <div className="flex-1 overflow-y-auto divide-y text-xs p-2">
               {!query.trim() ? (
                 <div className="p-8 text-center text-gray-400">
-                  <Search className="h-8 w-8 mx-auto mb-2 opacity-40 text-apc-primary" />
+                  <Search className="h-8 w-8 mx-auto mb-2 opacity-40 text-brand-primary" />
                   <p className="font-semibold text-gray-600">
                     Type to search across Politicore
                   </p>
@@ -350,10 +350,10 @@ export default function GlobalSearchModal() {
                         setOpen(false);
                         router.push(item.url);
                       }}
-                      className="p-3 hover:bg-apc-primary/5 rounded-xl cursor-pointer transition-colors flex items-center justify-between gap-3 group"
+                      className="p-3 hover:bg-brand-primary/5 rounded-xl cursor-pointer transition-colors flex items-center justify-between gap-3 group"
                     >
                       <div className="flex items-center gap-3 min-w-0">
-                        <div className="p-2 rounded-lg bg-gray-100 text-apc-primary group-hover:bg-apc-primary group-hover:text-white transition-colors shrink-0">
+                        <div className="p-2 rounded-lg bg-gray-100 text-brand-primary group-hover:bg-brand-primary group-hover:text-white transition-colors shrink-0">
                           <Icon className="h-4 w-4" />
                         </div>
                         <div className="min-w-0">
@@ -371,7 +371,7 @@ export default function GlobalSearchModal() {
                         </div>
                       </div>
 
-                      <ArrowRight className="h-4 w-4 text-gray-300 group-hover:text-apc-primary transition-transform group-hover:translate-x-1 shrink-0" />
+                      <ArrowRight className="h-4 w-4 text-gray-300 group-hover:text-brand-primary transition-transform group-hover:translate-x-1 shrink-0" />
                     </div>
                   );
                 })

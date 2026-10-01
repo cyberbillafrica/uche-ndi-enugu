@@ -339,10 +339,10 @@ export default function VolunteerPage() {
         <main className="mx-auto max-w-2xl px-4 py-20">
           <div className="rounded-2xl bg-white p-10 text-center shadow-lg">
             <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
-              <CheckCircle2 className="h-9 w-9 text-apc-green" />
+              <CheckCircle2 className="h-9 w-9 text-brand-primary" />
             </div>
 
-            <h1 className="mb-4 text-3xl font-bold text-apc-primary">
+            <h1 className="mb-4 text-3xl font-bold text-brand-primary">
               Registration Successful!
             </h1>
 
@@ -353,7 +353,7 @@ export default function VolunteerPage() {
 
             <a
               href="/login"
-              className="inline-flex items-center gap-2 rounded-lg bg-apc-primary px-6 py-3 font-semibold text-white transition-colors hover:bg-apc-dark"
+              className="inline-flex items-center gap-2 rounded-lg bg-brand-primary px-6 py-3 font-semibold text-white transition-colors hover:bg-brand-primary"
             >
               Login Now
               <ArrowRight className="h-4 w-4" />
@@ -378,11 +378,11 @@ export default function VolunteerPage() {
         {/* Header */}
 
         <div className="mb-10 text-center">
-          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-apc-light">
-            <UserPlus className="h-7 w-7 text-apc-primary" />
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-brand-surface">
+            <UserPlus className="h-7 w-7 text-brand-primary" />
           </div>
 
-          <h1 className="mb-4 text-4xl font-bold text-apc-primary">
+          <h1 className="mb-4 text-4xl font-bold text-brand-primary">
             Become a Member
           </h1>
 
@@ -411,7 +411,7 @@ export default function VolunteerPage() {
 
             <section>
               <div className="mb-5">
-                <h2 className="text-xl font-semibold text-apc-primary">
+                <h2 className="text-xl font-semibold text-brand-primary">
                   Select Your Membership Type
                 </h2>
 
@@ -430,7 +430,7 @@ export default function VolunteerPage() {
                     className="peer sr-only"
                   />
 
-                  <div className="rounded-xl border-2 border-gray-200 p-5 transition-all peer-checked:border-apc-primary peer-checked:bg-apc-light">
+                  <div className="rounded-xl border-2 border-gray-200 p-5 transition-all peer-checked:border-brand-primary peer-checked:bg-brand-surface">
                     <h3 className="font-semibold text-gray-900">
                       Campaign Council Member
                     </h3>
@@ -450,7 +450,7 @@ export default function VolunteerPage() {
                     className="peer sr-only"
                   />
 
-                  <div className="rounded-xl border-2 border-gray-200 p-5 transition-all peer-checked:border-apc-primary peer-checked:bg-apc-light">
+                  <div className="rounded-xl border-2 border-gray-200 p-5 transition-all peer-checked:border-brand-primary peer-checked:bg-brand-surface">
                     <h3 className="font-semibold text-gray-900">
                       Social Media Member
                     </h3>
@@ -473,7 +473,7 @@ export default function VolunteerPage() {
             ───────────────────────────────────── */}
 
             <section className="border-t pt-8">
-              <h2 className="mb-5 text-xl font-semibold text-apc-primary">
+              <h2 className="mb-5 text-xl font-semibold text-brand-primary">
                 Personal Information
               </h2>
 
@@ -533,7 +533,7 @@ export default function VolunteerPage() {
             ───────────────────────────────────── */}
 
             <section className="border-t pt-8">
-              <h2 className="mb-2 text-xl font-semibold text-apc-primary">
+              <h2 className="mb-2 text-xl font-semibold text-brand-primary">
                 Electoral Location
               </h2>
 
@@ -602,7 +602,7 @@ export default function VolunteerPage() {
 
             <section className="border-t pt-8">
               <div className="mb-6">
-                <h2 className="text-xl font-semibold text-apc-primary">
+                <h2 className="text-xl font-semibold text-brand-primary">
                   Social Media Accounts
                 </h2>
 
@@ -707,7 +707,7 @@ export default function VolunteerPage() {
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="inline-flex items-center gap-2 rounded-lg bg-apc-green px-8 py-3 font-semibold text-white transition-colors hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
+                className="inline-flex items-center gap-2 rounded-lg bg-brand-primary px-8 py-3 font-semibold text-white transition-colors hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {isSubmitting ? "Creating Account..." : "Complete Registration"}
 

@@ -267,7 +267,7 @@ export default function IncidentsPage() {
   if (gate === "loading" || loading) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
-        <Loader2 className="h-8 w-8 animate-spin text-apc-primary" />
+        <Loader2 className="h-8 w-8 animate-spin text-brand-primary" />
         <span className="ml-3 text-gray-500">Loading incident reports...</span>
       </div>
     );
@@ -280,7 +280,7 @@ export default function IncidentsPage() {
         <h2 className="text-lg font-bold text-gray-900">Sign in required</h2>
         <button
           onClick={() => router.replace("/portal/auth/login")}
-          className="px-4 py-2 text-sm font-semibold rounded-lg bg-apc-primary text-white"
+          className="px-4 py-2 text-sm font-semibold rounded-lg bg-brand-primary text-white"
         >
           Go to sign in
         </button>
@@ -408,7 +408,7 @@ export default function IncidentsPage() {
                     </div>
                   </>
                 ) : (
-                  <div className="md:col-span-3 p-3 bg-apc-light/40 border border-apc-primary/20 rounded-lg text-xs text-apc-primary font-semibold">
+                  <div className="md:col-span-3 p-3 bg-brand-surface/40 border border-brand-primary/20 rounded-lg text-xs text-brand-primary font-semibold">
                     Reporting for your registered Ward: {registered.wardId}
                     {registered.puId ? ` · PU: ${registered.puId}` : " (entire ward)"}
                   </div>

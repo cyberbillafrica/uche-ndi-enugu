@@ -171,7 +171,7 @@ export default async function NewsArticleDetailPage({ params }: PageProps) {
         <div className="mb-8">
           <Link
             href="/news"
-            className="inline-flex items-center text-sm font-semibold text-apc-primary hover:text-apc-dark transition-colors"
+            className="inline-flex items-center text-sm font-semibold text-brand-primary hover:text-brand-primary transition-colors"
           >
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back to News
@@ -181,7 +181,7 @@ export default async function NewsArticleDetailPage({ params }: PageProps) {
         <article className="overflow-hidden rounded-2xl bg-white shadow-sm border border-gray-100 p-6 sm:p-10">
           {/* Category */}
           {article.category && (
-            <div className="mb-4 inline-flex items-center gap-1.5 rounded-full bg-apc-primary/10 px-3 py-1 text-xs font-semibold text-apc-primary">
+            <div className="mb-4 inline-flex items-center gap-1.5 rounded-full bg-brand-primary/10 px-3 py-1 text-xs font-semibold text-brand-primary">
               <Tag className="h-3.5 w-3.5" />
               {article.category}
             </div>
@@ -195,13 +195,13 @@ export default async function NewsArticleDetailPage({ params }: PageProps) {
           {/* Meta */}
           <div className="mt-4 mb-8 flex flex-wrap items-center gap-4 border-b border-gray-100 pb-6 text-sm text-gray-500">
             <span className="flex items-center gap-1.5">
-              <Calendar className="h-4 w-4 text-apc-primary" />
+              <Calendar className="h-4 w-4 text-brand-primary" />
               {formatDate(article.published_at || article.created_at)}
             </span>
 
             {article.author && (
               <span className="flex items-center gap-1.5">
-                <User className="h-4 w-4 text-apc-primary" />
+                <User className="h-4 w-4 text-brand-primary" />
                 {article.author}
               </span>
             )}
@@ -224,7 +224,7 @@ export default async function NewsArticleDetailPage({ params }: PageProps) {
 
           {/* Excerpt */}
           {article.excerpt && (
-            <p className="mb-8 text-lg font-medium text-gray-700 leading-relaxed italic border-l-4 border-apc-primary pl-4 py-1 bg-gray-50/50 rounded-r">
+            <p className="mb-8 text-lg font-medium text-gray-700 leading-relaxed italic border-l-4 border-brand-primary pl-4 py-1 bg-gray-50/50 rounded-r">
               {article.excerpt}
             </p>
           )}

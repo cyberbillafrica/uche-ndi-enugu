@@ -86,7 +86,7 @@ export default function GovernanceDashboardPage() {
   if (authLoading || (loading && guardDone && access?.isParticipant)) {
     return (
       <div className="flex min-h-[50vh] items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-apc-primary" />
+        <Loader2 className="h-8 w-8 animate-spin text-brand-primary" />
       </div>
     );
   }
@@ -131,7 +131,7 @@ export default function GovernanceDashboardPage() {
                   {requests.length}
                 </p>
               </div>
-              <FileText className="h-8 w-8 text-apc-primary/40" />
+              <FileText className="h-8 w-8 text-brand-primary/40" />
             </div>
           </CardContent>
         </Card>
@@ -143,16 +143,16 @@ export default function GovernanceDashboardPage() {
                 <p className="text-sm text-gray-500">Open</p>
                 <p className="text-2xl font-bold text-gray-900">{openCount}</p>
               </div>
-              <Inbox className="h-8 w-8 text-apc-primary/40" />
+              <Inbox className="h-8 w-8 text-brand-primary/40" />
             </div>
           </CardContent>
         </Card>
 
-        <Card className="border-apc-primary/20">
+        <Card className="border-brand-primary/20">
           <CardContent className="flex h-full items-center pt-6">
             <Link
               href="/portal/governance/requests/new"
-              className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-apc-primary px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-apc-primary/90"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-brand-primary px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-primary/90"
             >
               <Flag className="h-4 w-4" />
               Submit a Request
@@ -177,7 +177,7 @@ export default function GovernanceDashboardPage() {
               </p>
               <Link
                 href="/portal/governance/requests/new"
-                className="mt-3 inline-block text-sm font-medium text-apc-primary hover:underline"
+                className="mt-3 inline-block text-sm font-medium text-brand-primary hover:underline"
               >
                 Submit your first request →
               </Link>

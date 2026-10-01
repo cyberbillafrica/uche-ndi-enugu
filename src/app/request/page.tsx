@@ -162,8 +162,8 @@ export default function PublicRequestPage() {
         <Header />
         <main className="max-w-3xl mx-auto px-4 py-16">
           <div className="flex items-center gap-3 mb-2">
-            <Inbox className="h-8 w-8 text-apc-primary" />
-            <h1 className="text-4xl font-bold text-apc-primary">
+            <Inbox className="h-8 w-8 text-brand-primary" />
+            <h1 className="text-4xl font-bold text-brand-primary">
               File a Request
             </h1>
           </div>
@@ -189,7 +189,7 @@ export default function PublicRequestPage() {
                     maxLength={120}
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-apc-primary"
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary"
                   />
                 </div>
                 <div>
@@ -201,7 +201,7 @@ export default function PublicRequestPage() {
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-apc-primary"
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary"
                   />
                 </div>
               </div>
@@ -214,7 +214,7 @@ export default function PublicRequestPage() {
                   required
                   value={category}
                   onChange={(e) => setCategory(e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-apc-primary"
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-primary"
                 >
                   <option value="">
                     {loaded && categories.length === 0
@@ -240,7 +240,7 @@ export default function PublicRequestPage() {
                   maxLength={200}
                   value={subject}
                   onChange={(e) => setSubject(e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-apc-primary"
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary"
                 />
               </div>
 
@@ -256,7 +256,7 @@ export default function PublicRequestPage() {
                   maxLength={10000}
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-apc-primary"
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary"
                 />
               </div>
 
@@ -269,7 +269,7 @@ export default function PublicRequestPage() {
                   <select
                     value={lgaId}
                     onChange={(e) => void onLgaChange(e.target.value)}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-apc-primary"
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-primary"
                   >
                     <option value="">Select LGA</option>
                     {lgas.map((l) => (
@@ -287,7 +287,7 @@ export default function PublicRequestPage() {
                     value={wardId}
                     onChange={(e) => void onWardChange(e.target.value)}
                     disabled={!lgaId}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm bg-white disabled:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-apc-primary"
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm bg-white disabled:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-primary"
                   >
                     <option value="">Select Ward</option>
                     {wards.map((w) => (
@@ -305,7 +305,7 @@ export default function PublicRequestPage() {
                     value={pollingUnitId}
                     onChange={(e) => setPollingUnitId(e.target.value)}
                     disabled={!wardId}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm bg-white disabled:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-apc-primary"
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm bg-white disabled:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-primary"
                   >
                     <option value="">Select Polling Unit</option>
                     {pus.map((p) => (
@@ -340,7 +340,7 @@ export default function PublicRequestPage() {
               <button
                 type="submit"
                 disabled={submitting}
-                className="inline-flex items-center justify-center rounded-lg bg-apc-primary px-6 py-2.5 text-sm font-semibold text-white hover:bg-apc-dark transition-colors disabled:opacity-50"
+                className="inline-flex items-center justify-center rounded-lg bg-brand-primary px-6 py-2.5 text-sm font-semibold text-white hover:bg-brand-primary transition-colors disabled:opacity-50"
               >
                 {submitting ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -371,7 +371,7 @@ export default function PublicRequestPage() {
                   required
                   value={token}
                   onChange={(e) => setToken(e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-apc-primary"
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-brand-primary"
                 />
               </div>
               {verifyError && (
@@ -382,7 +382,7 @@ export default function PublicRequestPage() {
               <button
                 type="submit"
                 disabled={submitting}
-                className="inline-flex items-center justify-center rounded-lg bg-apc-primary px-6 py-2.5 text-sm font-semibold text-white hover:bg-apc-dark transition-colors disabled:opacity-50"
+                className="inline-flex items-center justify-center rounded-lg bg-brand-primary px-6 py-2.5 text-sm font-semibold text-white hover:bg-brand-primary transition-colors disabled:opacity-50"
               >
                 {submitting ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -426,7 +426,7 @@ export default function PublicRequestPage() {
 
               <p className="text-sm text-gray-600">
                 A copy has been emailed to you. Track your request any time at{" "}
-                <a href="/request/track" className="text-apc-primary underline">
+                <a href="/request/track" className="text-brand-primary underline">
                   Track a Request
                 </a>
                 .

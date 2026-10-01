@@ -152,7 +152,7 @@ export default function AdminReportsPage() {
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[50vh] space-y-3">
-        <Loader2 className="h-8 w-8 animate-spin text-apc-primary" />
+        <Loader2 className="h-8 w-8 animate-spin text-brand-primary" />
         <span className="text-sm text-gray-500">Generating analytics reports...</span>
       </div>
     );
@@ -173,7 +173,7 @@ export default function AdminReportsPage() {
             onClick={handleExportCSV}
             className="inline-flex items-center gap-1.5 px-3 py-2 bg-white border rounded-lg text-xs font-semibold text-gray-700 hover:bg-gray-50 shadow-sm"
           >
-            <Download className="h-3.5 w-3.5 text-apc-primary" /> CSV
+            <Download className="h-3.5 w-3.5 text-brand-primary" /> CSV
           </button>
           <button
             onClick={handleExportExcel}
@@ -183,7 +183,7 @@ export default function AdminReportsPage() {
           </button>
           <button
             onClick={handlePrint}
-            className="inline-flex items-center gap-1.5 px-3 py-2 bg-apc-primary text-white rounded-lg text-xs font-semibold hover:bg-apc-dark shadow-sm"
+            className="inline-flex items-center gap-1.5 px-3 py-2 bg-brand-primary text-white rounded-lg text-xs font-semibold hover:bg-brand-primary shadow-sm"
           >
             <Printer className="h-3.5 w-3.5" /> Print / PDF
           </button>
@@ -240,7 +240,7 @@ export default function AdminReportsPage() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base font-bold">
-              <BarChart3 className="h-5 w-5 text-apc-primary" />
+              <BarChart3 className="h-5 w-5 text-brand-primary" />
               Member Type Distribution
             </CardTitle>
           </CardHeader>
@@ -265,7 +265,7 @@ export default function AdminReportsPage() {
               </div>
               <div className="w-full bg-gray-100 rounded-full h-2.5">
                 <div
-                  className="bg-apc-primary h-2.5 rounded-full"
+                  className="bg-brand-primary h-2.5 rounded-full"
                   style={{ width: `${totalMembers > 0 ? (socialMembers / totalMembers) * 100 : 0}%` }}
                 />
               </div>
@@ -277,7 +277,7 @@ export default function AdminReportsPage() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base font-bold">
-              <MapPin className="h-5 w-5 text-apc-primary" />
+              <MapPin className="h-5 w-5 text-brand-primary" />
               Top Performing Wards (by Points & Registrations)
             </CardTitle>
           </CardHeader>
@@ -290,7 +290,7 @@ export default function AdminReportsPage() {
                     <span className="font-semibold text-gray-900">{w.name}</span>
                   </div>
                   <div className="text-right">
-                    <span className="font-bold text-apc-primary">{w.points.toLocaleString()} pts</span>
+                    <span className="font-bold text-brand-primary">{w.points.toLocaleString()} pts</span>
                     <span className="text-gray-400 ml-2">({w.count} members)</span>
                   </div>
                 </div>
@@ -330,14 +330,14 @@ export default function AdminReportsPage() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base font-bold">
-              <Briefcase className="h-5 w-5 text-apc-primary" />
+              <Briefcase className="h-5 w-5 text-brand-primary" />
               Campaign Operations Overview
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3 text-xs">
             <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
               <span className="text-gray-600 font-medium">Active Tasks Configured</span>
-              <span className="font-bold text-apc-primary">{tasks.filter((t) => t.status === "active").length}</span>
+              <span className="font-bold text-brand-primary">{tasks.filter((t) => t.status === "active").length}</span>
             </div>
             <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
               <span className="text-gray-600 font-medium">Top User Highest Points</span>

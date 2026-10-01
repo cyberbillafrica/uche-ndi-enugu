@@ -54,7 +54,7 @@ export default function NewsPage() {
 
       <main className="flex-1 max-w-5xl w-full mx-auto px-4 py-12 sm:px-6 lg:px-8">
         <div className="mb-10 text-center sm:text-left">
-          <h1 className="text-3xl font-bold text-apc-primary sm:text-4xl">
+          <h1 className="text-3xl font-bold text-brand-primary sm:text-4xl">
             Campaign News & Updates
           </h1>
           <p className="mt-2 text-gray-600 text-lg">
@@ -64,7 +64,7 @@ export default function NewsPage() {
 
         {loading && (
           <div className="flex min-h-[300px] flex-col items-center justify-center gap-3 text-gray-500">
-            <Loader2 className="h-8 w-8 animate-spin text-apc-primary" />
+            <Loader2 className="h-8 w-8 animate-spin text-brand-primary" />
             <p className="text-sm font-medium">Loading latest articles…</p>
           </div>
         )}
@@ -97,26 +97,26 @@ export default function NewsPage() {
                     />
                   </div>
                 ) : (
-                  <div className="relative aspect-[16/9] w-full overflow-hidden bg-gradient-to-br from-apc-primary/10 to-apc-secondary/10 flex items-center justify-center">
-                    <span className="text-3xl font-bold text-apc-primary/20">Ifeanyi 2027</span>
+                  <div className="relative aspect-[16/9] w-full overflow-hidden bg-gradient-to-br from-brand-primary/10 to-brand-secondary/10 flex items-center justify-center">
+                    <span className="text-3xl font-bold text-brand-primary/20">Ifeanyi 2027</span>
                   </div>
                 )}
 
                 <div className="flex flex-1 flex-col p-6">
                   <div className="mb-3 flex items-center gap-4 text-xs font-medium text-gray-500">
                     <span className="flex items-center gap-1">
-                      <Calendar className="h-3.5 w-3.5 text-apc-primary" />
+                      <Calendar className="h-3.5 w-3.5 text-brand-primary" />
                       {formatDate(article.published_at || article.created_at)}
                     </span>
                     {article.category && (
-                      <span className="flex items-center gap-1 rounded-full bg-apc-primary/10 px-2.5 py-0.5 text-apc-primary">
+                      <span className="flex items-center gap-1 rounded-full bg-brand-primary/10 px-2.5 py-0.5 text-brand-primary">
                         <Tag className="h-3 w-3" />
                         {article.category}
                       </span>
                     )}
                   </div>
 
-                  <h2 className="mb-3 text-xl font-bold text-gray-900 transition-colors group-hover:text-apc-primary">
+                  <h2 className="mb-3 text-xl font-bold text-gray-900 transition-colors group-hover:text-brand-primary">
                     {article.title}
                   </h2>
 
@@ -126,7 +126,7 @@ export default function NewsPage() {
 
                   <Link
                     href={`/news/${article.slug}`}
-                    className="inline-flex items-center text-sm font-semibold text-apc-primary hover:text-apc-dark"
+                    className="inline-flex items-center text-sm font-semibold text-brand-primary hover:text-brand-primary"
                   >
                     Read full article
                     <ArrowRight className="ml-1.5 h-4 w-4 transition-transform group-hover:translate-x-1" />

@@ -74,7 +74,7 @@ export default function DashboardPage() {
               onClick={() => handleViewSwitch("campaign")}
               className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-md transition-colors ${
                 dashboardView === "campaign"
-                  ? "bg-apc-primary text-white shadow"
+                  ? "bg-brand-primary text-white shadow"
                   : "text-gray-600 hover:text-gray-900"
               }`}
             >
@@ -85,7 +85,7 @@ export default function DashboardPage() {
               onClick={() => handleViewSwitch("social")}
               className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-md transition-colors ${
                 dashboardView === "social"
-                  ? "bg-apc-primary text-white shadow"
+                  ? "bg-brand-primary text-white shadow"
                   : "text-gray-600 hover:text-gray-900"
               }`}
             >

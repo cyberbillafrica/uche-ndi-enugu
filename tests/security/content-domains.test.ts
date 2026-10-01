@@ -660,11 +660,15 @@ describe("static Firebase and architecture boundary", () => {
   });
 
   it("homepage sources events+news from canonical services; announcements never reach the public homepage", () => {
-    const home = fs.readFileSync("src/app/page.tsx", "utf8");
-    expect(home).toMatch(/listPublishedEvents/);
-    expect(home).toMatch(/listPublishedNews/);
-    expect(home).not.toMatch(/announcements/i);
-    expect(home).not.toMatch(/lib\/firebase\//);
+    // Phase 24: the homepage renders through the section engine's data
+    // orchestration layer (src/app/page.tsx is a thin published-composition
+    // shell). The canonical-sourcing invariant moves with it.
+    const engine = fs.readFileSync("src/lib/homepage/engine.ts", "utf8");
+    expect(engine).toMatch(/listPublishedEvents/);
+    expect(engine).toMatch(/listPublishedNews/);
+    expect(engine).not.toMatch(/announcements/i);
+    expect(engine).not.toMatch(/lib\/firebase\//);
+    expect(fs.readFileSync("src/app/page.tsx", "utf8")).not.toMatch(/lib\/firebase\//);
   });
 
   it("events and announcements are separate first-class domains (no combined model)", () => {

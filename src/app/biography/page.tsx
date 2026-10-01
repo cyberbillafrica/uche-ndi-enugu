@@ -43,7 +43,7 @@ export default async function BiographyPage() {
       <main className="flex-1 max-w-5xl w-full mx-auto px-4 py-12 sm:px-6 lg:px-8">
         {/* ─── HERO ─── */}
         <section className="text-center mb-12">
-          <p className="text-sm font-semibold uppercase tracking-wider text-apc-primary">
+          <p className="text-sm font-semibold uppercase tracking-wider text-brand-primary">
             {title}
           </p>
           <h1 className="mt-3 text-4xl sm:text-5xl font-bold text-gray-900">
@@ -54,7 +54,7 @@ export default async function BiographyPage() {
         {/* ─── BIOGRAPHY CONTENT ─── */}
         <div className="grid gap-12 md:grid-cols-2">
           {/* Image */}
-          <div className="relative aspect-[4/5] overflow-hidden rounded-2xl bg-gradient-to-br from-apc-primary/10 to-apc-secondary/10">
+          <div className="relative aspect-[4/5] overflow-hidden rounded-2xl bg-gradient-to-br from-brand-primary/10 to-brand-secondary/10">
             {image_url ? (
               <Image
                 src={image_url}
@@ -66,7 +66,7 @@ export default async function BiographyPage() {
                 priority
               />
             ) : (
-              <div className="flex h-full items-center justify-center text-apc-primary/20">
+              <div className="flex h-full items-center justify-center text-brand-primary/20">
                 <User className="h-24 w-24" />
               </div>
             )}
@@ -74,7 +74,7 @@ export default async function BiographyPage() {
 
           {/* About */}
           <div className="space-y-6">
-            <h2 className="text-2xl font-bold text-apc-primary">About</h2>
+            <h2 className="text-2xl font-bold text-brand-primary">About</h2>
             <div className="text-gray-700 leading-relaxed whitespace-pre-wrap">
               {about}
             </div>
@@ -82,19 +82,19 @@ export default async function BiographyPage() {
             {/* Stats */}
             <div className="grid grid-cols-3 gap-4 pt-4 border-t border-gray-200">
               <div className="text-center">
-                <div className="text-3xl font-bold text-apc-primary">
+                <div className="text-3xl font-bold text-brand-primary">
                   {stats?.years_experience || "—"}
                 </div>
                 <div className="text-sm text-gray-500">Years Experience</div>
               </div>
               <div className="text-center">
-                <div className="text-3xl font-bold text-apc-primary">
+                <div className="text-3xl font-bold text-brand-primary">
                   {stats?.communities_served || "—"}
                 </div>
                 <div className="text-sm text-gray-500">Communities Served</div>
               </div>
               <div className="text-center">
-                <div className="text-3xl font-bold text-apc-primary">
+                <div className="text-3xl font-bold text-brand-primary">
                   {stats?.volunteers || "—"}
                 </div>
                 <div className="text-sm text-gray-500">Volunteers</div>
@@ -158,7 +158,7 @@ export default async function BiographyPage() {
 
             <Link
               href="/volunteer"
-              className="inline-flex items-center gap-2 bg-apc-green text-white px-6 py-3 rounded-lg font-semibold hover:bg-green-700 transition-colors"
+              className="inline-flex items-center gap-2 bg-brand-primary text-white px-6 py-3 rounded-lg font-semibold hover:bg-green-700 transition-colors"
             >
               Join the Movement
               <ArrowRight className="h-5 w-5" />
@@ -190,7 +190,7 @@ function BiographyComingSoon() {
           </p>
           <Link
             href="/"
-            className="mt-6 inline-flex items-center gap-2 text-apc-primary font-semibold hover:underline"
+            className="mt-6 inline-flex items-center gap-2 text-brand-primary font-semibold hover:underline"
           >
             ← Back to Home
           </Link>

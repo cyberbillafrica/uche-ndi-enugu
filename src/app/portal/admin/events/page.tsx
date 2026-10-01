@@ -174,7 +174,7 @@ export default function AdminEventsPage() {
   if (authLoading || loading) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
-        <Loader2 className="h-8 w-8 animate-spin text-apc-primary" />
+        <Loader2 className="h-8 w-8 animate-spin text-brand-primary" />
         <span className="ml-3 text-gray-500">Loading...</span>
       </div>
     );
@@ -203,7 +203,7 @@ export default function AdminEventsPage() {
               setEditingId(null);
               setEventForm(DEFAULT_EVENT);
             }}
-            className="inline-flex items-center gap-2 rounded-lg bg-apc-secondary px-4 py-2.5 text-sm font-semibold text-white hover:bg-apc-secondary/80 transition-colors"
+            className="inline-flex items-center gap-2 rounded-lg bg-brand-secondary px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-secondary/80 transition-colors"
           >
             <Calendar className="h-4 w-4" />
             New Event
@@ -232,7 +232,7 @@ export default function AdminEventsPage() {
                 value={eventForm.title}
                 onChange={(e) => setEventForm({ ...eventForm, title: e.target.value })}
                 placeholder="e.g. Ward-to-Ward Campaign Tour"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-apc-primary focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-transparent"
                 required
               />
             </div>
@@ -246,7 +246,7 @@ export default function AdminEventsPage() {
                 value={eventForm.description}
                 onChange={(e) => setEventForm({ ...eventForm, description: e.target.value })}
                 placeholder="Describe the event..."
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-apc-primary focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-transparent"
               />
             </div>
 
@@ -317,7 +317,7 @@ export default function AdminEventsPage() {
                   onChange={(e) =>
                     setEventForm({ ...eventForm, status: e.target.checked ? "published" : "draft" })
                   }
-                  className="rounded border-gray-300 text-apc-primary focus:ring-apc-primary"
+                  className="rounded border-gray-300 text-brand-primary focus:ring-brand-primary"
                 />
                 <span className="text-sm text-gray-700">Publish now (shown on the public site)</span>
               </label>
@@ -326,7 +326,7 @@ export default function AdminEventsPage() {
             <button
               type="submit"
               disabled={saving}
-              className="inline-flex items-center gap-2 rounded-lg bg-apc-primary px-6 py-2.5 text-sm font-semibold text-white hover:bg-apc-dark transition-colors disabled:opacity-50"
+              className="inline-flex items-center gap-2 rounded-lg bg-brand-primary px-6 py-2.5 text-sm font-semibold text-white hover:bg-brand-primary transition-colors disabled:opacity-50"
             >
               <Save className="h-4 w-4" />
               {saving ? "Saving..." : editingId ? "Update Event" : "Create Event"}
@@ -384,7 +384,7 @@ export default function AdminEventsPage() {
               <div className="flex gap-2 shrink-0">
                 <button
                   onClick={() => startEdit(item)}
-                  className="p-2 text-gray-500 hover:text-apc-primary hover:bg-apc-primary/10 rounded-lg transition-colors"
+                  className="p-2 text-gray-500 hover:text-brand-primary hover:bg-brand-primary/10 rounded-lg transition-colors"
                 >
                   <Edit2 className="h-4 w-4" />
                 </button>

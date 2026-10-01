@@ -65,11 +65,11 @@ export default function ContactPage() {
       <div>
         <Header />
         <main className="max-w-4xl mx-auto px-4 py-16">
-          <h1 className="text-4xl font-bold text-apc-primary mb-8">Contact Us</h1>
+          <h1 className="text-4xl font-bold text-brand-primary mb-8">Contact Us</h1>
           <div className="grid md:grid-cols-2 gap-10">
             <div className="space-y-6">
               <div className="flex items-start space-x-4">
-                <MapPin className="h-6 w-6 text-apc-primary mt-1 shrink-0" />
+                <MapPin className="h-6 w-6 text-brand-primary mt-1 shrink-0" />
                 <div>
                   <h3 className="font-semibold text-gray-900">Campaign Office</h3>
                   <p className="text-gray-600">
@@ -79,14 +79,14 @@ export default function ContactPage() {
                 </div>
               </div>
               <div className="flex items-start space-x-4">
-                <Phone className="h-6 w-6 text-apc-primary mt-1 shrink-0" />
+                <Phone className="h-6 w-6 text-brand-primary mt-1 shrink-0" />
                 <div>
                   <h3 className="font-semibold text-gray-900">Phone</h3>
                   <p className="text-gray-600">+234 800 000 0000</p>
                 </div>
               </div>
               <div className="flex items-start space-x-4">
-                <Mail className="h-6 w-6 text-apc-primary mt-1 shrink-0" />
+                <Mail className="h-6 w-6 text-brand-primary mt-1 shrink-0" />
                 <div>
                   <h3 className="font-semibold text-gray-900">Email</h3>
                   <p className="text-gray-600">contact@ifeanyi4nkanu.ng</p>
@@ -108,14 +108,14 @@ export default function ContactPage() {
                   </p>
                   <button
                     onClick={() => setSubmitted(false)}
-                    className="inline-flex items-center justify-center rounded-lg bg-apc-primary px-6 py-2.5 text-sm font-semibold text-white hover:bg-apc-dark transition-colors"
+                    className="inline-flex items-center justify-center rounded-lg bg-brand-primary px-6 py-2.5 text-sm font-semibold text-white hover:bg-brand-primary transition-colors"
                   >
                     Send Another Message
                   </button>
                 </div>
               ) : (
                 <form onSubmit={handleSubmit} className="space-y-4">
-                  <h2 className="text-xl font-semibold text-apc-primary mb-2">
+                  <h2 className="text-xl font-semibold text-brand-primary mb-2">
                     Send a Message
                   </h2>
 
@@ -128,7 +128,7 @@ export default function ContactPage() {
                       required
                       value={form.name}
                       onChange={(e) => setForm({ ...form, name: e.target.value })}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-apc-primary focus:border-transparent"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-transparent"
                       placeholder="Your full name"
                     />
                   </div>
@@ -142,7 +142,7 @@ export default function ContactPage() {
                       required
                       value={form.email}
                       onChange={(e) => setForm({ ...form, email: e.target.value })}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-apc-primary focus:border-transparent"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-transparent"
                       placeholder="you@example.com"
                     />
                   </div>
@@ -155,7 +155,7 @@ export default function ContactPage() {
                       type="tel"
                       value={form.phone}
                       onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-apc-primary focus:border-transparent"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-transparent"
                       placeholder="08012345678"
                     />
                   </div>
@@ -169,7 +169,7 @@ export default function ContactPage() {
                       required
                       value={form.message}
                       onChange={(e) => setForm({ ...form, message: e.target.value })}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-apc-primary focus:border-transparent"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-transparent"
                       placeholder="How can we help you or how would you like to get involved?"
                     ></textarea>
                   </div>
@@ -177,7 +177,7 @@ export default function ContactPage() {
                   <button
                     type="submit"
                     disabled={submitting}
-                    className="flex items-center justify-center space-x-2 bg-apc-primary text-white px-6 py-3 rounded-lg font-semibold hover:bg-apc-dark transition-colors w-full disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="flex items-center justify-center space-x-2 bg-brand-primary text-white px-6 py-3 rounded-lg font-semibold hover:bg-brand-primary transition-colors w-full disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {submitting ? (
                       <>

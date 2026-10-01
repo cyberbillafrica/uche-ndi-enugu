@@ -76,14 +76,14 @@ export default function Footer() {
     <footer className="relative overflow-hidden bg-[#071b12] text-white">
       {/* Campaign accent */}
       <div className="flex h-1.5 w-full">
-        <div className="w-1/3 bg-[#008751]" />
+        <div className="w-1/3 bg-[var(--color-brand-primary)]" />
         <div className="w-1/3 bg-white" />
-        <div className="w-1/3 bg-[#008751]" />
+        <div className="w-1/3 bg-[var(--color-brand-primary)]" />
       </div>
 
       {/* Background glows */}
-      <div className="pointer-events-none absolute -left-40 top-20 h-80 w-80 rounded-full bg-[#008751]/10 blur-3xl" />
-      <div className="pointer-events-none absolute -right-40 bottom-0 h-96 w-96 rounded-full bg-[#008751]/5 blur-3xl" />
+      <div className="pointer-events-none absolute -left-40 top-20 h-80 w-80 rounded-full bg-[var(--color-brand-primary)]/10 blur-3xl" />
+      <div className="pointer-events-none absolute -right-40 bottom-0 h-96 w-96 rounded-full bg-[var(--color-brand-primary)]/5 blur-3xl" />
 
       <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         {/* Main Footer */}
@@ -103,7 +103,7 @@ export default function Footer() {
 
               <div>
                 <div className="flex items-center gap-1">
-                  <span className="text-xl font-extrabold tracking-tight text-[#008751] sm:text-2xl">
+                  <span className="text-xl font-extrabold tracking-tight text-[var(--color-brand-primary)] sm:text-2xl">
                     Uche
                   </span>
 
@@ -127,7 +127,7 @@ export default function Footer() {
             </div>
 
             {/* Campaign statement */}
-            <div className="mt-7 border-l-2 border-[#008751] pl-4">
+            <div className="mt-7 border-l-2 border-[var(--color-brand-primary)] pl-4">
               <p className="text-sm font-semibold leading-6 text-white/80">
                 Leadership. Service. Progress.
               </p>
@@ -157,7 +157,7 @@ export default function Footer() {
                     href={href}
                     className="group flex items-center gap-2 text-sm text-white/55 transition-colors hover:text-white"
                   >
-                    <span className="h-px w-0 bg-[#008751] transition-all duration-300 group-hover:w-4" />
+                    <span className="h-px w-0 bg-[var(--color-brand-primary)] transition-all duration-300 group-hover:w-4" />
 
                     {label}
 
@@ -186,7 +186,7 @@ export default function Footer() {
                     href={href}
                     className="group flex items-center gap-2 text-sm text-white/55 transition-colors hover:text-white"
                   >
-                    <span className="h-px w-0 bg-[#008751] transition-all duration-300 group-hover:w-4" />
+                    <span className="h-px w-0 bg-[var(--color-brand-primary)] transition-all duration-300 group-hover:w-4" />
 
                     {label}
 
@@ -205,8 +205,8 @@ export default function Footer() {
 
             <div className="space-y-3">
               {/* Office */}
-              <div className="flex items-start gap-3 rounded-xl border border-white/5 bg-white/[0.03] p-3.5 transition-colors hover:border-[#008751]/30 hover:bg-white/[0.05]">
-                <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#008751]/15 text-[#39b978]">
+              <div className="flex items-start gap-3 rounded-xl border border-white/5 bg-white/[0.03] p-3.5 transition-colors hover:border-[var(--color-brand-primary)]/30 hover:bg-white/[0.05]">
+                <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--color-brand-primary)]/15 text-[color-mix(in_srgb,var(--color-brand-primary)_65%,white)]">
                   <MapPin className="h-4 w-4" />
                 </div>
 
@@ -222,8 +222,8 @@ export default function Footer() {
               </div>
 
               {/* Phone */}
-              <div className="flex items-center gap-3 rounded-xl border border-white/5 bg-white/[0.03] p-3.5 transition-colors hover:border-[#008751]/30 hover:bg-white/[0.05]">
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#008751]/15 text-[#39b978]">
+              <div className="flex items-center gap-3 rounded-xl border border-white/5 bg-white/[0.03] p-3.5 transition-colors hover:border-[var(--color-brand-primary)]/30 hover:bg-white/[0.05]">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--color-brand-primary)]/15 text-[color-mix(in_srgb,var(--color-brand-primary)_65%,white)]">
                   <Phone className="h-4 w-4" />
                 </div>
 
@@ -239,8 +239,8 @@ export default function Footer() {
               </div>
 
               {/* Email */}
-              <div className="flex items-center gap-3 rounded-xl border border-white/5 bg-white/[0.03] p-3.5 transition-colors hover:border-[#008751]/30 hover:bg-white/[0.05]">
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#008751]/15 text-[#39b978]">
+              <div className="flex items-center gap-3 rounded-xl border border-white/5 bg-white/[0.03] p-3.5 transition-colors hover:border-[var(--color-brand-primary)]/30 hover:bg-white/[0.05]">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--color-brand-primary)]/15 text-[color-mix(in_srgb,var(--color-brand-primary)_65%,white)]">
                   <Mail className="h-4 w-4" />
                 </div>
 
@@ -261,7 +261,7 @@ export default function Footer() {
               <a
                 href="#"
                 aria-label="Facebook"
-                className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 text-white/45 transition-all hover:border-[#008751]/40 hover:bg-[#008751]/10 hover:text-white"
+                className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 text-white/45 transition-all hover:border-[var(--color-brand-primary)]/40 hover:bg-[var(--color-brand-primary)]/10 hover:text-white"
               >
                 <Facebook />
               </a>
@@ -269,7 +269,7 @@ export default function Footer() {
               <a
                 href="#"
                 aria-label="X / Twitter"
-                className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 text-white/45 transition-all hover:border-[#008751]/40 hover:bg-[#008751]/10 hover:text-white"
+                className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 text-white/45 transition-all hover:border-[var(--color-brand-primary)]/40 hover:bg-[var(--color-brand-primary)]/10 hover:text-white"
               >
                 <Twitter />
               </a>
@@ -277,7 +277,7 @@ export default function Footer() {
               <a
                 href="#"
                 aria-label="Instagram"
-                className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 text-white/45 transition-all hover:border-[#008751]/40 hover:bg-[#008751]/10 hover:text-white"
+                className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 text-white/45 transition-all hover:border-[var(--color-brand-primary)]/40 hover:bg-[var(--color-brand-primary)]/10 hover:text-white"
               >
                 <Instagram />
               </a>
@@ -285,7 +285,7 @@ export default function Footer() {
               <a
                 href="#"
                 aria-label="YouTube"
-                className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 text-white/45 transition-all hover:border-[#008751]/40 hover:bg-[#008751]/10 hover:text-white"
+                className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 text-white/45 transition-all hover:border-[var(--color-brand-primary)]/40 hover:bg-[var(--color-brand-primary)]/10 hover:text-white"
               >
                 <Youtube />
               </a>
@@ -294,9 +294,9 @@ export default function Footer() {
         </div>
 
         {/* CTA Banner */}
-        <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-r from-[#008751]/15 via-white/[0.03] to-[#008751]/10 px-5 py-6 sm:px-7">
-          <div className="absolute left-0 top-0 h-full w-1 bg-[#008751]" />
-          <div className="absolute right-0 top-0 h-full w-1 bg-[#008751]" />
+        <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-r from-[var(--color-brand-primary)]/15 via-white/[0.03] to-[var(--color-brand-primary)]/10 px-5 py-6 sm:px-7">
+          <div className="absolute left-0 top-0 h-full w-1 bg-[var(--color-brand-primary)]" />
+          <div className="absolute right-0 top-0 h-full w-1 bg-[var(--color-brand-primary)]" />
 
           <div className="flex flex-col items-center justify-between gap-4 text-center sm:flex-row sm:text-left">
             <div>
@@ -312,7 +312,7 @@ export default function Footer() {
 
             <Link
               href="/volunteer"
-              className="inline-flex items-center gap-2 rounded-full bg-[#008751] px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-[#008751]/20 transition-all hover:bg-[#007744] hover:shadow-[#008751]/30"
+              className="inline-flex items-center gap-2 rounded-full bg-[var(--color-brand-primary)] px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-[var(--color-brand-primary)]/20 transition-all hover:bg-[color-mix(in_srgb,var(--color-brand-primary)_88%,black)] hover:shadow-[var(--color-brand-primary)]/30"
             >
               Get Involved
               <ArrowUpRight className="h-4 w-4" />
@@ -331,13 +331,13 @@ export default function Footer() {
 
             <p className="flex items-center gap-1.5 text-xs text-white/40">
               Designed with
-              <Heart className="h-3.5 w-3.5 fill-[#d71920] text-[#d71920]" />
+              <Heart className="h-3.5 w-3.5 fill-[var(--color-brand-secondary)] text-[var(--color-brand-secondary)]" />
               by{" "}
               <a
                 href="https://cyberbillafrica.com"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="font-semibold text-[#39b978] transition-colors hover:text-white"
+                className="font-semibold text-[color-mix(in_srgb,var(--color-brand-primary)_65%,white)] transition-colors hover:text-white"
               >
                 CyberBill Africa
               </a>

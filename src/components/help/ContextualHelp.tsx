@@ -157,7 +157,7 @@ export default function ContextualHelp() {
       {/* Floating help button */}
       <button
         onClick={() => setOpen(true)}
-        className="fixed bottom-5 left-5 z-40 flex items-center gap-2 rounded-full bg-apc-primary p-3 text-xs font-bold text-white shadow-xl transition-transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-apc-primary/50"
+        className="fixed bottom-5 left-5 z-40 flex items-center gap-2 rounded-full bg-brand-primary p-3 text-xs font-bold text-white shadow-xl transition-transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-brand-primary/50"
         title="Portal Guidance & Help"
         aria-haspopup="dialog"
         aria-expanded={open}
@@ -184,7 +184,7 @@ export default function ContextualHelp() {
             {/* Header */}
             <div className="border-b border-gray-100 bg-white px-4 pb-3 pt-4 sm:px-6">
               <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2 text-apc-primary">
+                <div className="flex items-center gap-2 text-brand-primary">
                   <BookOpen className="h-5 w-5" aria-hidden="true" />
                   <h2 className="text-lg font-bold text-gray-900">
                     Portal Guidance
@@ -210,7 +210,7 @@ export default function ContextualHelp() {
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder="Search the guide… (e.g. result, permission, points)"
-                  className="w-full rounded-xl border border-gray-200 bg-gray-50 py-2 pl-9 pr-3 text-sm text-gray-900 placeholder:text-gray-400 focus:border-apc-primary/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-apc-primary/30"
+                  className="w-full rounded-xl border border-gray-200 bg-gray-50 py-2 pl-9 pr-3 text-sm text-gray-900 placeholder:text-gray-400 focus:border-brand-primary/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-primary/30"
                   aria-label="Search help articles"
                 />
               </div>
@@ -219,8 +219,8 @@ export default function ContextualHelp() {
             {/* Content */}
             <div className="flex-1 space-y-5 overflow-y-auto px-4 py-4 sm:px-6">
               {!searching && (
-                <div className="rounded-xl border border-apc-primary/20 bg-apc-primary/5 p-4">
-                  <p className="text-sm font-bold text-apc-dark">
+                <div className="rounded-xl border border-brand-primary/20 bg-brand-primary/5 p-4">
+                  <p className="text-sm font-bold text-brand-primary">
                     {intro.heading}
                   </p>
                   <p className="mt-1 text-sm text-gray-700">{intro.text}</p>
@@ -233,7 +233,7 @@ export default function ContextualHelp() {
                           key={id}
                           type="button"
                           onClick={() => toggleArticle(id)}
-                          className="rounded-full border border-apc-primary/30 bg-white px-3 py-1 text-xs font-semibold text-apc-primary transition-colors hover:bg-apc-primary/10"
+                          className="rounded-full border border-brand-primary/30 bg-white px-3 py-1 text-xs font-semibold text-brand-primary transition-colors hover:bg-brand-primary/10"
                           aria-expanded={!!expanded[id]}
                         >
                           {article.title}
@@ -294,7 +294,7 @@ export default function ContextualHelp() {
                           <button
                             type="button"
                             onClick={() => toggleArticle(article.id)}
-                            className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-apc-primary/40"
+                            className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-brand-primary/40"
                             aria-expanded={isOpen}
                             aria-controls={`help-article-${article.id}`}
                           >
@@ -315,7 +315,7 @@ export default function ContextualHelp() {
                                     ) : (
                                       <span
                                         key={r}
-                                        className="rounded-full bg-apc-primary/10 px-2 py-0.5 text-[10px] font-semibold text-apc-primary"
+                                        className="rounded-full bg-brand-primary/10 px-2 py-0.5 text-[10px] font-semibold text-brand-primary"
                                       >
                                         {ROLE_CHIP_LABEL[r]}
                                       </span>
@@ -391,7 +391,7 @@ function ArticleBody({
               key={link.href}
               href={link.href}
               onClick={onNavigate}
-              className="inline-flex items-center rounded-lg bg-apc-primary px-3 py-1.5 text-xs font-bold text-white transition-colors hover:bg-apc-dark focus:outline-none focus:ring-2 focus:ring-apc-primary/40"
+              className="inline-flex items-center rounded-lg bg-brand-primary px-3 py-1.5 text-xs font-bold text-white transition-colors hover:bg-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-primary/40"
             >
               {link.label}
             </Link>

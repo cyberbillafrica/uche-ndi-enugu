@@ -5,14 +5,34 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme {
-  --color-apc-green: #00843d;
-  --color-apc-red: #d92d20;
-  --color-apc-white: #ffffff;
+  /*
+   * Phase 23 — semantic design tokens over runtime theme variables.
+   * The public layout injects `--cc-*` from the tenant's PUBLISHED branding
+   * (presets: apc/pdp/ndc/custom; fallback defaults = the established APC
+   * palette). Public components consume ONLY semantic `--color-brand-*`
+   * utilities — never party-specific token names (gate §7).
+   *
+   * `--cc-*` are declared here as the fallback bundle so SSR/static markup,
+   * portal chrome and any surface that has not loaded published branding
+   * still render the established visual language (gate §15 fallback).
+   */
+  --cc-primary: #00843d;
+  --cc-secondary: #d92d20;
+  --cc-accent: #0d3b66;
+  --cc-surface: #ffffff;
+  --cc-background: #f9fafb;
+  --cc-text: #111827;
+  --cc-muted: #6b7280;
+  --cc-border: #e5e7eb;
 
-  --color-apc-navy: #0d3b66;
-  --color-apc-primary: #1b4f72;
-  --color-apc-secondary: #2e86c1;
-  --color-apc-light: #ebf5fb;
+  --color-brand-primary: var(--cc-primary);
+  --color-brand-secondary: var(--cc-secondary);
+  --color-brand-accent: var(--cc-accent);
+  --color-brand-surface: var(--cc-surface);
+  --color-brand-background: var(--cc-background);
+  --color-brand-text: var(--cc-text);
+  --color-brand-muted: var(--cc-muted);
+  --color-brand-border: var(--cc-border);
 }
 @layer components {
   .form-label {
@@ -21,7 +41,7 @@
 
   .form-input {
     @apply w-full px-4 py-3 rounded-lg border border-gray-300 bg-white
-      focus:outline-none focus:ring-2 focus:ring-apc-primary
+      focus:outline-none focus:ring-2 focus:ring-brand-primary
       focus:border-transparent transition;
   }
 }

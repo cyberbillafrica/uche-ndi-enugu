@@ -175,7 +175,7 @@ export default function ParticipantRequestDetailPage() {
   if (authLoading || (loading && guardDone && access?.isParticipant)) {
     return (
       <div className="flex min-h-[50vh] items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-apc-primary" />
+        <Loader2 className="h-8 w-8 animate-spin text-brand-primary" />
       </div>
     );
   }
@@ -204,7 +204,7 @@ export default function ParticipantRequestDetailPage() {
         <p className="mt-2 text-sm text-gray-600">{loadError}</p>
         <Link
           href="/portal/governance/requests"
-          className="mt-4 inline-block text-sm font-medium text-apc-primary hover:underline"
+          className="mt-4 inline-block text-sm font-medium text-brand-primary hover:underline"
         >
           ← Back to My Requests
         </Link>
@@ -224,7 +224,7 @@ export default function ParticipantRequestDetailPage() {
         </p>
         <Link
           href="/portal/governance/requests"
-          className="mt-4 inline-block text-sm font-medium text-apc-primary hover:underline"
+          className="mt-4 inline-block text-sm font-medium text-brand-primary hover:underline"
         >
           ← Back to My Requests
         </Link>
@@ -380,12 +380,12 @@ export default function ParticipantRequestDetailPage() {
                 onChange={(e) => setResponseBody(e.target.value)}
                 rows={3}
                 placeholder="Add more information for the team…"
-                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-apc-primary focus:outline-none"
+                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-brand-primary focus:outline-none"
               />
               <button
                 type="submit"
                 disabled={responding || !responseBody.trim()}
-                className="inline-flex items-center gap-2 rounded-lg border border-apc-primary px-4 py-2 text-sm font-semibold text-apc-primary hover:bg-apc-primary/5 disabled:cursor-not-allowed disabled:opacity-50"
+                className="inline-flex items-center gap-2 rounded-lg border border-brand-primary px-4 py-2 text-sm font-semibold text-brand-primary hover:bg-brand-primary/5 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {responding ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -438,13 +438,13 @@ export default function ParticipantRequestDetailPage() {
                     value={feedbackComment}
                     onChange={(e) => setFeedbackComment(e.target.value)}
                     rows={3}
-                    className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-apc-primary focus:outline-none"
+                    className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-brand-primary focus:outline-none"
                   />
                 </div>
                 <button
                   type="submit"
                   disabled={submittingFeedback || rating === 0}
-                  className="inline-flex items-center gap-2 rounded-lg bg-apc-primary px-4 py-2 text-sm font-semibold text-white hover:bg-apc-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="inline-flex items-center gap-2 rounded-lg bg-brand-primary px-4 py-2 text-sm font-semibold text-white hover:bg-brand-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {submittingFeedback ? (
                     <Loader2 className="h-4 w-4 animate-spin" />

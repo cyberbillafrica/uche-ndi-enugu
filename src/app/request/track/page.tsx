@@ -51,8 +51,8 @@ export default function PublicTrackPage() {
         <Header />
         <main className="max-w-2xl mx-auto px-4 py-16">
           <div className="flex items-center gap-3 mb-2">
-            <Search className="h-8 w-8 text-apc-primary" />
-            <h1 className="text-4xl font-bold text-apc-primary">
+            <Search className="h-8 w-8 text-brand-primary" />
+            <h1 className="text-4xl font-bold text-brand-primary">
               Track a Request
             </h1>
           </div>
@@ -75,7 +75,7 @@ export default function PublicTrackPage() {
                 placeholder="GR-2026-XXXXXXXX"
                 value={reference}
                 onChange={(e) => setReference(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-apc-primary"
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-brand-primary"
               />
             </div>
             <div>
@@ -87,7 +87,7 @@ export default function PublicTrackPage() {
                 required
                 value={secret}
                 onChange={(e) => setSecret(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-apc-primary"
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-brand-primary"
               />
             </div>
             {error && (
@@ -98,7 +98,7 @@ export default function PublicTrackPage() {
             <button
               type="submit"
               disabled={loading}
-              className="inline-flex items-center justify-center rounded-lg bg-apc-primary px-6 py-2.5 text-sm font-semibold text-white hover:bg-apc-dark transition-colors disabled:opacity-50"
+              className="inline-flex items-center justify-center rounded-lg bg-brand-primary px-6 py-2.5 text-sm font-semibold text-white hover:bg-brand-primary transition-colors disabled:opacity-50"
             >
               {loading ? (
                 <Loader2 className="h-4 w-4 animate-spin" />

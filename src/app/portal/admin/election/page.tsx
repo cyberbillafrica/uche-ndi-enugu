@@ -363,7 +363,7 @@ export default function AdminElectionManagementPage() {
   if (authLoading || loading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4">
-        <Loader2 className="w-10 h-10 text-apc-primary animate-spin" />
+        <Loader2 className="w-10 h-10 text-brand-primary animate-spin" />
         <p className="text-gray-600 font-medium">Loading Election Management Engine...</p>
       </div>
     );
@@ -391,7 +391,7 @@ export default function AdminElectionManagementPage() {
       {/* Header */}
       <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2 text-apc-primary font-semibold text-xs tracking-wide uppercase mb-1">
+          <div className="flex items-center gap-2 text-brand-primary font-semibold text-xs tracking-wide uppercase mb-1">
             <Shield className="w-4 h-4" />
             <span>ADMIN ELECTION ENGINE MANAGEMENT</span>
           </div>
@@ -405,9 +405,9 @@ export default function AdminElectionManagementPage() {
         </div>
 
         <div className="flex flex-col sm:flex-row gap-3">
-          <div className="bg-apc-light border border-apc-primary/30 p-3 rounded-xl text-xs space-y-1">
+          <div className="bg-brand-surface border border-brand-primary/30 p-3 rounded-xl text-xs space-y-1">
             <span className="text-gray-500 font-medium block">Active Collation Contest:</span>
-            <span className="font-bold text-apc-primary text-sm block">
+            <span className="font-bold text-brand-primary text-sm block">
               {contests.find((c) => c.id === settings?.active_contest_id)?.name ||
                 settings?.active_contest_id ||
                 "Not Selected"}
@@ -419,12 +419,12 @@ export default function AdminElectionManagementPage() {
       {/* Cycle Selector Bar */}
       <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <Layers className="w-5 h-5 text-apc-primary" />
+          <Layers className="w-5 h-5 text-brand-primary" />
           <span className="text-sm font-bold text-gray-800">Selected Election Cycle:</span>
           <select
             value={selectedCycleId}
             onChange={(e) => setSelectedCycleId(e.target.value)}
-            className="px-3 py-2 border rounded-lg text-sm font-semibold text-gray-900 bg-gray-50 focus:ring-2 focus:ring-apc-primary"
+            className="px-3 py-2 border rounded-lg text-sm font-semibold text-gray-900 bg-gray-50 focus:ring-2 focus:ring-brand-primary"
           >
             {cycles.map((cy) => (
               <option key={cy.id} value={cy.id}>
@@ -470,7 +470,7 @@ export default function AdminElectionManagementPage() {
               onClick={() => setActiveTab(tab.id)}
               className={`flex items-center gap-2 py-3 px-1 border-b-2 text-sm font-bold transition-colors ${
                 isActive
-                  ? "border-apc-primary text-apc-primary"
+                  ? "border-brand-primary text-brand-primary"
                   : "border-transparent text-gray-500 hover:text-gray-800"
               }`}
             >
@@ -502,7 +502,7 @@ export default function AdminElectionManagementPage() {
                 });
                 setShowContestModal(true);
               }}
-              className="px-4 py-2 bg-apc-primary text-white text-xs font-bold rounded-lg hover:bg-apc-dark flex items-center gap-2"
+              className="px-4 py-2 bg-brand-primary text-white text-xs font-bold rounded-lg hover:bg-brand-primary flex items-center gap-2"
             >
               <Plus className="w-4 h-4" /> Add New Contest
             </button>
@@ -516,7 +516,7 @@ export default function AdminElectionManagementPage() {
                   key={c.id}
                   className={`bg-white rounded-xl border p-5 space-y-4 relative ${
                     isActiveCollation
-                      ? "border-2 border-apc-primary shadow-md bg-apc-light/20"
+                      ? "border-2 border-brand-primary shadow-md bg-brand-surface/20"
                       : "border-gray-200"
                   }`}
                 >
@@ -534,14 +534,14 @@ export default function AdminElectionManagementPage() {
 
                     <div className="flex flex-col items-end gap-1">
                       {isActiveCollation ? (
-                        <span className="px-2.5 py-1 text-xs font-bold rounded-full bg-apc-primary text-white flex items-center gap-1">
+                        <span className="px-2.5 py-1 text-xs font-bold rounded-full bg-brand-primary text-white flex items-center gap-1">
                           <CheckCircle2 className="w-3.5 h-3.5" /> ACTIVE COLLATION
                         </span>
                       ) : (
                         <button
                           onClick={() => handleSetActiveContest(c.id)}
                           disabled={submitting}
-                          className="px-2.5 py-1 text-xs font-bold text-apc-primary border border-apc-primary/40 hover:bg-apc-primary hover:text-white rounded-full transition-colors"
+                          className="px-2.5 py-1 text-xs font-bold text-brand-primary border border-brand-primary/40 hover:bg-brand-primary hover:text-white rounded-full transition-colors"
                         >
                           Set as Active Contest
                         </button>
@@ -661,7 +661,7 @@ export default function AdminElectionManagementPage() {
 
             <button
               onClick={() => setShowCandidateModal(true)}
-              className="px-4 py-2 bg-apc-primary text-white text-xs font-bold rounded-lg hover:bg-apc-dark flex items-center gap-2"
+              className="px-4 py-2 bg-brand-primary text-white text-xs font-bold rounded-lg hover:bg-brand-primary flex items-center gap-2"
             >
               <Plus className="w-4 h-4" /> Add Candidate for Contest
             </button>
@@ -795,7 +795,7 @@ export default function AdminElectionManagementPage() {
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="px-4 py-2 text-xs font-bold bg-apc-primary text-white rounded-lg hover:bg-apc-dark"
+                  className="px-4 py-2 text-xs font-bold bg-brand-primary text-white rounded-lg hover:bg-brand-primary"
                 >
                   Save Cycle
                 </button>
@@ -921,7 +921,7 @@ export default function AdminElectionManagementPage() {
                                   : contestForm.scope_lgas.filter((x) => x !== l.id),
                               })
                             }
-                            className="rounded text-apc-primary"
+                            className="rounded text-brand-primary"
                           />
                           <span>{l.name}</span>
                         </label>
@@ -954,7 +954,7 @@ export default function AdminElectionManagementPage() {
                                 : contestForm.tracked_parties.filter((x) => x !== p.acronym),
                             })
                           }
-                          className="rounded text-apc-primary"
+                          className="rounded text-brand-primary"
                         />
                         <span>{p.acronym}</span>
                       </label>
@@ -974,7 +974,7 @@ export default function AdminElectionManagementPage() {
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="px-4 py-2 text-xs font-bold bg-apc-primary text-white rounded-lg hover:bg-apc-dark"
+                  className="px-4 py-2 text-xs font-bold bg-brand-primary text-white rounded-lg hover:bg-brand-primary"
                 >
                   Save Contest
                 </button>
@@ -1049,7 +1049,7 @@ export default function AdminElectionManagementPage() {
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="px-4 py-2 text-xs font-bold bg-apc-primary text-white rounded-lg hover:bg-apc-dark"
+                  className="px-4 py-2 text-xs font-bold bg-brand-primary text-white rounded-lg hover:bg-brand-primary"
                 >
                   Save Candidate
                 </button>

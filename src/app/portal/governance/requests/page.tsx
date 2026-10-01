@@ -95,7 +95,7 @@ export default function MyRequestsPage() {
   if (authLoading || (loading && guardDone && access?.isParticipant)) {
     return (
       <div className="flex min-h-[50vh] items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-apc-primary" />
+        <Loader2 className="h-8 w-8 animate-spin text-brand-primary" />
       </div>
     );
   }
@@ -125,7 +125,7 @@ export default function MyRequestsPage() {
         </div>
         <Link
           href="/portal/governance/requests/new"
-          className="inline-flex items-center gap-2 rounded-lg bg-apc-primary px-4 py-2 text-sm font-semibold text-white hover:bg-apc-primary/90"
+          className="inline-flex items-center gap-2 rounded-lg bg-brand-primary px-4 py-2 text-sm font-semibold text-white hover:bg-brand-primary/90"
         >
           <Flag className="h-4 w-4" />
           Submit a Request
@@ -143,7 +143,7 @@ export default function MyRequestsPage() {
               </p>
               <Link
                 href="/portal/governance/requests/new"
-                className="mt-3 inline-block text-sm font-medium text-apc-primary hover:underline"
+                className="mt-3 inline-block text-sm font-medium text-brand-primary hover:underline"
               >
                 Submit your first request →
               </Link>

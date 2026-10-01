@@ -298,7 +298,7 @@ export default function AdminNewsCMSPage() {
   if (authLoading) {
     return (
       <div className="flex min-h-[50vh] items-center justify-center gap-2 text-gray-500">
-        <Loader2 className="h-5 w-5 animate-spin text-apc-primary" />
+        <Loader2 className="h-5 w-5 animate-spin text-brand-primary" />
         Authenticating...
       </div>
     );
@@ -372,7 +372,7 @@ export default function AdminNewsCMSPage() {
         <button
           type="button"
           onClick={openCreateModal}
-          className="inline-flex items-center justify-center gap-2 rounded-lg bg-apc-primary px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-apc-dark shadow-sm"
+          className="inline-flex items-center justify-center gap-2 rounded-lg bg-brand-primary px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-primary shadow-sm"
         >
           <Plus className="h-4 w-4" />
           <span>New Article</span>
@@ -394,7 +394,7 @@ export default function AdminNewsCMSPage() {
                   onClick={() => setActiveTab(tab)}
                   className={`flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold capitalize transition-all ${
                     activeTab === tab
-                      ? "bg-white text-apc-primary shadow-sm"
+                      ? "bg-white text-brand-primary shadow-sm"
                       : "text-gray-600 hover:text-gray-900"
                   }`}
                 >
@@ -402,7 +402,7 @@ export default function AdminNewsCMSPage() {
                   <span
                     className={`rounded-full px-1.5 py-0.5 text-[10px] ${
                       activeTab === tab
-                        ? "bg-apc-primary/10 text-apc-primary"
+                        ? "bg-brand-primary/10 text-brand-primary"
                         : "bg-gray-200 text-gray-700"
                     }`}
                   >
@@ -420,7 +420,7 @@ export default function AdminNewsCMSPage() {
                 placeholder="Search articles..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full rounded-lg border border-gray-200 pl-9 pr-4 py-2 text-sm focus:border-apc-primary focus:outline-none focus:ring-1 focus:ring-apc-primary"
+                className="w-full rounded-lg border border-gray-200 pl-9 pr-4 py-2 text-sm focus:border-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary"
               />
               {searchQuery && (
                 <button
@@ -437,7 +437,7 @@ export default function AdminNewsCMSPage() {
           {/* Table / List */}
           {loading ? (
             <div className="flex min-h-[200px] items-center justify-center gap-2 text-gray-500">
-              <Loader2 className="h-6 w-6 animate-spin text-apc-primary" />
+              <Loader2 className="h-6 w-6 animate-spin text-brand-primary" />
               <span>Loading news management console...</span>
             </div>
           ) : filteredArticles.length === 0 ? (
@@ -495,7 +495,7 @@ export default function AdminNewsCMSPage() {
                             type="button"
                             onClick={() => setPreviewArticle(article)}
                             title="Preview Article"
-                            className="rounded p-1.5 text-gray-500 hover:bg-gray-100 hover:text-apc-primary transition-colors"
+                            className="rounded p-1.5 text-gray-500 hover:bg-gray-100 hover:text-brand-primary transition-colors"
                           >
                             <Eye className="h-4 w-4" />
                           </button>
@@ -604,7 +604,7 @@ export default function AdminNewsCMSPage() {
                     value={formTitle}
                     onChange={(e) => handleTitleChange(e.target.value)}
                     placeholder="e.g. Campaign Flag-off in Agbani"
-                    className="w-full rounded-lg border border-gray-300 px-3.5 py-2 text-sm focus:border-apc-primary focus:outline-none focus:ring-1 focus:ring-apc-primary"
+                    className="w-full rounded-lg border border-gray-300 px-3.5 py-2 text-sm focus:border-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary"
                   />
                 </div>
 
@@ -640,7 +640,7 @@ export default function AdminNewsCMSPage() {
                   value={formExcerpt}
                   onChange={(e) => setFormExcerpt(e.target.value)}
                   placeholder="Short summary displayed on news listings..."
-                  className="w-full rounded-lg border border-gray-300 px-3.5 py-2 text-sm focus:border-apc-primary focus:outline-none focus:ring-1 focus:ring-apc-primary"
+                  className="w-full rounded-lg border border-gray-300 px-3.5 py-2 text-sm focus:border-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary"
                 />
               </div>
 
@@ -655,7 +655,7 @@ export default function AdminNewsCMSPage() {
                   value={formContent}
                   onChange={(e) => setFormContent(e.target.value)}
                   placeholder="Write full article content here..."
-                  className="w-full rounded-lg border border-gray-300 px-3.5 py-2 text-sm font-sans focus:border-apc-primary focus:outline-none focus:ring-1 focus:ring-apc-primary"
+                  className="w-full rounded-lg border border-gray-300 px-3.5 py-2 text-sm font-sans focus:border-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary"
                 />
               </div>
 
@@ -670,7 +670,7 @@ export default function AdminNewsCMSPage() {
                     value={formCategory}
                     onChange={(e) => setFormCategory(e.target.value)}
                     placeholder="e.g. Rally, Statement, Press Release"
-                    className="w-full rounded-lg border border-gray-300 px-3.5 py-2 text-sm focus:border-apc-primary focus:outline-none focus:ring-1 focus:ring-apc-primary"
+                    className="w-full rounded-lg border border-gray-300 px-3.5 py-2 text-sm focus:border-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary"
                   />
                 </div>
 
@@ -683,7 +683,7 @@ export default function AdminNewsCMSPage() {
                     value={formAuthor}
                     onChange={(e) => setFormAuthor(e.target.value)}
                     placeholder="e.g. Campaign Media Office"
-                    className="w-full rounded-lg border border-gray-300 px-3.5 py-2 text-sm focus:border-apc-primary focus:outline-none focus:ring-1 focus:ring-apc-primary"
+                    className="w-full rounded-lg border border-gray-300 px-3.5 py-2 text-sm focus:border-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary"
                   />
                 </div>
 
@@ -696,7 +696,7 @@ export default function AdminNewsCMSPage() {
                     onChange={(e) =>
                       setFormStatus(e.target.value as NewsStatus)
                     }
-                    className="w-full rounded-lg border border-gray-300 px-3.5 py-2 text-sm focus:border-apc-primary focus:outline-none focus:ring-1 focus:ring-apc-primary"
+                    className="w-full rounded-lg border border-gray-300 px-3.5 py-2 text-sm focus:border-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary"
                   >
                     <option value="draft">Draft (Private)</option>
                     <option value="published">Published (Public)</option>
@@ -716,7 +716,7 @@ export default function AdminNewsCMSPage() {
                     type="datetime-local"
                     value={formScheduledAt}
                     onChange={(e) => setFormScheduledAt(e.target.value)}
-                    className="w-full rounded-lg border border-gray-300 px-3.5 py-2 text-sm focus:border-apc-primary focus:outline-none focus:ring-1 focus:ring-apc-primary"
+                    className="w-full rounded-lg border border-gray-300 px-3.5 py-2 text-sm focus:border-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary"
                   />
                 </div>
               )}
@@ -734,7 +734,7 @@ export default function AdminNewsCMSPage() {
                       value={formFeaturedImage}
                       onChange={(e) => setFormFeaturedImage(e.target.value)}
                       placeholder="https://example.com/image.jpg"
-                      className="w-full rounded-lg border border-gray-300 px-3.5 py-2 text-sm focus:border-apc-primary focus:outline-none focus:ring-1 focus:ring-apc-primary"
+                      className="w-full rounded-lg border border-gray-300 px-3.5 py-2 text-sm focus:border-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary"
                     />
                     <label className="cursor-pointer inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-100 transition-colors shrink-0">
                       <Upload className="h-4 w-4" />
@@ -817,7 +817,7 @@ export default function AdminNewsCMSPage() {
                 <button
                   type="submit"
                   disabled={saving}
-                  className="inline-flex items-center gap-2 rounded-lg bg-apc-primary px-5 py-2 text-sm font-semibold text-white hover:bg-apc-dark disabled:opacity-50"
+                  className="inline-flex items-center gap-2 rounded-lg bg-brand-primary px-5 py-2 text-sm font-semibold text-white hover:bg-brand-primary disabled:opacity-50"
                 >
                   {saving && <Loader2 className="h-4 w-4 animate-spin" />}
                   <span>
@@ -852,7 +852,7 @@ export default function AdminNewsCMSPage() {
 
             <div className="p-6 sm:p-8 overflow-y-auto space-y-6">
               {previewArticle.category && (
-                <div className="inline-flex items-center gap-1.5 rounded-full bg-apc-primary/10 px-3 py-1 text-xs font-semibold text-apc-primary">
+                <div className="inline-flex items-center gap-1.5 rounded-full bg-brand-primary/10 px-3 py-1 text-xs font-semibold text-brand-primary">
                   <Tag className="h-3.5 w-3.5" />
                   {previewArticle.category}
                 </div>
@@ -864,14 +864,14 @@ export default function AdminNewsCMSPage() {
 
               <div className="flex items-center gap-4 text-xs text-gray-500 border-b pb-4">
                 <span className="flex items-center gap-1">
-                  <Calendar className="h-3.5 w-3.5 text-apc-primary" />
+                  <Calendar className="h-3.5 w-3.5 text-brand-primary" />
                   {formatDate(
                     previewArticle.published_at || previewArticle.created_at,
                   )}
                 </span>
                 {previewArticle.author && (
                   <span className="flex items-center gap-1">
-                    <User className="h-3.5 w-3.5 text-apc-primary" />
+                    <User className="h-3.5 w-3.5 text-brand-primary" />
                     {previewArticle.author}
                   </span>
                 )}
@@ -890,7 +890,7 @@ export default function AdminNewsCMSPage() {
               )}
 
               {previewArticle.excerpt && (
-                <p className="text-base font-medium text-gray-700 italic border-l-4 border-apc-primary pl-4 py-1 bg-gray-50">
+                <p className="text-base font-medium text-gray-700 italic border-l-4 border-brand-primary pl-4 py-1 bg-gray-50">
                   {previewArticle.excerpt}
                 </p>
               )}

@@ -36,7 +36,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-apc-light flex flex-col">
+    <div className="min-h-screen bg-brand-surface flex flex-col">
       <Header />
 
       <main className="flex-1 flex items-center justify-center px-4 py-12">
@@ -44,11 +44,11 @@ export default function LoginPage() {
           <div className="bg-white rounded-2xl shadow-lg p-8">
             {/* Header */}
             <div className="text-center mb-8">
-              <div className="mx-auto mb-4 w-14 h-14 rounded-full bg-apc-primary flex items-center justify-center">
+              <div className="mx-auto mb-4 w-14 h-14 rounded-full bg-brand-primary flex items-center justify-center">
                 <LogIn className="w-7 h-7 text-white" />
               </div>
 
-              <h1 className="text-3xl font-bold text-apc-primary">
+              <h1 className="text-3xl font-bold text-brand-primary">
                 Sign In
               </h1>
 
@@ -77,7 +77,7 @@ export default function LoginPage() {
                   autoComplete="email"
                   className="w-full px-4 py-3 rounded-lg border border-gray-300
                              focus:outline-none focus:ring-2
-                             focus:ring-apc-primary focus:border-transparent"
+                             focus:ring-brand-primary focus:border-transparent"
                   required
                 />
               </div>
@@ -101,7 +101,7 @@ export default function LoginPage() {
                     autoComplete="current-password"
                     className="w-full px-4 py-3 pr-12 rounded-lg border border-gray-300
                                focus:outline-none focus:ring-2
-                               focus:ring-apc-primary focus:border-transparent"
+                               focus:ring-brand-primary focus:border-transparent"
                     required
                   />
 
@@ -113,9 +113,9 @@ export default function LoginPage() {
                     }
                     title={showPassword ? "Hide password" : "Show password"}
                     className="absolute right-3 top-1/2 -translate-y-1/2
-                               text-gray-500 hover:text-apc-primary
+                               text-gray-500 hover:text-brand-primary
                                focus:outline-none focus:ring-2
-                               focus:ring-apc-primary rounded-md p-1
+                               focus:ring-brand-primary rounded-md p-1
                                transition-colors"
                   >
                     {showPassword ? (
@@ -131,8 +131,8 @@ export default function LoginPage() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-apc-primary text-white py-3 rounded-lg
-                           font-semibold hover:bg-apc-dark transition-colors
+                className="w-full bg-brand-primary text-white py-3 rounded-lg
+                           font-semibold hover:bg-brand-primary transition-colors
                            disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {loading ? "Signing in..." : "Sign In"}
@@ -144,7 +144,7 @@ export default function LoginPage() {
               Don't have an account?{" "}
               <Link
                 href="/volunteer"
-                className="font-semibold text-apc-primary hover:underline"
+                className="font-semibold text-brand-primary hover:underline"
               >
                 Register as a volunteer
               </Link>

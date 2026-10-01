@@ -17,6 +17,7 @@
 INSERT INTO politicore.political_parties (acronym, name, color, inec_registered, is_active) VALUES
   ('APC',  'All Progressives Congress',        '#1B4F72', true, true),
   ('PDP',  'Peoples Democratic Party',         '#27AE60', true, true),
+  ('NDC',  'National Democratic Congress',     '#008000', true, true),
   ('LP',   'Labour Party',                     '#D35400', true, true),
   ('APGA', 'All Progressives Grand Alliance',  '#8E44AD', true, true),
   ('NNPP', 'New Nigeria Peoples Party',        '#C0392B', true, true),
@@ -26,7 +27,7 @@ INSERT INTO politicore.political_parties (acronym, name, color, inec_registered,
   ('AA',   'Action Alliance',                  '#7F8C8D', true, true),
   ('AAC',  'African Action Congress',          '#E67E22', true, true),
   ('ADP',  'Action Democratic Party',          '#34495E', true, true),
-  ('APM',  'All Allied Peoples Movement',      '#16A085', true, true),
+  ('APM',  'Allied Peoples Movement',          '#16A085', true, true),
   ('APP',  'Action Peoples Party',             '#9B59B6', true, true),
   ('BP',   'Boot Party',                       '#95A5A6', true, true),
   ('NRM',  'National Rescue Movement',         '#D35400', true, true),
@@ -39,10 +40,10 @@ ON CONFLICT (acronym) DO UPDATE SET
   is_active       = EXCLUDED.is_active,
   updated_at      = now();
 
--- Sanity: the platform party set must be complete (17 from the seed source)
+-- Sanity check updated for 18 parties
 DO $$
 BEGIN
-  IF (SELECT count(*) FROM politicore.political_parties) < 17 THEN
+  IF (SELECT count(*) FROM politicore.political_parties) < 18 THEN
     RAISE EXCEPTION 'political party seed incomplete';
   END IF;
 END $$;

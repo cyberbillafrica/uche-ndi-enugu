@@ -314,7 +314,7 @@ export default function TasksPage() {
                             href={sub.proof_url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-apc-primary hover:underline"
+                            className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-brand-primary hover:underline"
                           >
                             View submitted proof
                             <ExternalLink className="h-3 w-3" />
@@ -391,7 +391,7 @@ export default function TasksPage() {
                       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                         <div className="min-w-0">
                           <div className="flex flex-wrap items-center gap-2">
-                            <span className="rounded-full bg-apc-light px-3 py-1 text-xs font-semibold text-apc-primary capitalize">
+                            <span className="rounded-full bg-brand-surface px-3 py-1 text-xs font-semibold text-brand-primary capitalize">
                               {task.platform === "x" ? "X" : task.platform}
                             </span>
 
@@ -427,7 +427,7 @@ export default function TasksPage() {
                               href={task.target_url}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="inline-flex items-center gap-2 rounded-lg border border-apc-primary px-3 py-2 text-sm font-medium text-apc-primary transition-colors hover:bg-apc-light"
+                              className="inline-flex items-center gap-2 rounded-lg border border-brand-primary px-3 py-2 text-sm font-medium text-brand-primary transition-colors hover:bg-brand-surface"
                             >
                               Open Post
                               <ExternalLink className="h-4 w-4" />
@@ -484,7 +484,7 @@ export default function TasksPage() {
                                   href={existingSubmission.proof_url}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="inline-flex items-center gap-1 text-sm font-medium text-apc-primary hover:underline"
+                                  className="inline-flex items-center gap-1 text-sm font-medium text-brand-primary hover:underline"
                                 >
                                   View submitted proof
                                   <ExternalLink className="h-3 w-3" />
@@ -495,7 +495,7 @@ export default function TasksPage() {
                                 <button
                                   type="button"
                                   onClick={() => handleOpenResubmit(task)}
-                                  className="inline-flex items-center gap-2 rounded-lg border border-apc-primary px-3 py-2 text-sm font-medium text-apc-primary transition-colors hover:bg-apc-light"
+                                  className="inline-flex items-center gap-2 rounded-lg border border-brand-primary px-3 py-2 text-sm font-medium text-brand-primary transition-colors hover:bg-brand-surface"
                                 >
                                   Update proof
                                 </button>
@@ -551,7 +551,7 @@ export default function TasksPage() {
                               type="button"
                               onClick={() => handleSubmitCompletion(task)}
                               disabled={isSubmitting}
-                              className="inline-flex items-center gap-2 rounded-lg bg-apc-green px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
+                              className="inline-flex items-center gap-2 rounded-lg bg-brand-primary px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
                             >
                               {isSubmitting ? (
                                 <Loader2 className="h-4 w-4 animate-spin" />

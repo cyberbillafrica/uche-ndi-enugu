@@ -170,7 +170,7 @@ export default function AdminGalleryPage() {
   if (authLoading || loading) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
-        <Loader2 className="h-8 w-8 animate-spin text-apc-primary" />
+        <Loader2 className="h-8 w-8 animate-spin text-brand-primary" />
         <span className="ml-3 text-gray-500">Loading gallery...</span>
       </div>
     );
@@ -191,7 +191,7 @@ export default function AdminGalleryPage() {
           </p>
         </div>
         <div>
-          <label className="cursor-pointer inline-flex items-center gap-2 rounded-lg bg-apc-primary px-4 py-2.5 text-sm font-semibold text-white hover:bg-apc-dark transition-colors disabled:opacity-50">
+          <label className="cursor-pointer inline-flex items-center gap-2 rounded-lg bg-brand-primary px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-primary transition-colors disabled:opacity-50">
             <Upload className="h-4 w-4" />
             {uploading ? "Uploading..." : "Upload Image"}
             <input
@@ -258,7 +258,7 @@ export default function AdminGalleryPage() {
             <button
               type="button"
               onClick={handleSaveImageDetails}
-              className="rounded-lg bg-apc-primary px-4 py-2 text-sm font-semibold text-white hover:bg-apc-dark disabled:opacity-50"
+              className="rounded-lg bg-brand-primary px-4 py-2 text-sm font-semibold text-white hover:bg-brand-primary disabled:opacity-50"
               disabled={saving}
             >
               {saving ? "Saving..." : "Save image"}

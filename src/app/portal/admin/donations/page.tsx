@@ -274,7 +274,7 @@ export default function AdminDonationsPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
-        <Loader2 className="h-8 w-8 animate-spin text-apc-primary" />
+        <Loader2 className="h-8 w-8 animate-spin text-brand-primary" />
         <span className="ml-3 text-gray-500">Loading donation ledger...</span>
       </div>
     );
@@ -285,7 +285,7 @@ export default function AdminDonationsPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-apc-primary mb-1">
+          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-brand-primary mb-1">
             <Banknote className="h-4 w-4" />
             <span>Candidate Contribution Ledger</span>
           </div>
@@ -302,7 +302,7 @@ export default function AdminDonationsPage() {
 
         <button
           onClick={handleOpenCreate}
-          className="inline-flex items-center gap-2 bg-apc-primary text-white px-4 py-2.5 rounded-xl font-bold text-sm hover:bg-apc-dark transition-colors shadow-sm"
+          className="inline-flex items-center gap-2 bg-brand-primary text-white px-4 py-2.5 rounded-xl font-bold text-sm hover:bg-brand-primary transition-colors shadow-sm"
         >
           <Plus className="h-4 w-4" />
           <span>Record Contribution</span>
@@ -344,7 +344,7 @@ export default function AdminDonationsPage() {
                   Avg: ₦{Math.round(analytics.avgContribution).toLocaleString()} / donor
                 </p>
               </div>
-              <Users className="h-8 w-8 text-apc-primary shrink-0" />
+              <Users className="h-8 w-8 text-brand-primary shrink-0" />
             </div>
           </CardContent>
         </Card>
@@ -513,7 +513,7 @@ export default function AdminDonationsPage() {
                           <button
                             onClick={() => handleOpenAuditModal(d)}
                             title="View audit trail"
-                            className="p-1.5 text-gray-400 hover:text-apc-primary rounded"
+                            className="p-1.5 text-gray-400 hover:text-brand-primary rounded"
                           >
                             <History className="h-4 w-4" />
                           </button>
@@ -676,7 +676,7 @@ export default function AdminDonationsPage() {
                 <button
                   type="submit"
                   disabled={saving}
-                  className="px-5 py-2 bg-apc-primary text-white font-bold rounded-lg hover:bg-apc-dark disabled:opacity-50"
+                  className="px-5 py-2 bg-brand-primary text-white font-bold rounded-lg hover:bg-brand-primary disabled:opacity-50"
                 >
                   {saving ? "Saving..." : "Save Record"}
                 </button>
@@ -713,7 +713,7 @@ export default function AdminDonationsPage() {
                 auditLogs.map((log) => (
                   <div key={log.id} className="p-3 border rounded-xl bg-gray-50 text-xs space-y-1">
                     <div className="flex items-center justify-between">
-                      <span className="font-bold uppercase text-apc-primary">{log.action}</span>
+                      <span className="font-bold uppercase text-brand-primary">{log.action}</span>
                       <span className="text-[10px] text-gray-400">
                         {log.occurred_at
                           ? new Date(log.occurred_at).toLocaleString("en-US")
