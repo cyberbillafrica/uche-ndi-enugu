@@ -398,6 +398,16 @@ const SIGNATURES: Record<string, string> = {
            AND position('cc_validate_homepage' in pg_get_functiondef(to_regproc('politicore.publish_site_config'))) > 0
            AND (SELECT provolatile = 'v' FROM pg_proc WHERE oid = to_regproc('public.rollback_site_config'))`,
 
+  "0063": `to_regproc('politicore.cc_validate_navigation') IS NOT NULL
+           AND to_regproc('politicore.cc_validate_footer') IS NOT NULL
+           AND position('cc_validate_navigation' in pg_get_functiondef(to_regproc('politicore.save_site_config_draft'))) > 0
+           AND position('cc_validate_footer' in pg_get_functiondef(to_regproc('politicore.publish_site_config'))) > 0
+           AND position(''navigation'' in coalesce(pg_get_functiondef(to_regproc('politicore.rollback_site_config')), '')) > 0
+           AND position('navigation' in coalesce(pg_get_functiondef(to_regproc('public.get_public_site_chrome')), '')) > 0`,
+
+  "0064": `to_regproc('politicore.control_center_site_config_status') IS NOT NULL
+           AND position('is_tenant_admin' in pg_get_functiondef(to_regproc('politicore.control_center_site_config_status'))) > 0`,  // 0064 — Control Center administration status summary
+
   "0060": `to_regproc('politicore.set_tenant_module_enabled') IS NOT NULL
 
            AND to_regproc('politicore.control_center_overview') IS NOT NULL

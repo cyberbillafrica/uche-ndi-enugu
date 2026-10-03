@@ -12,6 +12,16 @@
  */
 import { getSupabaseClient } from "./config";
 import type { BrandingConfig } from "@/lib/branding/presets";
+import type {
+  FooterConfig as ChromeFooterConfig,
+  NavigationConfig as ChromeNavigationConfig,
+} from "@/lib/chrome/types";
+import {
+  DEFAULT_FOOTER_CONFIG,
+  DEFAULT_NAVIGATION_CONFIG,
+  isValidFooterConfig,
+  isValidNavigationConfig,
+} from "@/lib/chrome/types";
 
 /**
  * Public site slug (established tenant-resolution seam, gate §J/§21) —
@@ -25,6 +35,12 @@ export function siteSlug(): string {
 export interface PublicSiteChrome {
   branding: BrandingConfig;
   seo: SeoConfig;
+  /** Phase 25 — eligible published navigation (server-side filtered) + header presentation. */
+  navigation: ChromeNavigationConfig;
+  footer: ChromeFooterConfig;
+  /** Canonical contact / social payloads the footer binds (never duplicated). */
+  contact: Record<string, unknown>;
+  social_links: Record<string, unknown>;
 }
 
 export async function getPublicSiteChrome(
@@ -36,9 +52,22 @@ export async function getPublicSiteChrome(
   });
   if (error) throw new Error(error.message);
   const row = (data ?? {}) as Record<string, unknown>;
+  // §17/§20: malformed published chrome fails safe to the parity defaults —
+  // never a broken public shell. (The SQL projection already suppresses
+  // disabled/module-dependent items; validity is re-checked here because the
+  // renderer must never trust stored JSONB shape.)
+  const navRaw = row.navigation as Record<string, unknown> | undefined;
+  const footRaw = row.footer as Record<string, unknown> | undefined;
   return {
     branding: (row.branding ?? {}) as BrandingConfig,
     seo: (row.seo ?? {}) as SeoConfig,
+    navigation:
+      navRaw && isValidNavigationConfig(navRaw)
+        ? navRaw
+        : DEFAULT_NAVIGATION_CONFIG,
+    footer: footRaw && isValidFooterConfig(footRaw) ? footRaw : DEFAULT_FOOTER_CONFIG,
+    contact: (row.contact ?? {}) as Record<string, unknown>,
+    social_links: (row.social_links ?? {}) as Record<string, unknown>,
   };
 }
 
@@ -82,7 +111,7 @@ export interface SeoConfig {
 
 /** Admin preview read: the tenant's own draft (preview requires authority). */
 export async function getSiteConfigPreview(
-  area: "branding" | "seo" | "homepage"
+  area: "branding" | "seo" | "homepage" | "navigation" | "footer"
 ): Promise<Record<string, unknown> | null> {
   const supabase = getSupabaseClient();
   const { data, error } = await supabase.rpc("get_site_config_preview", {
@@ -97,7 +126,7 @@ export async function getSiteConfigPreview(
  * (migration 0062; admin-gated server-side).
  */
 export async function getSiteConfigHistory(
-  area: "branding" | "seo" | "homepage"
+  area: "branding" | "seo" | "homepage" | "navigation" | "footer"
 ): Promise<{ revision: number; published_at: string | null }[]> {
   const supabase = getSupabaseClient();
   const { data, error } = await supabase.rpc("get_site_config_history", {
@@ -142,4 +171,39 @@ export async function publishSeo(
 ): Promise<{ revision: number; published_at: string | null }> {
   const { publishSiteConfig } = await import("./controlCenter");
   return publishSiteConfig("seo", baseRevision);
+}
+
+// ── Phase 25: site chrome (navigation / footer) admin surface ─────────────
+// Same authority model as branding/seo: the client sends configuration
+// payloads only; migration 0063's RPCs resolve tenant + actor server-side,
+// enforce revision conflicts, and audit every mutation (prompt §25–§27).
+
+export async function saveNavigationDraft(
+  draft: ChromeNavigationConfig,
+  baseRevision: number
+): Promise<number> {
+  const { saveSiteConfigDraft } = await import("./controlCenter");
+  return saveSiteConfigDraft("navigation", draft as Record<string, unknown>, baseRevision);
+}
+
+export async function publishNavigation(
+  baseRevision: number
+): Promise<{ revision: number; published_at: string | null }> {
+  const { publishSiteConfig } = await import("./controlCenter");
+  return publishSiteConfig("navigation", baseRevision);
+}
+
+export async function saveFooterDraft(
+  draft: ChromeFooterConfig,
+  baseRevision: number
+): Promise<number> {
+  const { saveSiteConfigDraft } = await import("./controlCenter");
+  return saveSiteConfigDraft("footer", draft as Record<string, unknown>, baseRevision);
+}
+
+export async function publishFooter(
+  baseRevision: number
+): Promise<{ revision: number; published_at: string | null }> {
+  const { publishSiteConfig } = await import("./controlCenter");
+  return publishSiteConfig("footer", baseRevision);
 }

@@ -4,7 +4,11 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ToastProvider } from "@/components/ui/toast";
-import { getPublicSiteChrome } from "@/lib/supabase/websiteExperience";
+import {
+  getPublicSiteChrome,
+  type PublicSiteChrome,
+} from "@/lib/supabase/websiteExperience";
+import { PublicChromeProvider } from "@/components/layout/PublicChromeProvider";
 import {
   resolveBrandTokens,
   brandTokenStyle,
@@ -60,9 +64,10 @@ export default async function RootLayout({
   // on any failure the fallback bundle already declared in globals.css
   // renders the established visual language (gate §15).
   let brandStyle: Record<string, string> = {};
+  let chrome: PublicSiteChrome | null = null;
   try {
-    const { branding } = await getPublicSiteChrome();
-    brandStyle = brandTokenStyle(resolveBrandTokens(branding));
+    chrome = await getPublicSiteChrome();
+    brandStyle = brandTokenStyle(resolveBrandTokens(chrome.branding));
   } catch {
     brandStyle = {};
   }
@@ -71,7 +76,9 @@ export default async function RootLayout({
     <html lang="en" style={brandStyle}>
       <body className={inter.className}>
         <AuthProvider>
-          <ToastProvider>{children}</ToastProvider>
+          <PublicChromeProvider chrome={chrome}>
+            <ToastProvider>{children}</ToastProvider>
+          </PublicChromeProvider>
         </AuthProvider>
       </body>
     </html>

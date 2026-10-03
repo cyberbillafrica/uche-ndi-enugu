@@ -230,9 +230,14 @@ describe("D. locked modules untouched by phase 11", () => {
     // validators + validated restatement + public chrome/brand-asset
     // projections, still zero new tables. Phase 24 (Homepage Builder)
     // shipped 0062 — the homepage validator + rollback + public published
-    // composition projection, still zero new tables.
-    expect(files.length).toBe(63);
-    expect(files[files.length - 1]).toMatch(/^0062_/);
+    // composition projection, still zero new tables. Phase 25 (Header /
+    // Footer / Navigation) shipped 0063 — chrome validators + validated
+    // lifecycle restatement + extended public chrome projection, still
+    // zero new tables. Phase 26 (Control Center Administration
+    // Integration) shipped 0064 — the bounded read-only configuration
+    // status summary RPC, still zero new tables.
+    expect(files.length).toBe(65);
+    expect(files[files.length - 1]).toMatch(/^0064_/);
   });
 
   it("D2. the Phase 10 intake migrations exist unchanged (hash check against recorded sizes)", () => {
@@ -242,19 +247,18 @@ describe("D. locked modules untouched by phase 11", () => {
     }
   });
 
-  it("D3. no TRACKED locked-module migration carries uncommitted modifications (0016 exception disclosed)", () => {
+  it("D3. no TRACKED locked-module migration carries uncommitted modifications (0016 exception resolved by commit)", () => {
     // Migrations since 0020 are untracked (pre-existing repo state); the
     // integrity property this phase must preserve is that no migration
-    // ALREADY IN GIT was modified by Phase 11.
-    // DISCLOSED EXCEPTION: 0016_election_seed.sql received an external
-    // amendment (NDC party, APM rename, 18-party floor) that arrived
-    // syntactically broken and was repaired in place during Phase 14 —
-    // content preserved, no Phase 14 policy carried in it.
+    // ALREADY IN GIT carries uncommitted modifications. The historical
+    // 0016_election_seed.sql exception (external amendment, disclosed and
+    // repaired during Phase 14) was committed in a2cac79; the working tree
+    // must remain clean of tracked-migration modifications.
     const modified = execSync(
       `git status --porcelain -- supabase/migrations/`,
       { cwd: ROOT }
     ).toString().split(/\r?\n/).filter((l) => l.trim() !== "" && !l.startsWith("??"));
-    expect(modified).toEqual([" M supabase/migrations/0016_election_seed.sql"]);
+    expect(modified).toEqual([]);
   });
 
   it("D4. no future-cluster UI routes exist (Projects + Participation + Engagements + the Phase 18 public hub are authorized; the rest are not)", () => {

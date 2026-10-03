@@ -536,13 +536,21 @@ describe("phase24 — homepage builder", () => {
       expect(Number(cols.rows[0].count)).toBe(1); // the 0004 public_site_settings column only
     });
 
-    it("J2 Phase 25 areas remain unimplemented (no navigation/footer validators)", async () => {
+    it("J2 Phase 25 chrome is implemented; the next-area boundary holds (no contact/social chrome validators)", async () => {
+      // Phase 25 (migration 0063) shipped cc_validate_navigation and
+      // cc_validate_footer — the homepage phase's "Phase 25 not yet built"
+      // pin is superseded. The boundary this guard now protects: contact
+      // and social_links remain plain configuration areas with no chrome
+      // validators of their own.
       const nav = await db.query<{ regproc: string | null }>(
         `SELECT to_regproc('politicore.cc_validate_navigation')::text AS regproc`);
-      expect(nav.rows[0].regproc).toBeNull();
+      expect(nav.rows[0].regproc).toBe("politicore.cc_validate_navigation");
       const foot = await db.query<{ regproc: string | null }>(
         `SELECT to_regproc('politicore.cc_validate_footer')::text AS regproc`);
-      expect(foot.rows[0].regproc).toBeNull();
+      expect(foot.rows[0].regproc).toBe("politicore.cc_validate_footer");
+      const contact = await db.query<{ regproc: string | null }>(
+        `SELECT to_regproc('politicore.cc_validate_contact')::text AS regproc`);
+      expect(contact.rows[0].regproc).toBeNull();
     });
   });
 });

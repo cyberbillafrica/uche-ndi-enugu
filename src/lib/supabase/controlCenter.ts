@@ -192,3 +192,35 @@ export async function publishSiteConfig(
     published_at: (row?.published_at as string | null) ?? null,
   };
 }
+
+// ─────────────────────────────────────────────────────────────────────────
+// Administration integration (Phase 26) — bounded status read-model. The
+// server-resolved, tenant-scoped, aggregate-only summary RPC replaces five
+// per-area get_site_config round trips (anti-N+1); the editors remain the
+// sole configuration read/mutate surfaces.
+// ─────────────────────────────────────────────────────────────────────────
+
+/** Status of one website configuration area — no payload, history or revision internals. */
+export interface SiteConfigAreaStatus {
+  area: string;
+  has_config: boolean;
+  published: boolean;
+  published_at: string | null;
+}
+
+/**
+ * Configuration status for the caller's tenant (server-resolved).
+ * Returns every website area regardless of state so the administration
+ * surface can render the complete picture.
+ */
+export async function getSiteConfigStatus(): Promise<SiteConfigAreaStatus[]> {
+  const supabase = getSupabaseClient();
+  const { data, error } = await supabase.rpc("control_center_site_config_status");
+  if (error) throw new Error(error.message);
+  return ((Array.isArray(data) ? data : [data]) as Record<string, unknown>[]).map((r) => ({
+    area: String(r.area),
+    has_config: Boolean(r.has_config),
+    published: Boolean(r.published),
+    published_at: (r.published_at as string | null) ?? null,
+  }));
+}

@@ -30,14 +30,10 @@ import {
   type ServiceCode,
   type ServiceStatus,
 } from "@/lib/supabase/controlCenter";
+import { MODULE_ADMIN_LINKS } from "@/lib/control-center/admin-registry";
 
-/** Existing authoritative administration surfaces — Control Center links, never re-implements. */
-const SERVICE_ADMIN_LINKS: Partial<Record<ServiceCode, { href: string; label: string }>> = {
-  social: { href: "/portal/admin/tasks", label: "Task Manager" },
-  campaign: { href: "/portal/campaign", label: "Campaign operations" },
-  election: { href: "/portal/election", label: "Election Control Center" },
-  governance: { href: "/portal/governance", label: "Governance administration" },
-};
+/** Existing authoritative administration surfaces — Control Center links, never re-implements (Phase 26 §11: one canonical mapping). */
+const SERVICE_ADMIN_LINKS = MODULE_ADMIN_LINKS;
 
 type ConfirmState =
   | { kind: "none" }
@@ -168,6 +164,9 @@ export default function ControlCenterPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-1 text-sm">
+            <Link href="/portal/control-center/administration" className="block text-green-700 hover:underline">
+              Administration overview <ArrowUpRight className="inline h-3.5 w-3.5" aria-hidden />
+            </Link>
             <Link href="/portal/admin/members" className="block text-green-700 hover:underline">
               People &amp; access <ArrowUpRight className="inline h-3.5 w-3.5" aria-hidden />
             </Link>
@@ -308,13 +307,13 @@ export default function ControlCenterPage() {
         </CardContent>
       </Card>
 
-      {/* Website Experience (Phase 23 — branding/theme + SEO; homepage/nav/footer builders are later phases) */}
+      {/* Website Experience (Phases 23–25 — all six editors are live) */}
       <Card>
         <CardHeader>
           <CardTitle className="text-lg">Website Experience</CardTitle>
           <p className="text-sm text-gray-600">
-            Configure branding, theme tokens and site metadata. Homepage composition,
-            header/footer and navigation builders arrive in later phases.
+            Configure branding, theme tokens, SEO, homepage composition, navigation,
+            header and footer — each behind draft/publish with bounded history.
           </p>
         </CardHeader>
         <CardContent className="flex flex-wrap items-center gap-3 text-sm">
@@ -330,6 +329,24 @@ export default function ControlCenterPage() {
             className="text-green-700 hover:underline"
           >
             SEO &amp; metadata <ArrowUpRight className="inline h-3.5 w-3.5" aria-hidden />
+          </Link>
+          <Link
+            href="/portal/control-center/website/homepage"
+            className="text-green-700 hover:underline"
+          >
+            Homepage <ArrowUpRight className="inline h-3.5 w-3.5" aria-hidden />
+          </Link>
+          <Link
+            href="/portal/control-center/website/navigation"
+            className="text-green-700 hover:underline"
+          >
+            Navigation <ArrowUpRight className="inline h-3.5 w-3.5" aria-hidden />
+          </Link>
+          <Link
+            href="/portal/control-center/website/footer"
+            className="text-green-700 hover:underline"
+          >
+            Footer <ArrowUpRight className="inline h-3.5 w-3.5" aria-hidden />
           </Link>
         </CardContent>
       </Card>
