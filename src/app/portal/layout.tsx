@@ -34,10 +34,13 @@ import {
   Bell,
   Check,
   ShieldCheck,
+  CreditCard,
   Landmark,
   Inbox,
   FolderKanban,
   MessageSquareText,
+  Receipt,
+  LifeBuoy,
 } from "lucide-react";
 import {
   subscribeMyNotifications,
@@ -324,6 +327,24 @@ const adminNavigation = [
     name: "Control Center",
     href: "/portal/control-center",
     icon: Settings,
+  },
+
+  {
+    name: "Plans",
+    href: "/portal/admin/plans",
+    icon: CreditCard,
+  },
+
+  {
+    name: "Billing",
+    href: "/portal/admin/billing",
+    icon: Receipt,
+  },
+
+  {
+    name: "Tenant Lifecycle",
+    href: "/portal/admin/lifecycle",
+    icon: LifeBuoy,
   },
 
   {

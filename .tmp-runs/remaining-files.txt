@@ -1,0 +1,7 @@
+tests/security/phaseD-campaign-reports-issues.test.ts
+tests/security/phaseD-social-force.test.ts
+tests/security/phaseE-campaign-coordination-members.test.ts
+tests/security/phaseE-social-force.test.ts
+tests/security/shared-notifications.test.ts
+tests/security/subscriptions-billing-core.test.ts
+tests/security/tenant-isolation.test.ts

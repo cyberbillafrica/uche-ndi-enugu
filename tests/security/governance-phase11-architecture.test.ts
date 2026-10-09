@@ -235,9 +235,24 @@ describe("D. locked modules untouched by phase 11", () => {
     // lifecycle restatement + extended public chrome projection, still
     // zero new tables. Phase 26 (Control Center Administration
     // Integration) shipped 0064 — the bounded read-only configuration
-    // status summary RPC, still zero new tables.
-    expect(files.length).toBe(65);
-    expect(files[files.length - 1]).toMatch(/^0064_/);
+    // status summary RPC, still zero new tables. Phase 28 (Commercial
+    // Plans & Entitlements — SaaS Phase A) shipped 0065: plans,
+    // plan_versions (draft → active → retired, DB-enforced immutability),
+    // plan_version_prices, entitlement-sync RPCs writing ONLY the existing
+    // service_entitlements map, and the clearly-marked launch seed catalog.
+    // Phase 29 (Subscription & Billing Core — SaaS Phase B) shipped 0066:
+    // subscriptions, subscription_items, immutable invoices + line items,
+    // payments, payment_attempts, refunds, credits, the billing_events
+    // journal, deterministic processors, and the manual/offline adapter
+    // flowing through ONE payment state machine.
+    // Phase 30 (Self-Service Tenant Onboarding — SaaS Phase C) shipped 0068:
+    // the self-service provisioning RPC, public slug availability, and the
+    // server-resolved onboarding/resume state.
+    // Phase 31 (Tenant Lifecycle — SaaS Phase D) shipped 0069: the lifecycle
+    // enum + guard matrix, subscription→lifecycle coordination, the
+    // centralized access check and the platform suspend/restore/archive ops.
+    expect(files.length).toBe(70);
+    expect(files[files.length - 1]).toMatch(/^0069_/);
   });
 
   it("D2. the Phase 10 intake migrations exist unchanged (hash check against recorded sizes)", () => {

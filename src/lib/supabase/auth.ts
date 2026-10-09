@@ -129,6 +129,41 @@ export async function logOut(supabase: SupabaseClient): Promise<string | null> {
 }
 
 /*
+ * ── SELF-SERVICE ONBOARDING SIGNUP (Phase 30, SaaS C) ─────────────────
+ *
+ * A BARE identity: the signup deliberately carries NO `tenant_slug`
+ * metadata, so the 0007 trigger provisions NO profile. The resulting
+ * identity is a blank auth.users row whose journey position is resolved
+ * exclusively by the Phase 30 onboarding_state() RPC from the session —
+ * stage `create_tenant` until the provisioning RPC writes the owner
+ * profile (tenant_super_admin) atomically.
+ *
+ * signUpVolunteer is NOT usable here: it forces SIGNUP_TENANT_SLUG,
+ * which would immediately create a member profile in the existing
+ * tenant and then be permanently denied onboarding by the
+ * profile-exists guard (dup-owner + privilege-escalation block).
+ */
+export async function signUpBareIdentity(
+  email: string,
+  password: string,
+  supabase: SupabaseClient,
+): Promise<NativeSignUpResult> {
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password,
+    options: {
+      // Bare identity: no tenant metadata of any kind, no profile
+      // trigger. The onboarding intent marker is inert display data —
+      // it is NOT authority-bearing (authority comes only from the RPC).
+      data: { onboarding_intent: "tenant_owner" },
+    },
+  });
+  if (error) return { user: null, error: error.message };
+  const u = data.user;
+  return { user: u ? toAuthUser(u.id, u.email ?? null, u.created_at) : null, error: null };
+}
+
+/*
  * ── ADMIN MEMBER CREATION ──────────────────────────────────────────────
  *
  * The platform has no server-side admin-API provisioning primitive

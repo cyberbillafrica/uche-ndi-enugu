@@ -30,6 +30,9 @@ function loadEnv(): Record<string, string> {
     const i = t.indexOf("=");
     if (i > 0) vals[t.slice(0, i).trim()] = t.slice(i + 1).trim();
   }
+  // A process-env DATABASE_URL overrides .env.local (port/host rerouting,
+  // e.g. the transaction pooler when the session pooler is unreachable).
+  if (process.env.DATABASE_URL) vals.DATABASE_URL = process.env.DATABASE_URL;
   return vals;
 }
 
@@ -407,6 +410,65 @@ const SIGNATURES: Record<string, string> = {
 
   "0064": `to_regproc('politicore.control_center_site_config_status') IS NOT NULL
            AND position('is_tenant_admin' in pg_get_functiondef(to_regproc('politicore.control_center_site_config_status'))) > 0`,  // 0064 — Control Center administration status summary
+
+  "0065": `to_regclass('politicore.plans') IS NOT NULL
+           AND to_regclass('politicore.plan_versions') IS NOT NULL
+           AND to_regclass('politicore.plan_version_prices') IS NOT NULL
+           AND to_regproc('politicore.sync_tenant_entitlements') IS NOT NULL
+           AND to_regproc('politicore.apply_plan_version_entitlements') IS NOT NULL
+           AND to_regproc('politicore.plan_catalog_admin') IS NOT NULL
+           AND to_regproc('politicore.plan_catalog_public') IS NOT NULL
+           AND position('illegal plan version status transition' in coalesce(pg_get_functiondef(to_regproc('politicore.guard_plan_version_immutability')), '')) > 0
+           AND position('commercial fields are immutable' in coalesce(pg_get_functiondef(to_regproc('politicore.guard_plan_version_immutability')), '')) > 0
+           AND position('requires platform_super_admin authority' in coalesce(pg_get_functiondef(to_regproc('politicore.sync_tenant_entitlements')), '')) > 0`,  // 0065 — Commercial plans & entitlements (SaaS Phase A)
+
+  "0066": `to_regclass('politicore.subscriptions') IS NOT NULL
+           AND to_regclass('politicore.invoices') IS NOT NULL
+           AND to_regclass('politicore.payments') IS NOT NULL
+           AND to_regclass('politicore.billing_events') IS NOT NULL
+           AND to_regproc('politicore.create_subscription') IS NOT NULL
+           AND to_regproc('politicore.record_verified_payment') IS NOT NULL
+           AND to_regproc('politicore.sync_subscription_entitlements') IS NOT NULL
+           AND to_regproc('politicore.process_trial_expiries') IS NOT NULL
+           AND to_regproc('politicore.set_billing_config') IS NOT NULL
+           AND to_regproc('public.subscription_current') IS NOT NULL
+           AND to_regproc('public.record_manual_payment') IS NOT NULL
+           AND to_regproc('public.journal_billing_event') IS NOT NULL
+           AND to_regproc('politicore.process_billing_events') IS NOT NULL
+           AND position('require the tenant owner (tenant_super_admin) or platform_super_admin authority' in coalesce(pg_get_functiondef(to_regproc('politicore.assert_subscription_authorized')), '')) > 0
+           AND position('provider identity is required' in coalesce(pg_get_functiondef(to_regproc('politicore.record_verified_payment')), '')) > 0`,  // 0066 — Subscription & billing core (SaaS Phase B)
+
+  "0067": `to_regproc('politicore.subscription_plans') IS NOT NULL
+           AND to_regproc('public.subscription_plans') IS NOT NULL
+           AND position('current_access_role() IN' in coalesce(pg_get_functiondef(to_regproc('public.subscription_plans')), '')) > 0`,  // 0067 — Subscription plans owner catalog (Phase 29 addendum)
+
+  "0068": `to_regprocedure('politicore.complete_tenant_onboarding(text,text,text,text,politicore.billing_interval_enum)') IS NOT NULL
+           AND to_regprocedure('politicore.tenant_slug_available(text)') IS NOT NULL
+           AND to_regprocedure('politicore.onboarding_state()') IS NOT NULL
+           AND to_regprocedure('public.complete_tenant_onboarding(text,text,text,text,politicore.billing_interval_enum)') IS NOT NULL
+           AND position('self-service onboarding requires an authenticated session' in coalesce(pg_get_functiondef(to_regprocedure('politicore.complete_tenant_onboarding(text,text,text,text,politicore.billing_interval_enum)')), '')) > 0
+           AND position('only for new tenant owners' in coalesce(pg_get_functiondef(to_regprocedure('politicore.complete_tenant_onboarding(text,text,text,text,politicore.billing_interval_enum)')), '')) > 0
+           AND (SELECT 'www' = ANY (politicore.reserved_tenant_slugs()))`,  // 0068 — Self-service tenant onboarding (SaaS Phase C)
+
+  "0069": `to_regtype('politicore.tenant_lifecycle_enum') IS NOT NULL
+           AND to_regproc('politicore.apply_tenant_lifecycle') IS NOT NULL
+           AND to_regproc('politicore.assert_tenant_operationally_active') IS NOT NULL
+           AND to_regproc('politicore.suspend_tenant') IS NOT NULL
+           AND to_regproc('politicore.restore_tenant') IS NOT NULL
+           AND to_regproc('politicore.archive_tenant') IS NOT NULL
+           AND to_regproc('politicore.tenant_lifecycle_history') IS NOT NULL
+           AND to_regproc('politicore.process_lifecycle_transitions') IS NOT NULL
+           AND to_regproc('public.suspend_tenant') IS NOT NULL
+           AND to_regproc('public.restore_tenant') IS NOT NULL
+           AND to_regproc('public.archive_tenant') IS NOT NULL
+           AND to_regproc('public.process_lifecycle_transitions') IS NOT NULL
+           AND position('illegal tenant lifecycle transition' in coalesce(pg_get_functiondef(to_regproc('politicore.apply_tenant_lifecycle')), '')) > 0
+           AND position('re-subscription revival' in coalesce(pg_get_functiondef(to_regproc('politicore.apply_tenant_lifecycle')), '')) > 0
+           AND position('operational access is unavailable' in coalesce(pg_get_functiondef(to_regproc('politicore.assert_tenant_operationally_active')), '')) > 0
+           AND EXISTS (SELECT 1 FROM pg_attribute a WHERE a.attrelid = to_regclass('politicore.tenants') AND a.attname = 'lifecycle_status')
+           AND EXISTS (SELECT 1 FROM pg_trigger WHERE tgrelid = to_regclass('politicore.tenants') AND tgname = 'trg_guard_tenant_lifecycle')
+           AND EXISTS (SELECT 1 FROM pg_trigger WHERE tgrelid = to_regclass('politicore.subscriptions') AND tgname = 'trg_coordinate_tenant_lifecycle')
+           AND EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='tenants' AND column_name='lifecycle_status')`,  // 0069 — Tenant lifecycle & subscription enforcement (SaaS Phase D)
 
   "0060": `to_regproc('politicore.set_tenant_module_enabled') IS NOT NULL
 

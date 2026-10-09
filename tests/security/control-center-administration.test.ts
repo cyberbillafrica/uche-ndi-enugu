@@ -353,8 +353,10 @@ describe("phase26 — control center administration", () => {
   describe("F. architecture invariants (§28 architecture)", () => {
     it("F1 no new migration substrate: only the 0064 function addition", () => {
       const files = migrationFiles();
-      expect(files[files.length - 1]).toMatch(/^0064_/);
-      const src = fs.readFileSync(path.join(ROOT, "supabase", "migrations", files[files.length - 1]), "utf8");
+      // Phase 28 shipped 0065 AFTER this suite's phase; the Phase 26
+      // substrate invariant is pinned by NAME to 0064, not by recency.
+      expect(files).toContain("0064_control_center_administration.sql");
+      const src = fs.readFileSync(path.join(ROOT, "supabase", "migrations", "0064_control_center_administration.sql"), "utf8");
       expect(src).not.toMatch(/CREATE TABLE/i);
       expect(src).not.toMatch(/CREATE TYPE/i);
       expect(src).not.toMatch(/ALTER ROLE/i);
