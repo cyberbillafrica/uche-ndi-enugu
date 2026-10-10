@@ -35,6 +35,9 @@ function OnboardingSignupForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [checking, setChecking] = useState(true);
+  // Auth Repair: shown when the project requires email confirmation —
+  // the journey resumes after the confirmation link.
+  const [awaitingConfirmation, setAwaitingConfirmation] = useState(false);
 
   // §11 resume: if this browser already has a session, let the server
   // say where the journey stands instead of creating a duplicate identity.
@@ -65,6 +68,20 @@ function OnboardingSignupForm() {
 
     if (error) {
       toast.error(getSignupErrorMessage(error));
+      setLoading(false);
+      return;
+    }
+
+    /*
+     * Auth Repair: establish the outcome from ACTUAL client state. With
+     * email confirmation required, the bare signup returns a user but NO
+     * session — completing provisioning is then impossible. The resume
+     * path (server-resolved onboarding_state) makes the interrupted
+     * journey recoverable after clicking the confirmation link.
+     */
+    const { data: sessionData } = await getSupabaseClient().auth.getSession();
+    if (!sessionData.session?.user) {
+      setAwaitingConfirmation(true);
       setLoading(false);
       return;
     }
@@ -163,6 +180,17 @@ function OnboardingSignupForm() {
             {loading ? "Creating account..." : "Create account & continue"}
           </button>
         </form>
+
+        {awaitingConfirmation && (
+          <div
+            role="alert"
+            className="mt-6 rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900"
+          >
+            We sent a confirmation link to <strong>{email}</strong>. Open it to
+            activate your account — you will return here and your organization
+            setup will resume automatically.
+          </div>
+        )}
 
         <div className="mt-6 text-center text-sm text-gray-600">
           Already have an account?{" "}

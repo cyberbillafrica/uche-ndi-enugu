@@ -94,10 +94,18 @@ export async function signUpVolunteer(
   userData: VolunteerSignupData,
   supabase: SupabaseClient,
 ): Promise<NativeSignUpResult> {
+  // Confirmation links (when confirmation is required) land on the
+  // canonical callback route — see authLinks.ts / auth/callback.
+  const emailRedirectTo =
+    typeof window !== "undefined" && window.location?.origin
+      ? `${window.location.origin}/auth/callback?type=signup`
+      : "/auth/callback?type=signup";
+
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
     options: {
+      emailRedirectTo,
       data: {
         tenant_slug: SIGNUP_TENANT_SLUG,
         full_name: userData.full_name,
@@ -148,10 +156,19 @@ export async function signUpBareIdentity(
   password: string,
   supabase: SupabaseClient,
 ): Promise<NativeSignUpResult> {
+  // Owner-identity confirmation links resume at /onboarding/resume —
+  // the server (onboarding_state) decides the next step; nothing is
+  // inferred from client state.
+  const emailRedirectTo =
+    typeof window !== "undefined" && window.location?.origin
+      ? `${window.location.origin}/auth/callback?type=signup&next=${encodeURIComponent("/onboarding/resume")}`
+      : "/auth/callback?type=signup&next=%2Fonboarding%2Fresume";
+
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
     options: {
+      emailRedirectTo,
       // Bare identity: no tenant metadata of any kind, no profile
       // trigger. The onboarding intent marker is inert display data —
       // it is NOT authority-bearing (authority comes only from the RPC).

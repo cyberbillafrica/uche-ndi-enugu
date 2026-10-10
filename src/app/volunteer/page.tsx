@@ -196,6 +196,10 @@ function isValidUrl(value?: string) {
 
 export default function VolunteerPage() {
   const [submitted, setSubmitted] = useState(false);
+  // Auth Repair: distinguish a confirmed, signed-in account from a
+  // pending email confirmation. The success panel must never claim
+  // activation that has not happened.
+  const [awaitingConfirmation, setAwaitingConfirmation] = useState(false);
   const [lgas, setLgas] = useState<LGA[]>([]);
   const toast = useToast();
 
@@ -318,14 +322,44 @@ export default function VolunteerPage() {
     );
 
     if (signUpError) {
-      toast.error(signUpError);
+      toast.error(getSignupErrorMessage(signUpError));
       return;
     }
 
-    if (user) {
-      setSubmitted(true);
+    if (!user) {
+      toast.error("Registration could not be completed. Please try again.");
+      return;
     }
+
+    // No session ⇒ the project requires email confirmation. The account
+    // exists but is NOT signed in and its profile provisioning is
+    // delivered through confirmation; entering the portal now would
+    // misrepresent the outcome.
+    const { data: sessionData } = await getSupabaseClient().auth.getSession();
+    if (!sessionData.session) {
+      setAwaitingConfirmation(true);
+      setSubmitted(true);
+      return;
+    }
+
+    setSubmitted(true);
   };
+
+  function getSignupErrorMessage(error: string): string {
+    if (error.includes("already registered") || error.includes("already exists")) {
+      return "An account with this email already exists. Try signing in instead.";
+    }
+    if (error.toLowerCase().includes("password")) {
+      return "Your password does not meet the requirements (minimum 6 characters).";
+    }
+    if (error.includes("rate limit") || error.includes("Too many")) {
+      return "Too many attempts. Please wait a moment and try again.";
+    }
+    if (error.includes("network")) {
+      return "Network error. Please check your internet connection and try again.";
+    }
+    return "Unable to create your account. Please try again.";
+  }
 
   // ─────────────────────────────────────────────
   // Success
@@ -343,19 +377,26 @@ export default function VolunteerPage() {
             </div>
 
             <h1 className="mb-4 text-3xl font-bold text-brand-primary">
-              Registration Successful!
+              {awaitingConfirmation ? "Almost there!" : "Registration Successful!"}
             </h1>
 
-            <p className="mb-8 text-gray-600">
-              Thank you for joining the campaign. Your account has been created
-              successfully.
-            </p>
+            {awaitingConfirmation ? (
+              <p className="mb-8 text-gray-600">
+                Your membership request has been received. We sent a
+                confirmation link to your email address — open it to activate
+                your account. After confirming you will be able to sign in.
+              </p>
+            ) : (
+              <p className="mb-8 text-gray-600">
+                Thank you for joining the campaign. Your account is now active.
+              </p>
+            )}
 
             <a
               href="/login"
               className="inline-flex items-center gap-2 rounded-lg bg-brand-primary px-6 py-3 font-semibold text-white transition-colors hover:bg-brand-primary"
             >
-              Login Now
+              {awaitingConfirmation ? "Go to sign in" : "Login Now"}
               <ArrowRight className="h-4 w-4" />
             </a>
           </div>

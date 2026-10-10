@@ -139,9 +139,19 @@ export default function LoginPage() {
               </button>
             </form>
 
+            {/* Recovery (Auth Repair) */}
+            <div className="mt-4 text-center text-sm">
+              <Link
+                href="/forgot-password"
+                className="font-semibold text-brand-primary hover:underline"
+              >
+                Forgot your password?
+              </Link>
+            </div>
+
             {/* Registration */}
             <div className="mt-6 text-center text-sm text-gray-600">
-              Don't have an account?{" "}
+              Don&apos;t have an account?{" "}
               <Link
                 href="/volunteer"
                 className="font-semibold text-brand-primary hover:underline"
